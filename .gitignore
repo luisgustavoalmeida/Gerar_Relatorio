@@ -1,0 +1,27 @@
+# Ambiente virtual
+.venv/
+venv/
+env/
+
+# Bytecode e caches
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# IDEs
+.idea/
+.vscode/
+
+# Ambiente / segredos
+.env
+*.local
+
+# Dados preenchidos pelo usuário (local)
+dados/
+dados_rdo/
+saida/
+saida_relatorios/Andritiz/TAF_-_UHE_GPS_-_Regulador_de_Tensão/FT_2026-04.xlsx
+saida_relatorios/Andritiz/TAF_-_UHE_GPS_-_Regulador_de_Tensão/RDO_2026-04.xlsx
