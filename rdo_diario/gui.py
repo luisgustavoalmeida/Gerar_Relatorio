@@ -590,7 +590,7 @@ class AplicacaoRdo(tk.Tk):
         topo = tk.Toplevel(self)
         topo.title("Dicionário ortográfico pessoal")
         topo.transient(self)
-        topo.geometry("420x420")
+        topo.geometry("420x500")
         ttk.Label(
             topo,
             text="Palavras e siglas que o corretor não deve marcar (comparação sem maiúsculas).",

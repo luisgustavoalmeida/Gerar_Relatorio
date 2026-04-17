@@ -13,10 +13,10 @@ PASTA_DADOS_RDO: Path = RAIZ_PROJETO / "dados_rdo"
 ARQUIVO_ULTIMO_CLIENTE_JSON: Path = PASTA_DADOS_RDO / "_ultimo_cliente.json"
 
 # Palavras e siglas aceites pelo utilizador (filtro local sobre o LanguageTool)
-ARQUIVO_DICIONARIO_ORTOGRAFIA_JSON: Path = PASTA_DADOS_RDO / "_dicionario_ortografia.json"
+ARQUIVO_DICIONARIO_ORTOGRAFIA_JSON: Path = RAIZ_PROJETO / "template" / "_dicionario_ortografia.json"
 
 # Regras de jornada, extras, adicional noturno e feriados (editável pela aplicação)
-ARQUIVO_CONFIG_REGRAS_HORAS_JSON: Path = PASTA_DADOS_RDO / "config_regras_horas.json"
+ARQUIVO_CONFIG_REGRAS_HORAS_JSON: Path = RAIZ_PROJETO / "template" / "config_regras_horas.json"
 
 # Mapeamento chaves JSON → células dos modelos Excel (editável pelo utilizador)
 ARQUIVO_MAPA_CELULAS_EXCEL_JSON: Path = RAIZ_PROJETO / "template" / "mapa_celulas_excel.json"
