@@ -1,0 +1,60 @@
+{
+  "versao": 1,
+  "descricao": "Ligação entre chaves do JSON (cabecalho_fixo, registros_diarios) e células dos modelos em template/. Ajuste as células se alterar o layout dos .xlsx.",
+  "rdo": {
+    "arquivo_template": "template/RDO.xlsx",
+    "planilha_modelo": " 2026-01-01",
+    "cabecalho_fixo": {
+      "empreendimento": "D6",
+      "contratante": "D9",
+      "natureza_servico": "G10",
+      "inicio_contratual": "D11",
+      "termino_contratual": "D13",
+      "contratada": "G69",
+      "nome_funcionario": "G71",
+      "fiscalizacao": "J69",
+      "nome_fiscal": "J71"
+    },
+    "por_registro_dia": {
+      "data_dia": "I1",
+      "dia_semana": "I3",
+      "numero": "K1",
+      "folha": "K4",     
+      "registro_servico": "C16",
+      "tempo_serviço": "G16",
+      "registro_extra_escopo": "C50",
+      "tempo_extra_escopo": "G50",
+      "registro_ociosidade": "C62",
+      "tempo_ociosidade": "G62",      
+      "ponto_entrada": "C74",
+      "ponto_saida": "D74",
+      "deslocamento_ida": "C71",
+      "deslocamento_volta": "D71"
+    }
+  },
+  "ft": {
+    "arquivo_template": "template/FT.xlsx",
+    "folha_dados": "FICHA TEMPO",
+    "cabecalho_fixo": {
+      "nome_funcionario": "J2",
+      "contratante": "C3",
+      "empreendimento": "C4",
+      "natureza_servico": "F5"
+    },
+    "data_mes_referencia_celula": "A8",
+    "primeira_linha_dia": 10,
+    "ultima_linha_dia": 40,
+    "colunas": {
+      "ponto_entrada": "E",
+      "ponto_saida_almoco": "F",
+      "ponto_entrada_almoco": "G",
+      "ponto_saida": "H",
+      "metricas_horas.normais_hhmm": "K",
+      "metricas_horas.extra_50_hhmm": "L",
+      "metricas_horas.extra_100_hhmm": "M",
+      "metricas_horas.adicional_noturno_hhmm": "N",
+      "registro_servico": "O",
+      "tipo_dia_feriado_coluna_w": "W"
+    }
+  }
+}

@@ -1,0 +1,8 @@
+# Interface e calendário
+tkcalendar>=1.6.1
+
+# Feriados nacionais do Brasil (sincronização em config_regras_horas.json)
+holidays>=0.57
+
+# Para etapa futura: gerar Excel a partir do JSON
+openpyxl>=3.1.0
