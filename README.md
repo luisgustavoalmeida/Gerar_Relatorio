@@ -4,7 +4,7 @@
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Windows](https://img.shields.io/badge/Platform-Windows-blue.svg)](https://www.microsoft.com/windows)
 
-Aplicação desktop para geração de Relatórios Diários de Obra (RDO) para projetos de construção e serviços no Brasil. Permite o registro detalhado de atividades diárias, controle de horários, cálculo automático de métricas de horas trabalhadas e exportação para planilhas Excel.
+Aplicação desktop para geração de Relatórios Diários de Obra (RDO) para projetos de engenharia e serviços no Brasil. Permite o registro detalhado de atividades diárias, controle de horários, cálculo automático de métricas de horas trabalhadas e exportação para planilhas Excel.
 
 ## Sumário
 
