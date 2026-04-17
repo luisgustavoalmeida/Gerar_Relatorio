@@ -81,6 +81,34 @@ from rdo_diario.verificacao_ortografia import (
 )
 
 
+# Patch para corrigir bug em tkcalendar 1.5.0: KeyError em tooltip quando widgets são recriados
+def _patch_tkcalendar_tooltip() -> None:
+    """
+    Corrige KeyError em tkcalendar.tooltip.TooltipWrapper.display_tooltip quando tentando
+    acessar widget que não existe mais no dicionário interno durante renderização de calendário.
+    """
+    try:
+        from tkcalendar import tooltip as tkcal_tooltip
+
+        if hasattr(tkcal_tooltip, 'TooltipWrapper'):
+            original_display = tkcal_tooltip.TooltipWrapper.display_tooltip
+
+            def patched_display(self: Any) -> None:
+                try:
+                    original_display(self)
+                except KeyError:
+                    # Widget foi destruído/recriado durante renderização, ignorar erro
+                    pass
+
+            tkcal_tooltip.TooltipWrapper.display_tooltip = patched_display
+    except Exception:
+        # Se não conseguir fazer patch, continuar normalmente
+        pass
+
+
+_patch_tkcalendar_tooltip()
+
+
 # Tags tkcalendar: número do dia em vermelho só em feriados (JSON em dados_rdo)
 TAG_CAL_VM_DU = "cal_vm_du"
 TAG_CAL_VM_DU_P = "cal_vm_du_p"
@@ -130,6 +158,8 @@ class CalendarRdo(Calendar):
     ``we_om``, senão interpreta o dia no mês visível errado.
 
     A data efetiva da célula é obtida pela mesma grelha que o desenho do mês (``monthdatescalendar``).
+
+    Também corrige KeyError em tooltips quando widgets são recriados durante renderização.
     """
 
     def _on_click(self, event: tk.Event) -> None:  # type: ignore[override]
@@ -751,7 +781,7 @@ class AplicacaoRdo(tk.Tk):
 
         aba_cabecalho = ttk.Frame(notebook)
         aba_registros = ttk.Frame(notebook)
-        notebook.add(aba_cabecalho, text="Dados fixos (RDO)")
+        notebook.add(aba_cabecalho, text="Cabeçalhos")
         notebook.add(aba_registros, text="Relatórios de trabalho")
 
         dica_cab = ttk.Label(
