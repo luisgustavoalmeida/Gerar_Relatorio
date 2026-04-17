@@ -9,10 +9,11 @@ REM ============================================================================
 title Gerar Relatório RDO
 
 
+
 REM Verificar se .venv existe
 if not exist ".venv" (
     echo ⚠️  Ambiente virtual não encontrado!
-    echo    Execute primeiro: instalar dependencias.bat
+    echo    Execute primeiro: instalar_simples.bat
     pause
     exit /b 1
 )
