@@ -21,7 +21,8 @@ __pycache__/
 
 # Dados preenchidos pelo usuário (local)
 dados/
-dados_rdo/
 saida/
 saida_relatorios/Andritiz/TAF_-_UHE_GPS_-_Regulador_de_Tensão/FT_2026-04.xlsx
 saida_relatorios/Andritiz/TAF_-_UHE_GPS_-_Regulador_de_Tensão/RDO_2026-04.xlsx
+dados_rdo/e1885ec2ac5b7a1fb57a.json
+dados_rdo/_ultimo_cliente.json

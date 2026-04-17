@@ -1,0 +1,162 @@
+{
+  "versao": 2,
+  "descricao": "Regras para classificar horas (normal, extra 50%, extra 100%, adicional noturno). Configure cada dia da semana em «dias_semana» (segunda a domingo). Feriados: regras em «tipos_dia.feriado» e datas em «feriados.por_ano» — use «Sincronizar feriados BR» no menu.",
+  "dias_semana": {
+    "segunda": {
+      "rotulo": "Segunda-feira",
+      "minutos_jornada_normal": 540,
+      "minutos_extra_50_apos_normal": 120,
+      "resto_horas_como_extra_100": true,
+      "adicional_noturno": {
+        "ativo": true,
+        "inicio": "22:00",
+        "fim": "06:00",
+        "incluir_hora_reduzida_clt": false,
+        "minutos_hora_noturna": 52,
+        "segundos_hora_noturna": 30
+      }
+    },
+    "terca": {
+      "rotulo": "Terça-feira",
+      "minutos_jornada_normal": 540,
+      "minutos_extra_50_apos_normal": 120,
+      "resto_horas_como_extra_100": true,
+      "adicional_noturno": {
+        "ativo": true,
+        "inicio": "22:00",
+        "fim": "06:00",
+        "incluir_hora_reduzida_clt": false,
+        "minutos_hora_noturna": 52,
+        "segundos_hora_noturna": 30
+      }
+    },
+    "quarta": {
+      "rotulo": "Quarta-feira",
+      "minutos_jornada_normal": 540,
+      "minutos_extra_50_apos_normal": 120,
+      "resto_horas_como_extra_100": true,
+      "adicional_noturno": {
+        "ativo": true,
+        "inicio": "22:00",
+        "fim": "06:00",
+        "incluir_hora_reduzida_clt": false,
+        "minutos_hora_noturna": 52,
+        "segundos_hora_noturna": 30
+      }
+    },
+    "quinta": {
+      "rotulo": "Quinta-feira",
+      "minutos_jornada_normal": 540,
+      "minutos_extra_50_apos_normal": 120,
+      "resto_horas_como_extra_100": true,
+      "adicional_noturno": {
+        "ativo": true,
+        "inicio": "22:00",
+        "fim": "06:00",
+        "incluir_hora_reduzida_clt": false,
+        "minutos_hora_noturna": 52,
+        "segundos_hora_noturna": 30
+      }
+    },
+    "sexta": {
+      "rotulo": "Sexta-feira",
+      "minutos_jornada_normal": 480,
+      "minutos_extra_50_apos_normal": 120,
+      "resto_horas_como_extra_100": true,
+      "adicional_noturno": {
+        "ativo": true,
+        "inicio": "22:00",
+        "fim": "06:00",
+        "incluir_hora_reduzida_clt": false,
+        "minutos_hora_noturna": 52,
+        "segundos_hora_noturna": 30
+      }
+    },
+    "sabado": {
+      "rotulo": "Sábado",
+      "minutos_jornada_normal": 0,
+      "minutos_extra_50_apos_normal": 600,
+      "resto_horas_como_extra_100": true,
+      "adicional_noturno": {
+        "ativo": true,
+        "inicio": "22:00",
+        "fim": "06:00",
+        "incluir_hora_reduzida_clt": false,
+        "minutos_hora_noturna": 52,
+        "segundos_hora_noturna": 30
+      }
+    },
+    "domingo": {
+      "rotulo": "Domingo",
+      "minutos_jornada_normal": 0,
+      "minutos_extra_50_apos_normal": 0,
+      "resto_horas_como_extra_100": true,
+      "adicional_noturno": {
+        "ativo": true,
+        "inicio": "22:00",
+        "fim": "06:00",
+        "incluir_hora_reduzida_clt": false,
+        "minutos_hora_noturna": 52,
+        "segundos_hora_noturna": 30
+      }
+    }
+  },
+  "tipos_dia": {
+    "feriado": {
+      "rotulo": "Feriado",
+      "minutos_jornada_normal": 0,
+      "minutos_extra_50_apos_normal": 0,
+      "resto_horas_como_extra_100": true,
+      "adicional_noturno": {
+        "ativo": true,
+        "inicio": "22:00",
+        "fim": "06:00",
+        "incluir_hora_reduzida_clt": false,
+        "minutos_hora_noturna": 52,
+        "segundos_hora_noturna": 30
+      }
+    }
+  },
+  "feriados": {
+    "por_ano": {
+      "2025": {
+        "2025-01-01": "Confraternização Universal",
+        "2025-04-18": "Sexta-feira Santa",
+        "2025-04-21": "Tiradentes",
+        "2025-05-01": "Dia do Trabalhador",
+        "2025-09-07": "Independência do Brasil",
+        "2025-10-12": "Nossa Senhora Aparecida",
+        "2025-11-02": "Finados",
+        "2025-11-15": "Proclamação da República",
+        "2025-11-20": "Dia Nacional de Zumbi e da Consciência Negra",
+        "2025-12-25": "Natal"
+      },
+      "2026": {
+        "2026-01-01": "Confraternização Universal",
+        "2026-04-03": "Sexta-feira Santa",
+        "2026-04-21": "Tiradentes",
+        "2026-05-01": "Dia do Trabalhador",
+        "2026-09-07": "Independência do Brasil",
+        "2026-10-12": "Nossa Senhora Aparecida",
+        "2026-11-02": "Finados",
+        "2026-11-15": "Proclamação da República",
+        "2026-11-20": "Dia Nacional de Zumbi e da Consciência Negra",
+        "2026-12-25": "Natal"
+      },
+      "2027": {
+        "2027-01-01": "Confraternização Universal",
+        "2027-03-26": "Sexta-feira Santa",
+        "2027-04-21": "Tiradentes",
+        "2027-05-01": "Dia do Trabalhador",
+        "2027-09-07": "Independência do Brasil",
+        "2027-10-12": "Nossa Senhora Aparecida",
+        "2027-11-02": "Finados",
+        "2027-11-15": "Proclamação da República",
+        "2027-11-20": "Dia Nacional de Zumbi e da Consciência Negra",
+        "2027-12-25": "Natal"
+      }
+    },
+    "ultima_sincronizacao_iso": "2026-04-07T02:34:33.877923+00:00",
+    "fonte_sincronizacao": "holidays (Brasil)"
+  }
+}
