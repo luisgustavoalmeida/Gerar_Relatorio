@@ -1057,11 +1057,11 @@ class AplicacaoRdo(tk.Tk):
             padding=8,
         )
         moldura.pack(fill=tk.X, pady=(14, 6))
-        ttk.Label(
-            moldura,
-            text="Ponto na primeira linha; deslocamento ida e volta na segunda.",
-            font=("Segoe UI", 8),
-        ).pack(anchor=tk.W, pady=(0, 6))
+        # ttk.Label(
+        #     moldura,
+        #     text="Ponto na primeira linha; deslocamento ida e volta na segunda.",
+        #     font=("Segoe UI", 8),
+        # ).pack(anchor=tk.W, pady=(0, 6))
 
         def par_horario(linha: ttk.Frame, chave_campo: str) -> None:
             bloco = ttk.Frame(linha)
