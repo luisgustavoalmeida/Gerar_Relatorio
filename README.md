@@ -21,6 +21,18 @@ Aplicação desktop para geração de Relatórios Diários de Obra (RDO) para pr
 
 ## Funcionalidades
 
+### Interface Gráfica
+- **Calendário Integrado**: Visualização mensal com destaques para dias preenchidos e feriados
+- **Abas Organizadas**: Separação entre cabeçalhos fixos e relatórios diários
+- **Auto-save**: Salvamento automático após 1.2 segundos de inatividade
+- **Validação em Tempo Real**: Verificação de formatos de horário e duração
+
+#### Aba de Cabeçalhos
+![Aba de Cabeçalhos](Imagens%20Interface/Cabeçalhos.png)
+
+#### Aba de Relatórios
+![Aba de Relatórios](Imagens%20Interface/Relatórios.png)
+
 ### Registro de Atividades Diárias
 - **Registro de Serviço**: Descrição detalhada das atividades realizadas
 - **Registro Extra-Escopo**: Atividades fora do escopo contratual com controle de tempo
@@ -38,11 +50,6 @@ Aplicação desktop para geração de Relatórios Diários de Obra (RDO) para pr
 - **Adicional Noturno**: Horas trabalhadas entre 22:00 e 05:00
 - **Relatórios Mensais**: Totais consolidados por mês
 
-### Interface Gráfica
-- **Calendário Integrado**: Visualização mensal com destaques para dias preenchidos e feriados
-- **Abas Organizadas**: Separação entre cabeçalhos fixos e relatórios diários
-- **Auto-save**: Salvamento automático após 1.2 segundos de inatividade
-- **Validação em Tempo Real**: Verificação de formatos de horário e duração
 
 ### Verificação Ortográfica e Gramatical
 - **LanguageTool**: Correção automática em português brasileiro
