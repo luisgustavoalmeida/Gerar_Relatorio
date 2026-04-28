@@ -1,0 +1,80 @@
+╔════════════════════════════════════════════════════════════════╗
+║    COMPILAÇÃO DO PROGRAMA PARA .EXE - GUIA RÁPIDO              ║
+╚════════════════════════════════════════════════════════════════╝
+
+📌 ARQUIVOS CRIADOS:
+   ✓ compilar_exe_global.bat      → Script batch (RECOMENDADO ⭐)
+   ✓ COMPILAR_GLOBAL.vbs          → Atalho para compilar (clique duplo)
+   ✓ compilar_exe.bat             → Script antigo (usa .venv)
+   ✓ COMPILAR_INSTRUCOES.md       → Instruções detalhadas
+
+──────────────────────────────────────────────────────────────────
+
+🚀 INÍCIO RÁPIDO (2 PASSOS):
+
+1️⃣  VERIFICAR PYTHON:
+
+    Abra CMD e execute:
+    └─ python --version
+
+    Se não aparecer versão:
+    └─ Instale Python em: https://www.python.org/downloads/
+    └─ IMPORTANTE: Marque "Add Python to PATH" na instalação!
+
+2️⃣  COMPILAR O PROGRAMA:
+
+    Duplo-clique em (RECOMENDADO):
+    └─ COMPILAR_GLOBAL.vbs
+
+    Ou execute:
+    └─ compilar_exe_global.bat
+
+3️⃣  RESULTADO:
+
+    Abra a pasta:
+    └─ dist\Gerar_Relatorio.exe
+
+──────────────────────────────────────────────────────────────────
+
+📁 ESTRUTURA GERADA:
+
+dist/
+├── 🎯 Gerar_Relatorio.exe      ← EXECUTE ESTE ARQUIVO
+├── 📂 saida_relatorios/         ← Seus relatórios
+├── 📂 template/                 ← Templates Excel
+├── 📂 dados_rdo/                ← Dados do sistema
+└── ... [outras bibliotecas]
+
+──────────────────────────────────────────────────────────────────
+
+⚡ RECOMENDAÇÃO:
+
+Para facilitar, coloque um atalho de:
+  dist\Gerar_Relatorio.exe
+
+No seu:
+  Desktop ou Menu Iniciar
+
+Assim o programa fica sempre acessível!
+
+──────────────────────────────────────────────────────────────────
+
+❓ DÚVIDAS?
+
+Abra o arquivo:
+  COMPILAR_INSTRUCOES.md
+
+Ele contém instruções detalhadas e solução de problemas.
+
+──────────────────────────────────────────────────────────────────
+
+✨ RESUMO:
+   ✓ Usa Python GLOBAL do computador (sem .venv)
+   ✓ Programa compilado em .exe (não precisa Python instalado)
+   ✓ Pastas saida_relatorios, template, dados_rdo na RAIZ junto do .exe
+   ✓ Pronto para distribuição para outros computadores
+   ✓ Tamanho: ~150-200MB (contém tudo que precisa)
+   ✓ SEM problemas de ambiente virtual!
+
+╚════════════════════════════════════════════════════════════════╝
+

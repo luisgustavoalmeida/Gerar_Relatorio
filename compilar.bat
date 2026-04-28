@@ -10,7 +10,7 @@ title Compilador RDO - PyInstaller
 
 echo.
 echo ===============================================================
-echo   Gerar Relatório RDO - Compilador para .EXE
+echo   Gerar Relatório - Compilador para .EXE
 echo ===============================================================
 echo.
 
@@ -18,7 +18,7 @@ REM Verificar se Python está instalado
 python --version >nul 2>&1
 if errorlevel 1 (
     echo ❌ ERRO: Python não encontrado!
-    echo    Por favor, instale Python 3.8+ de https://www.python.org/
+    echo    Por favor, instale Python 3.14+ de https://www.python.org/
     pause
     exit /b 1
 )
@@ -84,16 +84,15 @@ REM Ativar ambiente virtual antes de compilar
 call .venv\Scripts\activate.bat
 
 REM Usar python -m para executar PyInstaller (mais confiável)
-python -m PyInstaller ^
-    --onedir ^
+pyinstaller --onedir ^
     --windowed ^
-    --name "Gerar_Relatorio_RDO" ^
-    --add-data "dados_rdo;dados_rdo" ^
+    --add-data "saida_relatorios;saida_relatorios" ^
     --add-data "template;template" ^
-    --add-data "rdo_diario;rdo_diario" ^
-    --hidden-import=tkcalendar ^
-    --hidden-import=holidays ^
-    --hidden-import=openpyxl ^
+    --add-data "dados_rdo;dados_rdo" ^
+    --collect-all tkcalendar ^
+    --collect-all holidays ^
+    --collect-all openpyxl ^
+    --name "Gerar_Relatorio" ^
     main.py
 
 if errorlevel 1 (
@@ -113,17 +112,17 @@ echo ✓ COMPILAÇÃO CONCLUÍDA COM SUCESSO!
 echo ===============================================================
 echo.
 echo 📁 Localização do executável:
-echo    dist\Gerar_Relatorio_RDO\Gerar_Relatorio_RDO.exe
+echo    dist\Gerar_Relatorio\Gerar_Relatorio.exe
 echo.
 echo 📋 Próximos passos:
-echo    1. Teste o executável em dist\Gerar_Relatorio_RDO\
+echo    1. Teste o executável em dist\Gerar_Relatorio\
 echo    2. Certifique-se que as pastas dados_rdo\ e template\ estão presentes
-echo    3. Distribua o conteúdo de dist\Gerar_Relatorio_RDO\
+echo    3. Distribua o conteúdo de dist\Gerar_Relatorio\
 echo.
 echo ⚠️  IMPORTANTE:
 echo    - As pastas dados_rdo\ e template\ devem estar junto ao .exe
 echo    - Não mova o .exe para outro local sozinho
-echo    - Distribua toda a pasta dist\Gerar_Relatorio_RDO\
+echo    - Distribua toda a pasta dist\Gerar_Relatorio\
 echo.
 pause
 
