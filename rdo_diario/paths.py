@@ -21,5 +21,8 @@ ARQUIVO_CONFIG_REGRAS_HORAS_JSON: Path = RAIZ_PROJETO / "template" / "config_reg
 # Mapeamento chaves JSON → células dos modelos Excel (editável pelo utilizador)
 ARQUIVO_MAPA_CELULAS_EXCEL_JSON: Path = RAIZ_PROJETO / "template" / "mapa_celulas_excel.json"
 
+# Modelo de cabeçalho padrão (JSON com dados reutilizáveis de cabeçalho)
+ARQUIVO_MODELO_CABECALHO_JSON: Path = RAIZ_PROJETO / "template" / "modelo_cabecalho.json"
+
 # Relatórios Excel gerados (RDO e FT por mês)
 PASTA_SAIDA_RELATORIOS_EXCEL: Path = RAIZ_PROJETO / "saida_relatorios"

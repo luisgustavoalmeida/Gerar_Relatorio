@@ -1,0 +1,18 @@
+{
+  "empreendimento": "UHE GPS - COPEL EXEMPLO",
+  "contratante": "Andritz",
+  "natureza_servico": "TAF - UHE GPS - Regulador de Tensão EXEMPLO",
+  "inicio_contratual": "30/03/2026",
+  "termino_contratual": "",
+  "contratada": "Megawatt Sistemas",
+  "nome_funcionario": "Luís Gustavo de Almeida",
+  "fiscalizacao": "Andritz",
+  "nome_fiscal": "Cesar Souza",
+  "telefone": "32 985072121",
+  "endereco": "Andritz Araraquara",
+  "cidade": "Araraquara",
+  "estado": "SP",
+  "meta": {
+    "ultima_edicao_iso": "2026-05-19T17:22:54.874430+00:00"
+  }
+}

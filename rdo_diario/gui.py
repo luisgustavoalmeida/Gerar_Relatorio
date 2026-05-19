@@ -38,7 +38,7 @@ from rdo_diario.horario_util import (
     texto_horario_permitido_na_digitacao,
 )
 from rdo_diario.gerar_excel_relatorios import gerar_relatorios_excel
-from rdo_diario.paths import ARQUIVO_CONFIG_REGRAS_HORAS_JSON, PASTA_DADOS_RDO
+from rdo_diario.paths import ARQUIVO_CONFIG_REGRAS_HORAS_JSON, ARQUIVO_MODELO_CABECALHO_JSON, PASTA_DADOS_RDO
 from rdo_diario.schema import (
     CAMPOS_JSON_DESLOCAMENTO,
     CAMPOS_JSON_PONTO,
@@ -323,6 +323,15 @@ class AplicacaoRdo(tk.Tk):
         barra_menu = tk.Menu(self)
         menu_arquivo = tk.Menu(barra_menu, tearoff=0)
         menu_arquivo.add_command(label="Salvar agora", command=self._salvar_documento_agora)
+        menu_arquivo.add_separator()
+        menu_arquivo.add_command(
+            label="Salvar modelo de cabeçalho…",
+            command=self._salvar_modelo_cabecalho,
+        )
+        menu_arquivo.add_command(
+            label="Carregar modelo de cabeçalho…",
+            command=self._carregar_modelo_cabecalho,
+        )
         barra_menu.add_cascade(label="Arquivo", menu=menu_arquivo)
         menu_revisao = tk.Menu(barra_menu, tearoff=0)
         menu_revisao.add_command(
@@ -1588,26 +1597,99 @@ class AplicacaoRdo(tk.Tk):
         self._salvar_documento_agora(silencioso=True)
 
     def _salvar_documento_agora(self, silencioso: bool = False) -> None:
-        """Persiste documento completo no disco e atualiza memória do último cliente."""
-        if not self._documento_atual or not self._caminho_arquivo_atual:
+         """Persiste documento completo no disco e atualiza memória do último cliente."""
+         if not self._documento_atual or not self._caminho_arquivo_atual:
+             return
+         self._persistir_dia_atual_no_documento()
+         self._copiar_cabecalho_formulario_para_documento()
+         chave = self._documento_atual.get("chave") or {}
+         salvar_memoria_ultimo_cliente(
+             str(chave.get(CHAVE_JSON_CONTRATANTE, "")),
+             str(chave.get(CHAVE_JSON_NATUREZA_SERVICO, "")),
+         )
+         try:
+             salvar_documento_json(self._caminho_arquivo_atual, self._documento_atual)
+         except OSError as erro:
+             if not silencioso:
+                 messagebox.showerror("Salvar", str(erro))
+             return
+         self._atualizar_marcadores_calendario()
+         self._atualizar_rotulo_contagem_relatorios_mes()
+         if not silencioso:
+             self.title(f"RDO — salvo {datetime.now().strftime('%H:%M:%S')}")
+
+    def _salvar_modelo_cabecalho(self) -> None:
+        """Salva os dados atuais do cabeçalho em um arquivo JSON modelo na pasta template."""
+        if not self._documento_atual:
+            messagebox.showwarning(
+                "Modelo de cabeçalho",
+                "Abra um cliente primeiro para salvar o modelo do cabeçalho.",
+                parent=self,
+            )
             return
-        self._persistir_dia_atual_no_documento()
-        self._copiar_cabecalho_formulario_para_documento()
-        chave = self._documento_atual.get("chave") or {}
-        salvar_memoria_ultimo_cliente(
-            str(chave.get(CHAVE_JSON_CONTRATANTE, "")),
-            str(chave.get(CHAVE_JSON_NATUREZA_SERVICO, "")),
-        )
+        # Coleta dados atuais do cabeçalho
+        cabecalho = dict(self._documento_atual.get("cabecalho_fixo") or {})
+        # Sobrescreve com os valores do formulário (em caso de edição não salva)
+        for campo, widget in self._widgets_cabecalho.items():
+            cabecalho[campo] = widget.get().strip()
+        
         try:
-            salvar_documento_json(self._caminho_arquivo_atual, self._documento_atual)
+            salvar_documento_json(ARQUIVO_MODELO_CABECALHO_JSON, cabecalho)
+            messagebox.showinfo(
+                "Modelo de cabeçalho",
+                f"Modelo de cabeçalho salvo com sucesso em:\n\n{ARQUIVO_MODELO_CABECALHO_JSON}",
+                parent=self,
+            )
         except OSError as erro:
-            if not silencioso:
-                messagebox.showerror("Salvar", str(erro))
+            messagebox.showerror("Salvar modelo", str(erro), parent=self)
+
+    def _carregar_modelo_cabecalho(self) -> None:
+        """Carrega um modelo de cabeçalho do arquivo JSON e preenche o formulário."""
+        if not ARQUIVO_MODELO_CABECALHO_JSON.exists():
+            messagebox.showwarning(
+                "Modelo de cabeçalho",
+                f"Arquivo de modelo não encontrado:\n\n{ARQUIVO_MODELO_CABECALHO_JSON}\n\n"
+                "Primeiro, salve um modelo usando «Salvar modelo de cabeçalho».",
+                parent=self,
+            )
             return
-        self._atualizar_marcadores_calendario()
-        self._atualizar_rotulo_contagem_relatorios_mes()
-        if not silencioso:
-            self.title(f"RDO — salvo {datetime.now().strftime('%H:%M:%S')}")
+        
+        try:
+            modelo = carregar_documento_json(ARQUIVO_MODELO_CABECALHO_JSON)
+        except (OSError, json.JSONDecodeError) as erro:
+            messagebox.showerror(
+                "Carregar modelo",
+                f"Erro ao ler arquivo de modelo:\n{erro}",
+                parent=self,
+            )
+            return
+        
+        if not isinstance(modelo, dict):
+            messagebox.showerror(
+                "Carregar modelo",
+                "Arquivo de modelo inválido (não é um dicionário JSON).",
+                parent=self,
+            )
+            return
+        
+        # Preenche os campos do cabeçalho com os valores do modelo
+        for campo, widget in self._widgets_cabecalho.items():
+            valor = str(modelo.get(campo, "") or "")
+            widget.delete(0, tk.END)
+            widget.insert(0, valor)
+        
+        # Atualiza o documento em memória
+        if self._documento_atual:
+            self._documento_atual["cabecalho_fixo"] = dict(modelo)
+        
+        messagebox.showinfo(
+            "Modelo de cabeçalho",
+            "Modelo de cabeçalho carregado com sucesso!",
+            parent=self,
+        )
+        
+        # Agenda salvamento automático
+        self._agendar_salvamento_automatico()
 
     def _gerar_relatorios_excel(self) -> None:
         """Gera ou atualiza os ficheiros RDO e FT por mês na pasta `saida_relatorios`."""
