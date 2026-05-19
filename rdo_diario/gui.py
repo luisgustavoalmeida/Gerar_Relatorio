@@ -807,7 +807,7 @@ class AplicacaoRdo(tk.Tk):
         painel.pack(fill=tk.BOTH, expand=True, padx=4, pady=8)
 
         coluna_formulario = ttk.Frame(painel)
-        coluna_calendario = ttk.Frame(painel, width=275)
+        coluna_calendario = ttk.Frame(painel, width=260)
         painel.add(coluna_formulario, weight=4)
         painel.add(coluna_calendario, weight=0)
 
