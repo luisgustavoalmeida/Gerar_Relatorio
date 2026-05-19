@@ -50,7 +50,6 @@ Aplicação desktop para geração de Relatórios Diários de Obra (RDO) para pr
 - **Adicional Noturno**: Horas trabalhadas entre 22:00 e 05:00
 - **Relatórios Mensais**: Totais consolidados por mês
 
-
 ### Verificação Ortográfica e Gramatical
 - **LanguageTool**: Correção automática em português brasileiro
 - **Dicionário Pessoal**: Palavras e siglas específicas do projeto
