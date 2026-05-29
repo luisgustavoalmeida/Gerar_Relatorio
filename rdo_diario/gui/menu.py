@@ -31,7 +31,6 @@ from rdo_diario.paths import (
     PASTA_SAIDA_RELATORIOS_EXCEL,
     PASTA_TEMPLATE,
 )
-from rdo_diario.storage import carregar_documento_json
 
 if TYPE_CHECKING:
     from rdo_diario.gui.app import AplicacaoRdo
@@ -48,27 +47,27 @@ class MixinMenu:
         """Cria os menus «Arquivo» e «Revisão»."""
         barra_menu = tk.Menu(self)
         menu_arquivo = tk.Menu(barra_menu, tearoff=0)
+        menu_arquivo.add_command(label="Salvar agora", command=self._salvar_documento_agora)
         menu_arquivo.add_command(
-            label="Novo cliente…",
+            label="Novo cliente",
             command=self._abrir_dialogo_novo_cliente,
         )
-        menu_arquivo.add_command(label="Salvar agora", command=self._salvar_documento_agora)
         menu_arquivo.add_command(
             label="Gerar Excel (RDO/FT)",
             command=self._gerar_relatorios_excel,
         )
         menu_arquivo.add_separator()
         menu_arquivo.add_command(
-            label="Limpar informações do dia em edição…",
+            label="Limpar informações do dia em edição",
             command=self._limpar_informacoes_dia_em_edicao,
         )
         menu_arquivo.add_separator()
         menu_arquivo.add_command(
-            label="Salvar modelo de cabeçalho…",
+            label="Salvar modelo de cabeçalho",
             command=self._salvar_modelo_cabecalho,
         )
         menu_arquivo.add_command(
-            label="Carregar modelo de cabeçalho…",
+            label="Carregar modelo de cabeçalho",
             command=self._carregar_modelo_cabecalho,
         )
         menu_arquivo.add_separator()
@@ -81,7 +80,7 @@ class MixinMenu:
             command=self._abrir_pasta_templates,
         )
         menu_arquivo.add_command(
-            label="Abrir dados .json",
+            label="Abrir dados (.json)",
             command=self._abrir_pasta_dados_json,
         )
         barra_menu.add_cascade(label="Arquivo", menu=menu_arquivo)
@@ -91,30 +90,30 @@ class MixinMenu:
             command=self._verificar_ortografia_todos_campos_relatorio,
         )
         menu_revisao.add_command(
-            label="Dicionário pessoal (palavras e siglas)…",
+            label="Dicionário pessoal",
             command=self._abrir_dialogo_dicionario_ortografia,
         )
         menu_revisao.add_command(
-            label="Sobre a verificação ortográfica…",
+            label="Sobre a verificação ortográfica",
             command=self._mostrar_info_verificacao_ortografia,
         )
         barra_menu.add_cascade(label="Revisão", menu=menu_revisao)
         menu_horas = tk.Menu(barra_menu, tearoff=0)
         menu_horas.add_command(
-            label="Editar regras de horas (JSON)…",
+            label="Editar regras de horas (.json)",
             command=self._abrir_editor_regras_horas,
         )
         menu_horas.add_command(
-            label="Sincronizar feriados nacionais (Brasil)…",
+            label="Sincronizar feriados nacionais",
             command=self._dialogo_sincronizar_feriados_brasil,
         )
         menu_horas.add_command(
-            label="Copiar relatório detalhado do mês (métricas)…",
+            label="Copiar relatório detalhado do mês (métricas)",
             command=self._copiar_relatorio_metricas_mes,
         )
         menu_horas.add_separator()
         menu_horas.add_command(
-            label="Abrir pasta do ficheiro de regras…",
+            label="Abrir pasta do arquivo de regras",
             command=self._abrir_pasta_config_regras_horas,
         )
         barra_menu.add_cascade(label="Horas", menu=menu_horas)

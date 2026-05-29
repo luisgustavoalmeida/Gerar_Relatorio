@@ -428,7 +428,7 @@
       "dia_semana": "Quarta-feira"
     },
     "2026-05-28": {
-      "registro_servico": "Transformadores\nágua de resfriamento\nDrenagem e Esvaziamento",
+      "registro_servico": "Realizadas atividades de desenvolvimento e adequação de interfaces gráficas para representação dos sistemas operacionais da UHE Rondon.\n\nDesenvolvimento das telas dos seguintes sistemas do supervisório:\nTransformadores;\nSistema de Água de Resfriamento;\nSistema de Drenagem e Esvaziamento;\nSistema Hidráulico.\n\nAs atividades contemplaram a modelagem das interfaces gráficas, organização dos elementos visuais, adequação do layout operacional e preparação das telas para integração com variáveis de processo, sinalizações, alarmes e funcionalidades operacionais do sistema supervisório.",
       "registro_extra_escopo": "",
       "registro_ociosidade": "",
       "tempo_extra_escopo": "",
@@ -466,6 +466,6 @@
     }
   },
   "meta": {
-    "ultima_edicao_iso": "2026-05-29T03:38:50.812776+00:00"
+    "ultima_edicao_iso": "2026-05-29T03:55:23.037997+00:00"
   }
 }
