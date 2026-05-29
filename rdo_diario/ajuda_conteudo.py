@@ -5,6 +5,7 @@ Carrega e formata os ficheiros JSON de ajuda (manual e sobre) para exibição na
 from __future__ import annotations
 
 import json
+import webbrowser
 from pathlib import Path
 from typing import Any
 
@@ -241,3 +242,51 @@ def configurar_tags_texto_ajuda(widget: tk.Text) -> None:
     widget.tag_configure("rotulo_tabela", font=("Segoe UI", 10, "bold"))
     widget.tag_configure("lista", lmargin1=24, lmargin2=36)
     widget.tag_configure("url", foreground="#0645ad", underline=True)
+    configurar_links_clicaveis(widget)
+
+
+def configurar_links_clicaveis(widget: tk.Text) -> None:
+    """Abre URLs marcadas com a tag «url» no browser ao clicar (ex.: LinkedIn, GitHub)."""
+
+    def _url_no_clique(event: tk.Event) -> str:
+        texto = event.widget
+        if not isinstance(texto, tk.Text):
+            return "break"
+        estava_desativado = str(texto.cget("state")) == str(tk.DISABLED)
+        if estava_desativado:
+            texto.configure(state=tk.NORMAL)
+        try:
+            indice = texto.index(f"@{event.x},{event.y}")
+        except tk.TclError:
+            if estava_desativado:
+                texto.configure(state=tk.DISABLED)
+            return "break"
+        if "url" not in texto.tag_names(indice):
+            if estava_desativado:
+                texto.configure(state=tk.DISABLED)
+            return "break"
+        url = ""
+        ranges = texto.tag_ranges("url")
+        for i in range(0, len(ranges), 2):
+            inicio = ranges[i]
+            fim = ranges[i + 1]
+            if texto.compare(inicio, "<=", indice) and texto.compare(indice, "<", fim):
+                url = texto.get(inicio, fim).strip()
+                break
+        if estava_desativado:
+            texto.configure(state=tk.DISABLED)
+        if url:
+            webbrowser.open(url)
+        return "break"
+
+    def _cursor_mao(_event: tk.Event) -> str:
+        event.widget.configure(cursor="hand2")
+        return "break"
+
+    def _cursor_normal(_event: tk.Event) -> str:
+        event.widget.configure(cursor="")
+        return "break"
+
+    widget.tag_bind("url", "<Button-1>", _url_no_clique)
+    widget.tag_bind("url", "<Enter>", _cursor_mao)
+    widget.tag_bind("url", "<Leave>", _cursor_normal)
