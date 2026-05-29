@@ -1,0 +1,79 @@
+Alto impacto no dia a dia
+Atalhos de teclado
+Hoje quase tudo é só menu/rato. Vale muito: Ctrl+S (Salvar agora), setas ou Ctrl+←/→ para mudar o dia no calendário, Ctrl+N (Novo cliente). O Tkinter suporta isso com bind na janela principal.
+
+Indicador de estado na janela
+O título só mostra “salvo” após gravação manual. Um “● alterações não guardadas” (ou ícone na barra) ajuda porque o auto-save tem debounce de ~1,2 s e o utilizador pode fechar antes.
+
+Copiar registro de outro dia
+Ex.: “Copiar de ontem” ou “Copiar de…” (escolher data). Muito útil quando o texto de serviço se repete e só mudam os horários.
+
+Abrir pasta após gerar Excel
+O fluxo termina num messagebox com caminhos; um botão “Abrir pasta saida_relatorios” (como já existe para regras de horas) poupa cliques.
+
+Gestão de clientes
+Só existe criar e trocar. Falta renomear chave, excluir cliente (com confirmação) e talvez duplicar cliente para obra parecida.
+
+Segurança dos dados
+Cópia de segurança automática
+Ao salvar, gravar ficheiro.json.bak ou backup datado em dados_rdo/_backup/. Protege contra JSON corrompido ou “Limpar dia” acidental.
+
+Exportar/importar cliente
+Menu Arquivo: “Exportar cliente…” / “Importar cliente…” (cópia do JSON). Facilita mudar de PC ou partilhar com fiscalização.
+
+Confirmação ao sair com alterações pendentes
+_ao_fechar_janela já salva em silêncio, mas se o auto-save estiver agendado ou houver erro de disco, um aviso explícito é mais seguro.
+
+Produtividade no relatório
+Navegação rápida no mês
+Botões “Dia anterior / Dia seguinte” ou atalhos; saltar para o próximo dia laranja (incompleto) acelera fechar o mês.
+
+Resumo do mês na interface
+Já há métricas e “No mês: X de Y”; um painel fixo “dias verdes / laranja / vazios” e totais de horas evita abrir Excel só para conferir.
+
+Modelo de texto do dia
+Frases padrão para registro de serviço (por cliente ou global), além do modelo de cabeçalho.
+
+Qualidade e manutenção (código)
+Testes automatizados
+Não há test_*.py. O maior retorno: horario_util, validação de ponto em schema.py e calculo_metricas_horas.py — evita regressões nas cores do calendário e no Excel.
+
+Dividir gui.py (~1900 linhas)
+Separar menu, calendário, formulário do dia e ortografia em módulos. Facilita evoluir sem medo.
+
+Versão única da aplicação
+Hoje a versão está em template/sobre.json. Uma constante VERSAO_APP em paths.py ou __init__.py, usada no título e no Sobre, evita divergência (ex.: 1.0.3 no JSON vs código antigo).
+
+Experiência e distribuição
+Compilar .exe de forma estável
+O README ainda fala em compilação “futura”; já há compilar.bat. Garantir que template/, ícone e ajuda entram no PyInstaller reduz suporte em campo.
+
+Links clicáveis no Ajuda → Sobre
+LinkedIn/GitHub aparecem estilizados mas não abrem o browser; webbrowser.open() no clique melhora o diálogo.
+
+Imagens no manual
+Existem capturas em Imagens Interface/; referenciá-las no manual.json (ou secção “ver README”) ajuda utilizadores novos.
+
+Ortografia e regras
+LanguageTool offline ou aviso claro
+Sem rede, a revisão falha em silêncio. Indicador “Ortografia: offline” na barra de estado alinha expectativa.
+
+Editor de regras de horas mais amigável
+O JSON bruto é poderoso mas arriscado; formulário simples (jornada, % noturno) com “avançado → JSON” reduz erros.
+
+Menor esforço, bom polish
+Barra de estado: cliente atual, ficheiro JSON, último save.
+Menu Arquivo → Abrir pasta do cliente / pasta de saída Excel.
+Duplicar dia (copiar registro completo para outra data).
+Sincronizar versão entre sobre.json e historico_versoes automaticamente no build.
+Por onde começar?
+Se o objetivo é…	Comece por
+Usar todos os dias
+Atalhos + copiar dia + abrir pasta Excel
+Não perder dados
+Backup .bak + exportar cliente
+Evoluir sem bugs
+Testes em horários/métricas + partir gui.py
+Distribuir para outros PCs
+.exe + versão centralizada
+Se quiser que eu implemente algum destes itens, mude para modo Agent e diga quais priorizar (por exemplo: “atalhos + backup + abrir pasta Excel”).

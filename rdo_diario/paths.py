@@ -24,5 +24,12 @@ ARQUIVO_MAPA_CELULAS_EXCEL_JSON: Path = RAIZ_PROJETO / "template" / "mapa_celula
 # Modelo de cabeçalho padrão (JSON com dados reutilizáveis de cabeçalho)
 ARQUIVO_MODELO_CABECALHO_JSON: Path = RAIZ_PROJETO / "template" / "modelo_cabecalho.json"
 
+# Conteúdos do menu Ajuda (editáveis sem recompilar)
+ARQUIVO_MANUAL_AJUDA_JSON: Path = RAIZ_PROJETO / "template" / "manual.json"
+ARQUIVO_SOBRE_AJUDA_JSON: Path = RAIZ_PROJETO / "template" / "sobre.json"
+
+# Modelos Excel, regras de horas e ficheiros de ajuda
+PASTA_TEMPLATE: Path = RAIZ_PROJETO / "template"
+
 # Relatórios Excel gerados (RDO e FT por mês)
 PASTA_SAIDA_RELATORIOS_EXCEL: Path = RAIZ_PROJETO / "saida_relatorios"

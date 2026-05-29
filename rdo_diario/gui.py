@@ -10,13 +10,19 @@ import subprocess
 import sys
 import threading
 import tkinter as tk
-from tkinter import messagebox, scrolledtext, simpledialog, ttk
 from datetime import date, datetime
 from pathlib import Path
+from tkinter import messagebox, scrolledtext, simpledialog, ttk
 from typing import Any
 
 from tkcalendar import Calendar
 
+from rdo_diario.ajuda_conteudo import (
+    carregar_documento_ajuda,
+    configurar_tags_texto_ajuda,
+    preencher_widget_manual,
+    preencher_widget_sobre,
+)
 from rdo_diario.calculo_metricas_horas import (
     agregar_metricas_mes,
     calcular_metricas_horas_para_dia,
@@ -30,6 +36,14 @@ from rdo_diario.config_horas import (
     salvar_config_regras_horas,
     sincronizar_feriados_brasil,
 )
+from rdo_diario.dicionario_ortografia_usuario import (
+    adicionar_palavra,
+    carregar_lista,
+    conjunto_para_filtragem,
+    salvar_lista,
+    trecho_deve_ser_ignorado,
+)
+from rdo_diario.gerar_excel_relatorios import gerar_relatorios_excel
 from rdo_diario.horario_util import (
     formatar_minutos_como_texto,
     normalizar_duracao_hhmm,
@@ -37,24 +51,33 @@ from rdo_diario.horario_util import (
     texto_duracao_permitido_na_digitacao,
     texto_horario_permitido_na_digitacao,
 )
-from rdo_diario.gerar_excel_relatorios import gerar_relatorios_excel
-from rdo_diario.paths import ARQUIVO_CONFIG_REGRAS_HORAS_JSON, ARQUIVO_MODELO_CABECALHO_JSON, PASTA_DADOS_RDO
+from rdo_diario.paths import (
+    ARQUIVO_CONFIG_REGRAS_HORAS_JSON,
+    ARQUIVO_MANUAL_AJUDA_JSON,
+    ARQUIVO_MODELO_CABECALHO_JSON,
+    ARQUIVO_SOBRE_AJUDA_JSON,
+    PASTA_DADOS_RDO,
+    PASTA_SAIDA_RELATORIOS_EXCEL,
+    PASTA_TEMPLATE,
+)
 from rdo_diario.schema import (
+    CAMPOS_JSON_CABECALHO,
     CAMPOS_JSON_DESLOCAMENTO,
     CAMPOS_JSON_PONTO,
     CAMPOS_JSON_TEXTO_DIA,
     CHAVE_JSON_BATIDAS_PONTO,
+    CHAVE_JSON_CONTRATANTE,
     CHAVE_JSON_FOLHA_RELATORIO_MES,
     CHAVE_JSON_METRICAS_HORAS,
-    CHAVE_JSON_NUMERO_RELATORIO_MES,
-    CAMPOS_JSON_CABECALHO,
-    CHAVE_JSON_CONTRATANTE,
     CHAVE_JSON_NATUREZA_SERVICO,
+    CHAVE_JSON_NUMERO_RELATORIO_MES,
     ROTULOS_CABECALHO,
     ROTULOS_HORARIO,
     ROTULOS_TEMPO_ATIVIDADE_DIA,
     ROTULOS_TEXTO_DIA,
     aplicar_metadados_data_no_registro_diario,
+    descricao_estado_essencial_calendario,
+    estado_informacoes_essenciais_dia,
     extrair_horarios_do_registro_dia,
     nome_dia_semana_portugues,
     registro_de_dia_possui_conteudo,
@@ -66,13 +89,6 @@ from rdo_diario.storage import (
     obter_documento_cliente_inicial,
     salvar_documento_json,
     salvar_memoria_ultimo_cliente,
-)
-from rdo_diario.dicionario_ortografia_usuario import (
-    adicionar_palavra,
-    carregar_lista,
-    conjunto_para_filtragem,
-    salvar_lista,
-    trecho_deve_ser_ignorado,
 )
 from rdo_diario.verificacao_ortografia import (
     extrair_sugestoes_do_match,
@@ -118,16 +134,27 @@ TAG_CAL_VM_OM_DU = "cal_vm_om_du"
 TAG_CAL_VM_OM_DU_P = "cal_vm_om_du_p"
 TAG_CAL_VM_OM_FDS = "cal_vm_om_fds"
 TAG_CAL_VM_OM_FDS_P = "cal_vm_om_fds_p"
+TAG_CAL_VM_DU_PAR = "cal_vm_du_par"
+TAG_CAL_VM_FDS_PAR = "cal_vm_fds_par"
+TAG_CAL_VM_OM_DU_PAR = "cal_vm_om_du_par"
+TAG_CAL_VM_OM_FDS_PAR = "cal_vm_om_fds_par"
+
+_COR_CALENDARIO_COMPLETO = "#7ccd7c"
+_COR_CALENDARIO_PARCIAL = "#ea580c"
 
 _TAGS_DESTAQUE_VERMELHO: tuple[str, ...] = (
     TAG_CAL_VM_DU,
     TAG_CAL_VM_DU_P,
+    TAG_CAL_VM_DU_PAR,
     TAG_CAL_VM_FDS,
     TAG_CAL_VM_FDS_P,
+    TAG_CAL_VM_FDS_PAR,
     TAG_CAL_VM_OM_DU,
     TAG_CAL_VM_OM_DU_P,
+    TAG_CAL_VM_OM_DU_PAR,
     TAG_CAL_VM_OM_FDS,
     TAG_CAL_VM_OM_FDS_P,
+    TAG_CAL_VM_OM_FDS_PAR,
 )
 
 
@@ -233,20 +260,24 @@ def _configurar_tags_destaque_vermelho(cal: Calendar) -> None:
     """Cores alinhadas ao tema do calendário (fundo) + texto vermelho."""
     fg = "#c1121f"
     cal.tag_config(TAG_CAL_VM_DU, foreground=fg, background=cal.cget("normalbackground"))
-    cal.tag_config(TAG_CAL_VM_DU_P, foreground=fg, background="#7ccd7c")
+    cal.tag_config(TAG_CAL_VM_DU_P, foreground=fg, background=_COR_CALENDARIO_COMPLETO)
+    cal.tag_config(TAG_CAL_VM_DU_PAR, foreground=fg, background=_COR_CALENDARIO_PARCIAL)
     cal.tag_config(TAG_CAL_VM_FDS, foreground=fg, background=cal.cget("weekendbackground"))
-    cal.tag_config(TAG_CAL_VM_FDS_P, foreground=fg, background="#7ccd7c")
+    cal.tag_config(TAG_CAL_VM_FDS_P, foreground=fg, background=_COR_CALENDARIO_COMPLETO)
+    cal.tag_config(TAG_CAL_VM_FDS_PAR, foreground=fg, background=_COR_CALENDARIO_PARCIAL)
     cal.tag_config(TAG_CAL_VM_OM_DU, foreground=fg, background=cal.cget("othermonthbackground"))
-    cal.tag_config(TAG_CAL_VM_OM_DU_P, foreground=fg, background="#7ccd7c")
+    cal.tag_config(TAG_CAL_VM_OM_DU_P, foreground=fg, background=_COR_CALENDARIO_COMPLETO)
+    cal.tag_config(TAG_CAL_VM_OM_DU_PAR, foreground=fg, background=_COR_CALENDARIO_PARCIAL)
     cal.tag_config(TAG_CAL_VM_OM_FDS, foreground=fg, background=cal.cget("othermonthwebackground"))
-    cal.tag_config(TAG_CAL_VM_OM_FDS_P, foreground=fg, background="#7ccd7c")
+    cal.tag_config(TAG_CAL_VM_OM_FDS_P, foreground=fg, background=_COR_CALENDARIO_COMPLETO)
+    cal.tag_config(TAG_CAL_VM_OM_FDS_PAR, foreground=fg, background=_COR_CALENDARIO_PARCIAL)
 
 
 def _tag_destaque_vermelho_para_data(
     d: date,
     ano_visivel: int,
     mes_visivel: int,
-    preenchido: bool,
+    estado: str,
     feriados_iso: set[str],
 ) -> str | None:
     """Tag só se a data for feriado no JSON; ``None`` nos restantes dias."""
@@ -256,11 +287,27 @@ def _tag_destaque_vermelho_para_data(
     no_mes_visivel = d.month == mes_visivel and d.year == ano_visivel
     if not no_mes_visivel:
         if fds:
-            return TAG_CAL_VM_OM_FDS_P if preenchido else TAG_CAL_VM_OM_FDS
-        return TAG_CAL_VM_OM_DU_P if preenchido else TAG_CAL_VM_OM_DU
+            if estado == "completo":
+                return TAG_CAL_VM_OM_FDS_P
+            if estado == "parcial":
+                return TAG_CAL_VM_OM_FDS_PAR
+            return TAG_CAL_VM_OM_FDS
+        if estado == "completo":
+            return TAG_CAL_VM_OM_DU_P
+        if estado == "parcial":
+            return TAG_CAL_VM_OM_DU_PAR
+        return TAG_CAL_VM_OM_DU
     if fds:
-        return TAG_CAL_VM_FDS_P if preenchido else TAG_CAL_VM_FDS
-    return TAG_CAL_VM_DU_P if preenchido else TAG_CAL_VM_DU
+        if estado == "completo":
+            return TAG_CAL_VM_FDS_P
+        if estado == "parcial":
+            return TAG_CAL_VM_FDS_PAR
+        return TAG_CAL_VM_FDS
+    if estado == "completo":
+        return TAG_CAL_VM_DU_P
+    if estado == "parcial":
+        return TAG_CAL_VM_DU_PAR
+    return TAG_CAL_VM_DU
 
 
 def _texto_tooltip_destaque_calendario(d: date) -> str:
@@ -273,6 +320,7 @@ class AplicacaoRdo(tk.Tk):
     """Janela principal: seleção de cliente, abas de dados fixos e relatório diário."""
 
     TAG_EVENTO_DIA_PREENCHIDO = "dia_preenchido"
+    TAG_EVENTO_DIA_PARCIAL = "dia_parcial"
     TAG_DIA_RELATORIO_EM_EDICAO = "dia_relatorio_em_edicao"
     TAG_ERRO_ORTOGRAFIA = "erro_ortografia"
 
@@ -322,7 +370,20 @@ class AplicacaoRdo(tk.Tk):
         """Cria os menus «Arquivo» e «Revisão»."""
         barra_menu = tk.Menu(self)
         menu_arquivo = tk.Menu(barra_menu, tearoff=0)
+        menu_arquivo.add_command(
+            label="Novo cliente…",
+            command=self._abrir_dialogo_novo_cliente,
+        )
         menu_arquivo.add_command(label="Salvar agora", command=self._salvar_documento_agora)
+        menu_arquivo.add_command(
+            label="Gerar Excel (RDO/FT)",
+            command=self._gerar_relatorios_excel,
+        )
+        menu_arquivo.add_separator()
+        menu_arquivo.add_command(
+            label="Limpar informações do dia em edição…",
+            command=self._limpar_informacoes_dia_em_edicao,
+        )
         menu_arquivo.add_separator()
         menu_arquivo.add_command(
             label="Salvar modelo de cabeçalho…",
@@ -331,6 +392,19 @@ class AplicacaoRdo(tk.Tk):
         menu_arquivo.add_command(
             label="Carregar modelo de cabeçalho…",
             command=self._carregar_modelo_cabecalho,
+        )
+        menu_arquivo.add_separator()
+        menu_arquivo.add_command(
+            label="Abrir pasta relatórios",
+            command=self._abrir_pasta_relatorios,
+        )
+        menu_arquivo.add_command(
+            label="Abrir Templates",
+            command=self._abrir_pasta_templates,
+        )
+        menu_arquivo.add_command(
+            label="Abrir dados .json",
+            command=self._abrir_pasta_dados_json,
         )
         barra_menu.add_cascade(label="Arquivo", menu=menu_arquivo)
         menu_revisao = tk.Menu(barra_menu, tearoff=0)
@@ -366,25 +440,20 @@ class AplicacaoRdo(tk.Tk):
             command=self._abrir_pasta_config_regras_horas,
         )
         barra_menu.add_cascade(label="Horas", menu=menu_horas)
+        menu_ajuda = tk.Menu(barra_menu, tearoff=0)
+        menu_ajuda.add_command(label="Manual", command=self._mostrar_manual_ajuda)
+        menu_ajuda.add_command(label="Sobre", command=self._mostrar_sobre_ajuda)
+        barra_menu.add_cascade(label="Ajuda", menu=menu_ajuda)
         self.config(menu=barra_menu)
 
     def _montar_barra_cliente(self) -> None:
-        """Barra superior: combo de clientes, novo cliente e botão salvar."""
+        """Barra superior: seleção de cliente (contratante + natureza)."""
         barra = ttk.Frame(self, padding=6)
         barra.pack(fill=tk.X)
         ttk.Label(barra, text="Cliente (contratante + natureza):").pack(side=tk.LEFT, padx=(0, 6))
         self._combo_selecao_cliente = ttk.Combobox(barra, width=70, state="readonly")
         self._combo_selecao_cliente.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=4)
         self._combo_selecao_cliente.bind("<<ComboboxSelected>>", self._ao_trocar_cliente_combo)
-        ttk.Button(barra, text="Novo cliente…", command=self._abrir_dialogo_novo_cliente).pack(
-            side=tk.LEFT, padx=4
-        )
-        ttk.Button(barra, text="Salvar", command=self._salvar_documento_agora).pack(side=tk.LEFT, padx=4)
-        ttk.Button(
-            barra,
-            text="Gerar Excel (RDO/FT)",
-            command=self._gerar_relatorios_excel,
-        ).pack(side=tk.LEFT, padx=8)
 
     def _criar_area_com_rolagem(self, pai: tk.Widget) -> ttk.Frame:
         """
@@ -767,6 +836,70 @@ class AplicacaoRdo(tk.Tk):
                     pass
             self._executar_verificacao_ortografia(widget)
 
+    def _mostrar_dialogo_conteudo_ajuda(
+        self,
+        caminho: Path,
+        preencher: Any,
+        titulo_padrao: str,
+    ) -> None:
+        """Abre janela com texto formatado a partir de um JSON em template/."""
+        try:
+            doc = carregar_documento_ajuda(caminho)
+        except FileNotFoundError:
+            messagebox.showerror(
+                "Ajuda",
+                f"Ficheiro não encontrado:\n\n{caminho}",
+                parent=self,
+            )
+            return
+        except (json.JSONDecodeError, ValueError, OSError) as erro:
+            messagebox.showerror(
+                "Ajuda",
+                f"Não foi possível ler o conteúdo:\n\n{erro}",
+                parent=self,
+            )
+            return
+        titulo_janela = str(doc.get("titulo", titulo_padrao) or titulo_padrao).strip()
+        topo = tk.Toplevel(self)
+        topo.title(titulo_janela)
+        topo.transient(self)
+        topo.geometry("760x620")
+        topo.minsize(520, 400)
+        ttk.Label(
+            topo,
+            text=str(caminho),
+            font=("Segoe UI", 8),
+            foreground="#666666",
+        ).pack(fill=tk.X, padx=10, pady=(8, 4))
+        corpo = ttk.Frame(topo, padding=(10, 0))
+        corpo.pack(fill=tk.BOTH, expand=True)
+        texto = scrolledtext.ScrolledText(
+            corpo,
+            wrap=tk.WORD,
+            font=("Segoe UI", 10),
+            padx=8,
+            pady=8,
+        )
+        texto.pack(fill=tk.BOTH, expand=True)
+        configurar_tags_texto_ajuda(texto)
+        preencher(texto, doc)
+        texto.configure(state=tk.DISABLED)
+        ttk.Button(topo, text="Fechar", command=topo.destroy).pack(pady=10)
+
+    def _mostrar_manual_ajuda(self) -> None:
+        self._mostrar_dialogo_conteudo_ajuda(
+            ARQUIVO_MANUAL_AJUDA_JSON,
+            preencher_widget_manual,
+            "Manual",
+        )
+
+    def _mostrar_sobre_ajuda(self) -> None:
+        self._mostrar_dialogo_conteudo_ajuda(
+            ARQUIVO_SOBRE_AJUDA_JSON,
+            preencher_widget_sobre,
+            "Sobre",
+        )
+
     def _mostrar_info_verificacao_ortografia(self) -> None:
         messagebox.showinfo(
             "Verificação ortográfica",
@@ -862,7 +995,8 @@ class AplicacaoRdo(tk.Tk):
             moldura_cal,
             text=(
                 "Selecione uma data para visualizar / editar.\n"
-                "Verde = relatório salvo·\n"
+                "Verde = registro de serviço e horários válidos (entrada e saída).\n"
+                "Laranja = incompleto ou horários inválidos.\n"
                 "Azul = data em edição.\n"
                 "Vermelho = feriado nacional.\n"
             ),
@@ -875,12 +1009,12 @@ class AplicacaoRdo(tk.Tk):
         try:
             self._widget_calendario.tag_config(
                 self.TAG_EVENTO_DIA_PREENCHIDO,
-                background="#7ccd7c",
+                background=_COR_CALENDARIO_COMPLETO,
                 foreground="#000000",
             )
             self._widget_calendario.tag_config(
-                self.TAG_DIA_RELATORIO_EM_EDICAO,
-                background="#ea580c",
+                self.TAG_EVENTO_DIA_PARCIAL,
+                background=_COR_CALENDARIO_PARCIAL,
                 foreground="#ffffff",
             )
             _configurar_tags_destaque_vermelho(self._widget_calendario)
@@ -1075,10 +1209,18 @@ class AplicacaoRdo(tk.Tk):
             parent=self,
         )
 
-    def _abrir_pasta_config_regras_horas(self) -> None:
-        """Abre o explorador de ficheiros na pasta `dados_rdo`."""
-        pasta = ARQUIVO_CONFIG_REGRAS_HORAS_JSON.parent
+    def _abrir_pasta_no_explorador(self, pasta: Path, *, criar_se_ausente: bool = True) -> None:
+        """Abre a pasta no explorador do sistema (cria-a se pedido e não existir)."""
         try:
+            if criar_se_ausente:
+                pasta.mkdir(parents=True, exist_ok=True)
+            elif not pasta.is_dir():
+                messagebox.showerror(
+                    "Abrir pasta",
+                    f"A pasta não existe:\n\n{pasta}",
+                    parent=self,
+                )
+                return
             if sys.platform == "win32":
                 os.startfile(pasta)  # type: ignore[attr-defined]
             elif sys.platform == "darwin":
@@ -1087,6 +1229,22 @@ class AplicacaoRdo(tk.Tk):
                 subprocess.run(["xdg-open", str(pasta)], check=False)
         except OSError as erro:
             messagebox.showerror("Abrir pasta", str(erro), parent=self)
+
+    def _abrir_pasta_relatorios(self) -> None:
+        """Abre `saida_relatorios/` (relatórios Excel gerados)."""
+        self._abrir_pasta_no_explorador(PASTA_SAIDA_RELATORIOS_EXCEL)
+
+    def _abrir_pasta_templates(self) -> None:
+        """Abre `template/` (modelos e configurações)."""
+        self._abrir_pasta_no_explorador(PASTA_TEMPLATE, criar_se_ausente=False)
+
+    def _abrir_pasta_dados_json(self) -> None:
+        """Abre `dados_rdo/` (JSON por cliente)."""
+        self._abrir_pasta_no_explorador(PASTA_DADOS_RDO)
+
+    def _abrir_pasta_config_regras_horas(self) -> None:
+        """Abre a pasta `template/` (ficheiro de regras de horas)."""
+        self._abrir_pasta_no_explorador(ARQUIVO_CONFIG_REGRAS_HORAS_JSON.parent, criar_se_ausente=False)
 
     def _montar_secao_horarios(self, pai: tk.Widget) -> None:
         """Bloco de horários: linha ponto, linha deslocamento, rótulo de jornada líquida."""
@@ -1241,7 +1399,7 @@ class AplicacaoRdo(tk.Tk):
             self._atualizar_marcadores_calendario()
             messagebox.showinfo(
                 "Primeiro uso",
-                "Crie um cliente com o botão «Novo cliente…». "
+                "Crie um cliente com Arquivo → Novo cliente…. "
                 "A chave do arquivo é contratante + natureza do serviço.",
             )
             return
@@ -1460,13 +1618,14 @@ class AplicacaoRdo(tk.Tk):
 
     def _pintar_dias_com_registro_no_calendario(self, cal: Calendar) -> None:
         """
-        Marca feriados do JSON (número em vermelho), dias com registo (verde),
-        e o dia aberto para edição (laranja; a seleção azul fica por cima).
+        Marca feriados (vermelho), dias completos (verde), parciais (laranja)
+        e mantém a seleção azul do dia em edição por cima.
 
         Chama ``_display_calendar`` no fim para o estilo de seleção não ficar tapado pelos eventos.
         """
         tags_limpar = (
             self.TAG_EVENTO_DIA_PREENCHIDO,
+            self.TAG_EVENTO_DIA_PARCIAL,
             self.TAG_DIA_RELATORIO_EM_EDICAO,
             *_TAGS_DESTAQUE_VERMELHO,
         )
@@ -1489,20 +1648,25 @@ class AplicacaoRdo(tk.Tk):
         for a in anos:
             feriados_iso |= conjunto_feriados_iso_para_ano(self._config_regras_horas, a)
 
-        datas_com_registro: set[str] = set()
+        estados_por_data: dict[str, str] = {}
+        registros_efetivos: dict[str, Any] = {}
         if self._documento_atual:
-            registros = self._documento_atual.get("registros_diarios") or {}
-            for iso, registro in registros.items():
+            registros_efetivos = self._registros_diarios_efetivos_para_contagem()
+            for iso, registro in registros_efetivos.items():
                 if not isinstance(registro, dict):
                     continue
-                if registro_de_dia_possui_conteudo(registro):
-                    datas_com_registro.add(str(iso).strip())
+                estado = estado_informacoes_essenciais_dia(registro)
+                if estado != "vazio":
+                    estados_por_data[str(iso).strip()] = estado
 
         for d in celulas:
             iso = d.isoformat()
-            preenchido = iso in datas_com_registro
+            estado = estados_por_data.get(iso, "vazio")
+            registro_dia = registros_efetivos.get(iso)
+            if not isinstance(registro_dia, dict):
+                registro_dia = {}
             tag_vm = _tag_destaque_vermelho_para_data(
-                d, ano_vis, mes_vis, preenchido, feriados_iso
+                d, ano_vis, mes_vis, estado, feriados_iso
             )
             if tag_vm:
                 cal.calevent_create(
@@ -1510,15 +1674,18 @@ class AplicacaoRdo(tk.Tk):
                     _texto_tooltip_destaque_calendario(d),
                     tag_vm,
                 )
-            elif preenchido and self._documento_atual:
-                cal.calevent_create(d, "com dados", self.TAG_EVENTO_DIA_PREENCHIDO)
-
-        if self._documento_atual:
-            cal.calevent_create(
-                self._data_em_edicao,
-                "Relatório aberto para edição",
-                self.TAG_DIA_RELATORIO_EM_EDICAO,
-            )
+            elif estado == "completo" and self._documento_atual:
+                cal.calevent_create(
+                    d,
+                    descricao_estado_essencial_calendario(registro_dia),
+                    self.TAG_EVENTO_DIA_PREENCHIDO,
+                )
+            elif estado == "parcial" and self._documento_atual:
+                cal.calevent_create(
+                    d,
+                    descricao_estado_essencial_calendario(registro_dia),
+                    self.TAG_EVENTO_DIA_PARCIAL,
+                )
         try:
             cal._display_calendar()
         except (tk.TclError, AttributeError):
@@ -1572,6 +1739,34 @@ class AplicacaoRdo(tk.Tk):
         for w in self._widgets_campos_dia.values():
             self.after(600, lambda x=w: self._executar_verificacao_ortografia(x))
 
+    def _limpar_informacoes_dia_em_edicao(self) -> None:
+        """Apaga textos, horários e registro JSON do dia selecionado no calendário."""
+        if not self._documento_atual:
+            messagebox.showwarning(
+                "Limpar dia",
+                "Abra um cliente antes de limpar as informações do dia.",
+                parent=self,
+            )
+            return
+        d = self._data_em_edicao
+        if not messagebox.askyesno(
+            "Limpar dia",
+            f"Apagar todas as informações do dia {d.strftime('%d/%m/%Y')} "
+            f"({nome_dia_semana_portugues(d)})?\n\n"
+            "Textos, horários e durações deste dia serão removidos.",
+            parent=self,
+            icon="warning",
+        ):
+            return
+        if self._id_agendamento_salvar:
+            self.after_cancel(self._id_agendamento_salvar)
+            self._id_agendamento_salvar = None
+        iso = d.isoformat()
+        registros = self._documento_atual.setdefault("registros_diarios", {})
+        registros.pop(iso, None)
+        self._carregar_registro_dia_no_formulario(d)
+        self._salvar_documento_agora(silencioso=True)
+
     def _persistir_dia_atual_no_documento(self) -> None:
         """Escreve ou remove o registro do dia atual em `registros_diarios` conforme o conteúdo."""
         if not self._documento_atual:
@@ -1587,6 +1782,7 @@ class AplicacaoRdo(tk.Tk):
     def _agendar_salvamento_automatico(self, _evento: tk.Event | None = None) -> None:
         """Agenda salvamento após um curto atraso (debounce) para não gravar a cada tecla."""
         self._atualizar_rotulo_contagem_relatorios_mes()
+        self._atualizar_marcadores_calendario()
         if self._id_agendamento_salvar:
             self.after_cancel(self._id_agendamento_salvar)
         self._id_agendamento_salvar = self.after(1200, self._executar_salvamento_automatico)

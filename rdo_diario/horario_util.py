@@ -92,13 +92,13 @@ def calcular_minutos_jornada_liquida(
             _para_minutos_desde_meia_noite(pa),
             _para_minutos_desde_meia_noite(pf),
         )
-        if m_ps < m_pe or m_pf < m_pa:
+        if not (m_pe < m_ps < m_pa < m_pf):
             return None
         return (m_ps - m_pe) + (m_pf - m_pa)
     if ps is not None or pa is not None:
         return None
     m_pe, m_pf = _para_minutos_desde_meia_noite(pe), _para_minutos_desde_meia_noite(pf)
-    if m_pf < m_pe:
+    if m_pf <= m_pe:
         return None
     return m_pf - m_pe
 

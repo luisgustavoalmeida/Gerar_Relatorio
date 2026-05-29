@@ -63,6 +63,7 @@ echo.
 REM Tentar com pyinstaller diretamente
 pyinstaller --onedir ^
     --windowed ^
+    --icon "Icone\icone.ico" ^
     --add-data "saida_relatorios;saida_relatorios" ^
     --add-data "template;template" ^
     --add-data "dados_rdo;dados_rdo" ^
@@ -79,6 +80,7 @@ if errorlevel 1 (
 
     python -m PyInstaller --onedir ^
         --windowed ^
+        --icon "Icone\icone.ico" ^
         --add-data "saida_relatorios;saida_relatorios" ^
         --add-data "template;template" ^
         --add-data "dados_rdo;dados_rdo" ^

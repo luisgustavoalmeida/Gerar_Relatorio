@@ -1,0 +1,76 @@
+{
+  "titulo": "Sobre o programa",
+  "subtitulo": "Gerar Relatório — Relatório Diário de Obra (RDO)",
+  "aplicacao": {
+    "nome": "Gerar Relatório",
+    "nome_completo": "Gerar Relatório Diário de Obra (RDO)",
+    "versao": "1.0.3",
+    "data_versao": "2026-04-01",
+    "versao_formato_dados": 1,
+    "descricao": "Aplicação desktop para registo de atividades diárias em obras e serviços de engenharia, com controlo de horários de ponto, cálculo automático de métricas de horas (normais, extras, noturno) e exportação para planilhas Excel (RDO e Folha de Tempo).",
+    "data_lancamento": "2026-05-19",
+    "ultima_atualizacao": "2026-05-28",
+    "plataforma": "Windows 10 ou superior",
+    "python_minimo": "3.12 ou superior",
+    "licenca": "MIT"
+  },
+  "criador": {
+    "nome": "Luís Gustavo de Almeida",
+    "papel": "Engenheiro Eletricista, Engenheiro de Software",
+    "organizacao": "Megawatt Sistemas",
+    "email_profissional": "luis.gustavo@megawatt.net.br",
+    "email_pessoal": "lga.gustavo.a@gmail.com",
+    "linkedin": "https://www.linkedin.com/in/luís-gustavo-de-almeida",
+    "discord": "luisgustavoalmeida"
+  },
+  "repositorio": {
+    "nome": "Gerar_Relatorio",
+    "url": "https://github.com/luisgustavoalmeida/Gerar_Relatorio",
+    "licenca": "MIT",
+    "documentacao": "README.md na raiz do projeto"
+  },
+  "funcionalidades": [
+    "Calendário mensal com código de cores (completo, parcial, feriado, dia em edição)",
+    "Cabeçalho fixo reutilizável por cliente (contratante + natureza do serviço)",
+    "Registro diário: serviço, extra-escopo, ociosidade e tempos associados",
+    "Ponto eletrônico e deslocamento com validação e formatação automática",
+    "Métricas de horas do dia e totais do mês",
+    "Verificação ortográfica (LanguageTool) e dicionário pessoal",
+    "Sincronização de feriados nacionais do Brasil",
+    "Exportação Excel (RDO e FT) a partir de modelos em template/",
+    "Auto-save e menu Arquivo (salvar, limpar dia, modelos de cabeçalho)"
+  ],
+  "historico_versoes": [
+    { "versao": "1.0.2", "data": "2026-04-01", "notas": "Menu Ajuda (Manual e Sobre); melhorias na interface como validadção de informações." },
+    { "versao": "1.0.1", "data": "2026-05-19", "notas": "Implemetado a opção de salvar e recarregar um modelo de cabeçalho" },
+    { "versao": "1.0.0", "data": "2026-04-01", "notas": "Versão inicial com registo diário, métricas e exportação Excel." }
+  ],
+  "requisitos": [
+    "Windows 10 ou superior",
+    "Python 3.12+ (ambiente virtual .venv ou executável compilado)",
+    "Conexão à internet para verificação ortográfica (LanguageTool)",
+    "Microsoft Excel ou compatível para abrir os relatórios gerados (.xlsx)"
+  ],
+  "tecnologias": [
+    { "nome": "Python / Tkinter", "uso": "Interface gráfica principal" },
+    { "nome": "tkcalendar", "uso": "Calendário mensal" },
+    { "nome": "openpyxl", "uso": "Exportação RDO e Folha de Tempo" },
+    { "nome": "holidays", "uso": "Feriados nacionais do Brasil" },
+    { "nome": "LanguageTool", "uso": "Ortografia e gramática (serviço online)" }
+  ],
+  "pastas_principais": [
+    "dados_rdo/ — um ficheiro JSON por cliente (contratante + natureza)",
+    "template/ — modelos Excel, regras de horas, manual e este ficheiro sobre",
+    "saida_relatorios/ — relatórios Excel gerados (criada automaticamente)"
+  ],
+  "suporte": [
+    "Manual de utilização: menu Ajuda → Manual",
+    "Problemas de instalação: consulte README.md (secção Solução de problemas)",
+    "Regras de horas: menu Horas → Editar regras de horas (JSON)",
+    "Contacto do desenvolvedor: ver secção Criador acima"
+  ],
+  "notas": [
+    "Pode editar este texto em template/sobre.json; as alterações aparecem ao reabrir Ajuda → Sobre.",
+    "O manual completo está em template/manual.json (Ajuda → Manual)."
+  ]
+}

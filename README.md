@@ -22,10 +22,22 @@ Aplicação desktop para geração de Relatórios Diários de Obra (RDO) para pr
 ## Funcionalidades
 
 ### Interface Gráfica
-- **Calendário Integrado**: Visualização mensal com destaques para dias preenchidos e feriados
+- **Calendário Integrado**: Visualização mensal com código de cores para o estado de cada dia (ver abaixo)
 - **Abas Organizadas**: Separação entre cabeçalhos fixos e relatórios diários
 - **Auto-save**: Salvamento automático após 1.2 segundos de inatividade
-- **Validação em Tempo Real**: Verificação de formatos de horário e duração
+- **Validação em Tempo Real**: Formato de horário/duração e indicação visual de dias incompletos ou inválidos
+
+#### Cores do calendário
+
+| Cor | Significado |
+|-----|-------------|
+| **Verde** | Registro de serviço **e** horários de ponto **válidos** (informações essenciais completas) |
+| **Laranja** | Falta registro de serviço, horários incompletos ou horários que não respeitam as regras abaixo |
+| **Azul** | Data selecionada para edição |
+| **Sem destaque** | Nenhum registro de serviço nem horário preenchido naquele dia |
+| **Vermelho** (número do dia) | Feriado nacional (fundo verde ou laranja se o dia também tiver dados, conforme o estado acima) |
+
+O calendário atualiza enquanto você digita (antes do autosave gravar no disco), refletindo o dia aberto no formulário.
 
 #### Aba de Cabeçalhos
 ![Aba de Cabeçalhos](Imagens%20Interface/Cabeçalhos.png)
@@ -40,8 +52,13 @@ Aplicação desktop para geração de Relatórios Diários de Obra (RDO) para pr
 
 ### Controle de Horários
 - **Ponto Eletrônico**: Entrada, saída para almoço, retorno e saída final
-- **Deslocamento**: Controle de tempo de ida e volta ao local de trabalho
+- **Deslocamento**: Controle de tempo de ida e volta ao local de trabalho (não substitui entrada/saída para o dia ficar verde no calendário)
 - **Formatação Automática**: Inserção automática de ":" nos horários (ex: 0830 → 08:30)
+- **Validação de Ponto** (para o dia ficar **verde** no calendário):
+  - **Entrada** e **Saída** são obrigatórias
+  - **Sem intervalo de almoço**: deixe *Saída almoço* e *Entrada almoço* vazios; exige **Entrada** anterior à **Saída**
+  - **Com almoço**: preencha os quatro horários em ordem cronológica estrita (entrada → saída almoço → entrada almoço → saída)
+  - Preencher só um dos campos de almoço, só entrada ou só saída, ou violar a ordem cronológica deixa o dia em **laranja**
 
 ### Métricas de Horas
 - **Horas Normais**: Cálculo baseado nas regras configuradas
@@ -128,10 +145,10 @@ O script irá:
    - Configure os cabeçalhos fixos na aba "Cabeçalhos"
 
 3. **Registro diário**:
-   - Selecione uma data no calendário
-   - Preencha os registros de serviço
-   - Informe os horários de ponto
-   - Os cálculos de horas são feitos automaticamente
+   - Selecione uma data no calendário (destaque azul)
+   - Preencha o **Registro de serviço** e os horários de **Entrada** e **Saída** (e almoço, se houver)
+   - O dia fica **verde** quando as informações essenciais estão corretas; **laranja** indica pendência ou horário inválido
+   - Os cálculos de horas são feitos automaticamente quando os horários são válidos
 
 ### Fluxo de Trabalho
 
@@ -155,10 +172,12 @@ O script irá:
 
 ### Atalhos e Dicas
 
-- **Auto-save**: A aplicação salva automaticamente após alterações
-- **Calendário**: Dias verdes têm registros; vermelhos são feriados
+- **Auto-save**: A aplicação salva automaticamente após alterações (cerca de 1,2 s após parar de digitar)
+- **Calendário**: Verde = serviço + horários válidos; laranja = incompleto ou inválido; azul = dia em edição; vermelho no número = feriado
+- **Contagem no mês** («No mês: X de Y»): considera qualquer conteúdo no dia; as cores do calendário usam só registro de serviço e validação de ponto
 - **Ortografia**: Clique com botão direito em palavras sublinhadas para correções
 - **Dicionário**: Adicione termos técnicos no menu "Revisão > Dicionário pessoal"
+- **Ajuda**: Menu "Ajuda > Manual" e "Ajuda > Sobre" (conteúdo editável em `template/manual.json` e `template/sobre.json`)
 
 ## Estrutura do Projeto
 
@@ -189,6 +208,8 @@ Gerar_Relatorio/
 ├── template/                        # Templates e configurações
 │   ├── _dicionario_ortografia.json  # Dicionário base
 │   ├── config_regras_horas.json     # Regras de horas
+│   ├── manual.json                  # Manual (menu Ajuda > Manual)
+│   ├── sobre.json                   # Sobre o programa (menu Ajuda > Sobre)
 │   ├── FT.xlsx                      # Template Folha de Tempo
 │   ├── RDO.xlsx                     # Template RDO
 │   └── mapa_celulas_excel.json      # Mapeamento de células
@@ -221,11 +242,21 @@ As regras de cálculo de horas podem ser editadas em `template/config_regras_hor
 
 ## Recursos Avançados
 
+### Estado essencial do dia (calendário)
+
+A lógica está em `rdo_diario/schema.py` (`estado_informacoes_essenciais_dia`, `horarios_ponto_validos_no_registro`) e reutiliza `calcular_minutos_jornada_liquida` em `horario_util.py` — a mesma regra usada nas métricas de horas quando entrada/saída estão inconsistentes.
+
+- **Completo (verde)**: texto em *Registro de serviço* + ponto válido (entrada e saída, ordem cronológica)
+- **Parcial (laranja)**: só serviço, só horários, horários inválidos ou só deslocamento preenchido
+- **Vazio**: sem registro de serviço e sem nenhum horário preenchido
+
+Passe o mouse sobre um dia colorido para ver o motivo no tooltip.
+
 ### Cálculo de Métricas
 
 O sistema calcula automaticamente:
 
-- **Horas Trabalhadas**: Baseado nos horários de ponto
+- **Horas Trabalhadas**: Baseado nos horários de ponto (entrada/saída obrigatórios; almoço opcional com ordem estrita)
 - **Horas Normais**: Dentro da jornada contratual
 - **Extras 50%**: Sobretempo diurno
 - **Extras 100%**: Noturno, domingos ou feriados
@@ -251,6 +282,8 @@ Os dados são armazenados em JSON estruturado:
     "2024-01-15": {
       "registro_servico": "Execução de fundações...",
       "ponto_entrada": "08:00",
+      "ponto_saida_almoco": "12:00",
+      "ponto_entrada_almoco": "13:00",
       "ponto_saida": "17:00",
       "metricas_horas": {
         "trabalhadas": 480,

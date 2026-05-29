@@ -8,9 +8,11 @@ Mantê-las evita que dados já salvos pelo usuário deixem de ser lidos.
 from __future__ import annotations
 
 from datetime import date
-from typing import Any
+from typing import Any, Literal
 
-from rdo_diario.horario_util import calcular_tempo_servico_hhmm
+EstadoEssencialDiaCalendario = Literal["completo", "parcial", "vazio"]
+
+from rdo_diario.horario_util import calcular_minutos_jornada_liquida, calcular_tempo_servico_hhmm
 
 # Número da versão do formato do documento (para migrações futuras).
 VERSAO_ARQUIVO: int = 1
@@ -280,6 +282,76 @@ def extrair_horarios_do_registro_dia(registro: dict) -> dict[str, str]:
     if js:
         resultado["ponto_saida"] = js
     return resultado
+
+
+def registro_de_dia_tem_registro_servico(registro: dict) -> bool:
+    """Verdadeiro se o campo «registro serviço» do dia tiver texto."""
+    if not registro:
+        return False
+    return bool(str(registro.get("registro_servico", "") or "").strip())
+
+
+def registro_tem_algum_horario_preenchido(registro: dict) -> bool:
+    """Verdadeiro se existir ao menos um horário de ponto ou deslocamento (inclui formatos legados)."""
+    if not registro:
+        return False
+    horarios = extrair_horarios_do_registro_dia(registro)
+    return any(str(horarios.get(campo, "") or "").strip() for campo in CAMPOS_JSON_HORARIOS)
+
+
+def registro_de_dia_tem_horarios(registro: dict) -> bool:
+    """Alias legado: qualquer campo de horário preenchido."""
+    return registro_tem_algum_horario_preenchido(registro)
+
+
+def horarios_ponto_validos_no_registro(registro: dict) -> bool:
+    """
+    Horários de ponto válidos para o calendário verde: entrada e saída obrigatórias;
+    com almoço, saída/entrada do almoço preenchidos e em ordem
+    entrada < saída almoço < entrada almoço < saída; sem almoço, só entrada < saída.
+    """
+    if not registro:
+        return False
+    horarios = extrair_horarios_do_registro_dia(registro)
+    entrada = str(horarios.get("ponto_entrada", "") or "").strip()
+    saida = str(horarios.get("ponto_saida", "") or "").strip()
+    if not entrada or not saida:
+        return False
+    saida_almoco = str(horarios.get("ponto_saida_almoco", "") or "").strip()
+    entrada_almoco = str(horarios.get("ponto_entrada_almoco", "") or "").strip()
+    return calcular_minutos_jornada_liquida(entrada, saida_almoco, entrada_almoco, saida) is not None
+
+
+def descricao_estado_essencial_calendario(registro: dict) -> str:
+    """Texto para tooltip do calendário conforme o estado do dia."""
+    estado = estado_informacoes_essenciais_dia(registro)
+    if estado == "completo":
+        return "Registro de serviço e horários de ponto válidos"
+    if estado == "vazio":
+        return ""
+    tem_servico = registro_de_dia_tem_registro_servico(registro)
+    if registro_tem_algum_horario_preenchido(registro) and not horarios_ponto_validos_no_registro(registro):
+        return (
+            "Horários inválidos ou incompletos: preencha entrada e saída; "
+            "com almoço, respeite entrada < saída almoço < entrada almoço < saída"
+        )
+    if tem_servico:
+        return "Falta horários de ponto válidos (entrada e saída)"
+    return "Falta registro de serviço"
+
+
+def estado_informacoes_essenciais_dia(registro: dict) -> EstadoEssencialDiaCalendario:
+    """
+    Estado para o calendário: verde (completo) exige registro de serviço e horários de ponto válidos;
+    laranja (parcial) quando falta um dos dois ou os horários não atendem às regras.
+    """
+    tem_servico = registro_de_dia_tem_registro_servico(registro)
+    horarios_ok = horarios_ponto_validos_no_registro(registro)
+    if tem_servico and horarios_ok:
+        return "completo"
+    if tem_servico or registro_tem_algum_horario_preenchido(registro):
+        return "parcial"
+    return "vazio"
 
 
 def registro_de_dia_possui_conteudo(registro: dict) -> bool:

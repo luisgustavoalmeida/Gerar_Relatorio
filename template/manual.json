@@ -1,0 +1,89 @@
+{
+  "titulo": "Manual de utilização",
+  "subtitulo": "Relatório de atividades diárias de obra (RDO)",
+  "secoes": [
+    {
+      "titulo": "1. Início rápido",
+      "paragrafos": [
+        "Execute a aplicação com executar.bat ou python main.py.",
+        "No primeiro uso, crie um cliente com Arquivo → Novo cliente… (contratante + natureza do serviço).",
+        "Configure os dados fixos na aba «Cabeçalhos».",
+        "Na aba «Relatórios de trabalho», selecione a data no calendário e preencha o registro do dia."
+      ]
+    },
+    {
+      "titulo": "2. Clientes e gravação",
+      "lista": [
+        "Cada cliente corresponde a um ficheiro JSON em dados_rdo/ (chave: contratante + natureza).",
+        "Troque de cliente no combobox superior; o dia em edição é guardado antes da troca.",
+        "Menu Arquivo → Salvar agora: grava imediatamente no disco.",
+        "Auto-save: após cerca de 1,2 s sem digitar, o documento é guardado automaticamente.",
+        "Menu Arquivo → Limpar informações do dia em edição…: apaga textos, horários e o registro desse dia (com confirmação).",
+        "Menu Arquivo → Salvar/Carregar modelo de cabeçalho…: reutiliza dados de cabeçalho entre projetos."
+      ]
+    },
+    {
+      "titulo": "3. Calendário — cores e estados",
+      "tabela": [
+        { "rotulo": "Verde", "texto": "Registro de serviço preenchido e horários de ponto válidos (entrada e saída corretas)." },
+        { "rotulo": "Laranja", "texto": "Falta registro de serviço, horários incompletos ou ordem cronológica inválida." },
+        { "rotulo": "Azul", "texto": "Data selecionada para edição." },
+        { "rotulo": "Sem destaque", "texto": "Nenhum registro de serviço nem horário naquele dia." },
+        { "rotulo": "Vermelho (número)", "texto": "Feriado nacional; mantém verde ou laranja se houver dados." }
+      ],
+      "paragrafos": [
+        "O calendário atualiza enquanto digita, antes do auto-save.",
+        "Passe o rato sobre um dia colorido para ver o motivo no tooltip.",
+        "«No mês: X de Y» conta dias com qualquer conteúdo; as cores usam só serviço + validação de ponto."
+      ]
+    },
+    {
+      "titulo": "4. Registro diário",
+      "lista": [
+        "Registro de serviço: descrição das atividades (campo principal).",
+        "Registro extra-escopo e tempo associado: atividades fora do escopo contratual.",
+        "Registro de ociosidade e tempo associado: períodos de inatividade.",
+        "Tempo de serviço é calculado automaticamente (horas trabalhadas − extra − ociosidade)."
+      ]
+    },
+    {
+      "titulo": "5. Horários de ponto",
+      "lista": [
+        "Entrada e Saída são obrigatórias para o dia ficar verde.",
+        "Sem almoço: deixe «Saída almoço» e «Entrada almoço» vazios; entrada deve ser anterior à saída.",
+        "Com almoço: preencha os quatro horários em ordem cronológica estrita.",
+        "Deslocamento (ida/volta) não substitui entrada/saída para o estado verde.",
+        "Digite horários como 0830 — o sistema formata para 08:30."
+      ]
+    },
+    {
+      "titulo": "6. Métricas de horas",
+      "paragrafos": [
+        "Com horários válidos, o painel mostra horas normais, extras 50%, extras 100%, adicional noturno e totais do mês."
+      ],
+      "lista": [
+        "Menu Horas → Editar regras de horas (JSON)…: jornada, intervalo, noturno, feriados.",
+        "Menu Horas → Sincronizar feriados nacionais (Brasil)…: atualiza feriados via biblioteca holidays.",
+        "Menu Horas → Copiar relatório detalhado do mês (métricas)…: texto para área de transferência."
+      ]
+    },
+    {
+      "titulo": "7. Revisão ortográfica",
+      "lista": [
+        "Usa LanguageTool (português do Brasil); requer internet.",
+        "Erros aparecem a vermelho e sublinhados nos três campos de texto do relatório.",
+        "Botão direito (ou Ctrl+clique) no trecho marcado: sugestões de correção.",
+        "Menu Revisão → Dicionário pessoal: palavras e siglas que não devem ser marcadas.",
+        "Menu Revisão → Verificar ortografia e gramática agora: verificação imediata."
+      ]
+    },
+    {
+      "titulo": "8. Exportação Excel",
+      "lista": [
+        "Menu Arquivo → Gerar Excel (RDO/FT).",
+        "Ficheiros gravados em saida_relatorios/ (RDO completo e Folha de Tempo do mês).",
+        "Modelos e mapeamento de células em template/ (RDO.xlsx, FT.xlsx, mapa_celulas_excel.json)."
+      ]
+    }
+  ]
+}
