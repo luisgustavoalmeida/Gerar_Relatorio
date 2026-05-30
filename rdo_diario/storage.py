@@ -170,6 +170,23 @@ def ler_memoria_ultimo_cliente() -> tuple[str, str] | None:
     return None
 
 
+def excluir_cliente_do_disco(
+    caminho: Path,
+    *,
+    contratante: str,
+    natureza_servico: str,
+) -> None:
+    """
+    Remove o JSON do cliente e apaga `_ultimo_cliente.json` se apontar para o mesmo par chave.
+    """
+    if caminho.is_file():
+        caminho.unlink()
+    ultimo = ler_memoria_ultimo_cliente()
+    if ultimo and ultimo[0] == contratante.strip() and ultimo[1] == natureza_servico.strip():
+        if ARQUIVO_ULTIMO_CLIENTE_JSON.is_file():
+            ARQUIVO_ULTIMO_CLIENTE_JSON.unlink()
+
+
 def obter_documento_cliente_inicial() -> tuple[dict[str, Any], Path] | None:
     """
     Escolhe o documento a abrir ao iniciar: último cliente memorizado, senão o primeiro da lista.

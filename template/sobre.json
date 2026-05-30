@@ -1,18 +1,17 @@
 {
   "titulo": "Sobre o programa",
-  "subtitulo": "Gerar Relatório — Relatório Diário de Obra (RDO)",
+  "subtitulo": "Gerar Relatório — Relatório Diário ",
   "aplicacao": {
     "nome": "Gerar Relatório",
-    "nome_completo": "Gerar Relatório Diário de Obra (RDO)",
+    "nome_completo": "Gerar Relatório Diário",
     "versao": "1.0.3",
-    "data_versao": "2026-04-01",
+    "data_versao": "2026-05-29",
     "versao_formato_dados": 1,
-    "descricao": "Aplicação desktop para registo de atividades diárias em obras e serviços de engenharia, com controlo de horários de ponto, cálculo automático de métricas de horas (normais, extras, noturno) e exportação para planilhas Excel (RDO e Folha de Tempo).",
-    "data_lancamento": "2026-05-19",
+    "descricao": "Aplicação desktop para registo de atividades diárias, com controlo de horários de ponto, cálculo automático de métricas de horas (normais, extras, noturno) e exportação para planilhas Excel (RDO e Folha de Tempo).",
+    "data_lancamento": "2026-04-01",
     "ultima_atualizacao": "2026-05-28",
     "plataforma": "Windows 10 ou superior",
-    "python_minimo": "3.12 ou superior",
-    "licenca": "MIT"
+    "python_minimo": "3.12 ou superior"
   },
   "criador": {
     "nome": "Luís Gustavo de Almeida",
@@ -26,8 +25,11 @@
   "repositorio": {
     "nome": "Gerar_Relatorio",
     "url": "https://github.com/luisgustavoalmeida/Gerar_Relatorio",
-    "licenca": "MIT",
     "documentacao": "README.md na raiz do projeto"
+  },
+  "doacao": {
+    "mensagem": "Este programa é gratuito. Se quiser apoiar o desenvolvimento, pode enviar uma doação voluntária via PIX.",
+    "chave_pix": "CPF 069.524.336-51"
   },
   "funcionalidades": [
     "Calendário mensal com código de cores (completo, parcial, feriado, dia em edição)",
@@ -68,9 +70,5 @@
     "Problemas de instalação: consulte README.md (secção Solução de problemas)",
     "Regras de horas: menu Horas → Editar regras de horas (JSON)",
     "Contacto do desenvolvedor: ver secção Criador acima"
-  ],
-  "notas": [
-    "Pode editar este texto em template/sobre.json; as alterações aparecem ao reabrir Ajuda → Sobre.",
-    "O manual completo está em template/manual.json (Ajuda → Manual)."
   ]
 }

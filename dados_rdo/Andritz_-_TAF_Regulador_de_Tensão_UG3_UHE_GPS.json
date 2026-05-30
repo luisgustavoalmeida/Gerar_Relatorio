@@ -433,7 +433,7 @@
       "registro_ociosidade": "",
       "tempo_extra_escopo": "",
       "tempo_ociosidade": "",
-      "tempo_serviço": "10:59",
+      "tempo_serviço": "0:00",
       "ponto_entrada": "13:00",
       "ponto_saida_almoco": "13:00",
       "ponto_entrada_almoco": "13:00",
@@ -443,20 +443,20 @@
       "metricas_horas": {
         "tipo_dia": "quarta",
         "rotulo_tipo_dia": "Quarta-feira",
-        "minutos_trabalhados_total": 659,
-        "minutos_normais": 540,
-        "minutos_extra_50": 119,
+        "minutos_trabalhados_total": 0,
+        "minutos_normais": 0,
+        "minutos_extra_50": 0,
         "minutos_extra_100": 0,
-        "minutos_adicional_noturno": 119,
-        "minutos_adicional_noturno_equivalente": 119.0,
-        "trabalhadas_hhmm": "10:59",
-        "normais_hhmm": "9:00",
-        "extra_50_hhmm": "1:59",
+        "minutos_adicional_noturno": 0,
+        "minutos_adicional_noturno_equivalente": 0.0,
+        "trabalhadas_hhmm": "0:00",
+        "normais_hhmm": "0:00",
+        "extra_50_hhmm": "0:00",
         "extra_100_hhmm": "0:00",
-        "adicional_noturno_hhmm": "1:59",
-        "adicional_noturno_equivalente_hhmm": "1:59",
-        "calculo_valido": true,
-        "mensagem": ""
+        "adicional_noturno_hhmm": "0:00",
+        "adicional_noturno_equivalente_hhmm": "0:00",
+        "calculo_valido": false,
+        "mensagem": "Preencha os horários entrada/saída e saída/entrada do almoço."
       },
       "numero": 12,
       "folha": "12 de 16",
@@ -614,6 +614,6 @@
     }
   },
   "meta": {
-    "ultima_edicao_iso": "2026-05-29T03:37:53.469138+00:00"
+    "ultima_edicao_iso": "2026-05-30T06:05:27.036293+00:00"
   }
 }

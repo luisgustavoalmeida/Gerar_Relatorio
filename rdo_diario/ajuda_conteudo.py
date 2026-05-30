@@ -172,6 +172,16 @@ def preencher_widget_sobre(widget: tk.Text, doc: dict[str, Any]) -> None:
         ),
     )
 
+    _inserir_campos_dict(
+        widget,
+        "Doação",
+        doc.get("doacao") or {},
+        (
+            ("mensagem", "Mensagem", False),
+            ("chave_pix", "Chave PIX", False),
+        ),
+    )
+
     funcionalidades = doc.get("funcionalidades")
     if isinstance(funcionalidades, list) and funcionalidades:
         widget.insert(tk.END, "\nFuncionalidades principais\n", "titulo_secao")
@@ -279,11 +289,11 @@ def configurar_links_clicaveis(widget: tk.Text) -> None:
             webbrowser.open(url)
         return "break"
 
-    def _cursor_mao(_event: tk.Event) -> str:
+    def _cursor_mao(event: tk.Event) -> str:
         event.widget.configure(cursor="hand2")
         return "break"
 
-    def _cursor_normal(_event: tk.Event) -> str:
+    def _cursor_normal(event: tk.Event) -> str:
         event.widget.configure(cursor="")
         return "break"
 

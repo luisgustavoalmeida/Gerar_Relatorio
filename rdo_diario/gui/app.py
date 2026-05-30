@@ -14,7 +14,14 @@ from rdo_diario.config_horas import (
     garantir_arquivo_config_regras_existe,
 )
 from rdo_diario.dicionario_ortografia_usuario import conjunto_para_filtragem
-from rdo_diario.gerar_excel_relatorios import gerar_relatorios_excel
+from rdo_diario.gerar_excel_relatorios import (
+    gerar_relatorios_excel,
+    remover_saida_relatorios_excel_cliente,
+)
+from rdo_diario.gui.calendario import MixinCalendario
+from rdo_diario.gui.formulario_dia import MixinFormularioDia
+from rdo_diario.gui.menu import MixinMenu
+from rdo_diario.gui.ortografia import MixinOrtografia
 from rdo_diario.horario_util import (
     texto_duracao_permitido_na_digitacao,
     texto_horario_permitido_na_digitacao,
@@ -29,16 +36,12 @@ from rdo_diario.schema import (
 from rdo_diario.storage import (
     carregar_documento_json,
     carregar_ou_criar_cliente,
+    excluir_cliente_do_disco,
     listar_clientes_salvos,
     obter_documento_cliente_inicial,
     salvar_documento_json,
     salvar_memoria_ultimo_cliente,
 )
-
-from rdo_diario.gui.calendario import MixinCalendario
-from rdo_diario.gui.formulario_dia import MixinFormularioDia
-from rdo_diario.gui.menu import MixinMenu
-from rdo_diario.gui.ortografia import MixinOrtografia
 
 
 class AplicacaoRdo(
@@ -257,6 +260,92 @@ class AplicacaoRdo(
             row=2, column=0, columnspan=2, pady=12
         )
 
+    def _excluir_cliente_atual(self) -> None:
+        """Remove o cliente aberto: JSON, relatórios Excel e atualiza a interface."""
+        if not self._documento_atual or not self._caminho_arquivo_atual:
+            messagebox.showwarning(
+                "Excluir cliente",
+                "Não há cliente aberto para excluir.\n\n"
+                "Selecione um cliente na lista ou crie um novo.",
+                parent=self,
+            )
+            return
+
+        chave = self._documento_atual.get("chave") or {}
+        contratante = str(chave.get(CHAVE_JSON_CONTRATANTE, "")).strip()
+        natureza = str(chave.get(CHAVE_JSON_NATUREZA_SERVICO, "")).strip()
+        rotulo = f"{contratante} — {natureza}" if contratante and natureza else (
+            contratante or natureza or self._caminho_arquivo_atual.name
+        )
+
+        if not messagebox.askyesno(
+            "Excluir cliente",
+            f"Excluir permanentemente o cliente:\n\n{rotulo}\n\n"
+            "Serão removidos o ficheiro JSON com todos os registos diários "
+            "e os relatórios Excel gerados (RDO/FT).\n\n"
+            "Esta ação não pode ser desfeita.",
+            parent=self,
+            icon="warning",
+        ):
+            return
+
+        documento_excluido = self._documento_atual
+        caminho_excluido = self._caminho_arquivo_atual
+
+        if self._id_agendamento_salvar:
+            self.after_cancel(self._id_agendamento_salvar)
+            self._id_agendamento_salvar = None
+
+        try:
+            remover_saida_relatorios_excel_cliente(documento_excluido)
+            excluir_cliente_do_disco(
+                caminho_excluido,
+                contratante=contratante,
+                natureza_servico=natureza,
+            )
+        except OSError as erro:
+            messagebox.showerror("Excluir cliente", str(erro), parent=self)
+            return
+
+        self._documento_atual = None
+        self._caminho_arquivo_atual = None
+        self._atualizar_lista_combo_clientes()
+
+        proximo = obter_documento_cliente_inicial()
+        if proximo:
+            documento, caminho = proximo
+            self._documento_atual = documento
+            self._caminho_arquivo_atual = caminho
+            self._marcar_combo_cliente_atual(documento)
+            chave_nova = documento.get("chave") or {}
+            salvar_memoria_ultimo_cliente(
+                str(chave_nova.get(CHAVE_JSON_CONTRATANTE, "")),
+                str(chave_nova.get(CHAVE_JSON_NATUREZA_SERVICO, "")),
+            )
+            self._carregar_cabecalho_no_formulario()
+            self._carregar_registro_dia_no_formulario(self._data_em_edicao)
+        else:
+            if self._combo_selecao_cliente:
+                self._combo_selecao_cliente.set("")
+            for widget in self._widgets_cabecalho.values():
+                widget.delete(0, tk.END)
+            self._preencher_formulario_com_registro_dia({})
+            for widget in self._widgets_horarios.values():
+                widget.delete(0, tk.END)
+            self._atualizar_rotulo_jornada_liquida()
+            self._atualizar_rotulo_contagem_relatorios_mes()
+
+        if self._widget_calendario:
+            self._widget_calendario.selection_set(self._data_em_edicao)
+        self._atualizar_marcadores_calendario()
+        self.title("Relatório de atividades diárias")
+
+        messagebox.showinfo(
+            "Excluir cliente",
+            f"O cliente «{rotulo}» foi excluído.",
+            parent=self,
+        )
+
     def _carregar_cabecalho_no_formulario(self) -> None:
         """Copia `cabecalho_fixo` do documento para os campos da primeira aba."""
         if not self._documento_atual:
@@ -274,6 +363,10 @@ class AplicacaoRdo(
         for campo, widget in self._widgets_cabecalho.items():
             cabecalho[campo] = widget.get().strip()
         self._documento_atual["cabecalho_fixo"] = cabecalho
+
+    def _cabecalho_formulario_tem_valores_preenchidos(self) -> bool:
+        """Indica se algum campo do cabeçalho no formulário contém texto."""
+        return any(widget.get().strip() for widget in self._widgets_cabecalho.values())
 
     def _agendar_salvamento_automatico(self, _evento: tk.Event | None = None) -> None:
         """Agenda salvamento após um curto atraso (debounce) para não gravar a cada tecla."""
@@ -362,6 +455,17 @@ class AplicacaoRdo(
             )
             return
 
+        if self._cabecalho_formulario_tem_valores_preenchidos():
+            if not messagebox.askyesno(
+                "Carregar modelo de cabeçalho",
+                "Os campos de cabeçalho já contêm informações preenchidas.\n\n"
+                "Deseja substituí-las pelos valores do modelo salvo?\n\n"
+                "Os dados atuais serão perdidos.",
+                parent=self,
+                icon="warning",
+            ):
+                return
+
         for campo, widget in self._widgets_cabecalho.items():
             valor = str(modelo.get(campo, "") or "")
             widget.delete(0, tk.END)
@@ -372,7 +476,7 @@ class AplicacaoRdo(
 
         messagebox.showinfo(
             "Modelo de cabeçalho",
-            "Modelo de cabeçalho carregado com sucesso!",
+            "O formulário de cabeçalho foi atualizado com os valores do modelo.",
             parent=self,
         )
 

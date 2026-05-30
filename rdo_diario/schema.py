@@ -322,24 +322,6 @@ def horarios_ponto_validos_no_registro(registro: dict) -> bool:
     return calcular_minutos_jornada_liquida(entrada, saida_almoco, entrada_almoco, saida) is not None
 
 
-def descricao_estado_essencial_calendario(registro: dict) -> str:
-    """Texto para tooltip do calendário conforme o estado do dia."""
-    estado = estado_informacoes_essenciais_dia(registro)
-    if estado == "completo":
-        return "Registro de serviço e horários de ponto válidos"
-    if estado == "vazio":
-        return ""
-    tem_servico = registro_de_dia_tem_registro_servico(registro)
-    if registro_tem_algum_horario_preenchido(registro) and not horarios_ponto_validos_no_registro(registro):
-        return (
-            "Horários inválidos ou incompletos: preencha entrada e saída; "
-            "com almoço, respeite entrada < saída almoço < entrada almoço < saída"
-        )
-    if tem_servico:
-        return "Falta horários de ponto válidos (entrada e saída)"
-    return "Falta registro de serviço"
-
-
 def estado_informacoes_essenciais_dia(registro: dict) -> EstadoEssencialDiaCalendario:
     """
     Estado para o calendário: verde (completo) exige registro de serviço e horários de ponto válidos;

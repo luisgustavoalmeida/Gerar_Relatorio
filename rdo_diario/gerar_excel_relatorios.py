@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import re
+import shutil
 from datetime import date, datetime, time, timedelta
 from pathlib import Path
 from typing import Any
@@ -41,14 +42,33 @@ def _slug_seguro(texto: str) -> str:
     return t or "sem_nome"
 
 
-def _pasta_cliente_saida(documento: dict[str, Any], base: Path | None = None) -> Path:
+def caminho_pasta_saida_cliente(documento: dict[str, Any], base: Path | None = None) -> Path:
+    """Caminho da pasta de saída Excel do cliente (sem criar pastas)."""
     chave = documento.get("chave") or {}
     c = str(chave.get("contratante") or "").strip()
     n = str(chave.get("natureza_servico") or "").strip()
     raiz = base if base is not None else PASTA_SAIDA_RELATORIOS_EXCEL
-    pasta = raiz / _slug_seguro(c) / _slug_seguro(n)
+    return raiz / _slug_seguro(c) / _slug_seguro(n)
+
+
+def _pasta_cliente_saida(documento: dict[str, Any], base: Path | None = None) -> Path:
+    pasta = caminho_pasta_saida_cliente(documento, base)
     pasta.mkdir(parents=True, exist_ok=True)
     return pasta
+
+
+def remover_saida_relatorios_excel_cliente(documento: dict[str, Any]) -> None:
+    """Apaga a pasta de relatórios Excel gerados para o cliente (se existir)."""
+    pasta = caminho_pasta_saida_cliente(documento)
+    if pasta.is_dir():
+        shutil.rmtree(pasta)
+    pasta_contratante = pasta.parent
+    if (
+        pasta_contratante.is_dir()
+        and pasta_contratante != PASTA_SAIDA_RELATORIOS_EXCEL
+        and not any(pasta_contratante.iterdir())
+    ):
+        pasta_contratante.rmdir()
 
 
 def _hhmm_para_time(texto: str) -> time | None:

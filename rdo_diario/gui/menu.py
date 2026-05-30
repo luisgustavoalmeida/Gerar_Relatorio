@@ -53,14 +53,24 @@ class MixinMenu:
             command=self._abrir_dialogo_novo_cliente,
         )
         menu_arquivo.add_command(
-            label="Gerar Excel (RDO/FT)",
-            command=self._gerar_relatorios_excel,
-        )
-        menu_arquivo.add_separator()
-        menu_arquivo.add_command(
             label="Limpar informações do dia em edição",
             command=self._limpar_informacoes_dia_em_edicao,
         )
+        menu_arquivo.add_command(
+            label="Excluir cliente",
+            command=self._excluir_cliente_atual,
+        )
+
+        menu_arquivo.add_separator()
+        menu_arquivo.add_command(
+            label="Gerar Excel (RDO/FT)",
+            command=self._gerar_relatorios_excel,
+        )
+        menu_arquivo.add_command(
+            label="Abrir pasta relatórios",
+            command=self._abrir_pasta_relatorios,
+        )
+
         menu_arquivo.add_separator()
         menu_arquivo.add_command(
             label="Salvar modelo de cabeçalho",
@@ -70,11 +80,8 @@ class MixinMenu:
             label="Carregar modelo de cabeçalho",
             command=self._carregar_modelo_cabecalho,
         )
+
         menu_arquivo.add_separator()
-        menu_arquivo.add_command(
-            label="Abrir pasta relatórios",
-            command=self._abrir_pasta_relatorios,
-        )
         menu_arquivo.add_command(
             label="Abrir Templates",
             command=self._abrir_pasta_templates,
@@ -111,6 +118,7 @@ class MixinMenu:
             label="Copiar relatório detalhado do mês (métricas)",
             command=self._copiar_relatorio_metricas_mes,
         )
+
         menu_horas.add_separator()
         menu_horas.add_command(
             label="Abrir pasta do arquivo de regras",

@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
+import tkinter as tk
 from datetime import date
+from tkinter import ttk
 from typing import TYPE_CHECKING, Any
 
-import tkinter as tk
-from tkinter import ttk
 from tkcalendar import Calendar
 
 from rdo_diario.calculo_metricas_horas import (
@@ -17,7 +17,6 @@ from rdo_diario.calculo_metricas_horas import (
 from rdo_diario.config_horas import conjunto_feriados_iso_para_ano
 from rdo_diario.horario_util import formatar_minutos_como_texto
 from rdo_diario.schema import (
-    descricao_estado_essencial_calendario,
     estado_informacoes_essenciais_dia,
     nome_dia_semana_portugues,
     registro_de_dia_possui_conteudo,
@@ -25,32 +24,6 @@ from rdo_diario.schema import (
 
 if TYPE_CHECKING:
     from rdo_diario.gui.app import AplicacaoRdo
-
-
-# Patch para corrigir bug em tkcalendar 1.5.0: KeyError em tooltip quando widgets são recriados
-def _patch_tkcalendar_tooltip() -> None:
-    """
-    Corrige KeyError em tkcalendar.tooltip.TooltipWrapper.display_tooltip quando tentando
-    acessar widget que não existe mais no dicionário interno durante renderização de calendário.
-    """
-    try:
-        from tkcalendar import tooltip as tkcal_tooltip
-
-        if hasattr(tkcal_tooltip, "TooltipWrapper"):
-            original_display = tkcal_tooltip.TooltipWrapper.display_tooltip
-
-            def patched_display(self: Any) -> None:
-                try:
-                    original_display(self)
-                except KeyError:
-                    pass
-
-            tkcal_tooltip.TooltipWrapper.display_tooltip = patched_display
-    except Exception:
-        pass
-
-
-_patch_tkcalendar_tooltip()
 
 
 TAG_CAL_VM_DU = "cal_vm_du"
@@ -112,8 +85,6 @@ class CalendarRdo(Calendar):
     ``we_om``, senão interpreta o dia no mês visível errado.
 
     A data efetiva da célula é obtida pela mesma grelha que o desenho do mês (``monthdatescalendar``).
-
-    Também corrige KeyError em tooltips quando widgets são recriados durante renderização.
     """
 
     def _on_click(self, event: tk.Event) -> None:  # type: ignore[override]
@@ -162,6 +133,29 @@ class CalendarRdo(Calendar):
         Calendar._on_click(self, event)
 
 
+def _desativar_tooltips_calendario(cal: Calendar) -> None:
+    """Desliga balões do tkcalendar (só usamos ``calevent`` para cores)."""
+    tw = cal.tooltip_wrapper
+
+    def _ignorar(_widget: tk.Widget, _text: str = "") -> None:
+        pass
+
+    def _limpar_vinculos() -> None:
+        tw.widgets.clear()
+        tw.bind_enter_ids.clear()
+        tw.bind_leave_ids.clear()
+        try:
+            tw.tooltip.withdraw()
+        except tk.TclError:
+            pass
+
+    tw.add_tooltip = _ignorar  # type: ignore[method-assign]
+    tw.set_tooltip_text = _ignorar  # type: ignore[method-assign]
+    tw.remove_all = _limpar_vinculos  # type: ignore[method-assign]
+    tw.remove_tooltip = _ignorar  # type: ignore[method-assign]
+    tw.display_tooltip = lambda: None  # type: ignore[method-assign]
+
+
 def criar_widget_calendario(pai: tk.Misc, *, compacto: bool = False) -> CalendarRdo:
     """
     Instancia o calendário (subclasse que corrige clique em dias de outros meses).
@@ -178,9 +172,11 @@ def criar_widget_calendario(pai: tk.Misc, *, compacto: bool = False) -> Calendar
         "selectforeground": "#ffffff",
     }
     try:
-        return CalendarRdo(pai, locale="pt_BR", **argumentos)
+        cal = CalendarRdo(pai, locale="pt_BR", **argumentos)
     except Exception:
-        return CalendarRdo(pai, **argumentos)
+        cal = CalendarRdo(pai, **argumentos)
+    _desativar_tooltips_calendario(cal)
+    return cal
 
 
 def _configurar_tags_destaque_vermelho(cal: Calendar) -> None:
@@ -237,12 +233,6 @@ def _tag_destaque_vermelho_para_data(
     return TAG_CAL_VM_DU
 
 
-def _texto_tooltip_destaque_calendario(d: date) -> str:
-    if d.weekday() >= 5:
-        return "Feriado (fim de semana)"
-    return "Feriado"
-
-
 class MixinCalendario:
     """Marcação de dias, seleção de data e painel de métricas sob o calendário."""
 
@@ -267,9 +257,9 @@ class MixinCalendario:
             moldura_cal,
             text=(
                 "Selecione uma data para visualizar / editar.\n"
-                "Verde = registro de serviço e horários válidos (entrada e saída).\n"
-                "Laranja = incompleto ou horários inválidos.\n"
                 "Azul = data em edição.\n"
+                "Verde = registro de serviço e horários válidos.\n"
+                "Laranja = incompleto ou horários inválidos.\n"
                 "Vermelho = feriado nacional.\n"
             ),
             font=("Segoe UI", 8),
@@ -535,23 +525,11 @@ class MixinCalendario:
                 d, ano_vis, mes_vis, estado, feriados_iso
             )
             if tag_vm:
-                cal.calevent_create(
-                    d,
-                    _texto_tooltip_destaque_calendario(d),
-                    tag_vm,
-                )
+                cal.calevent_create(d, "", tag_vm)
             elif estado == "completo" and self._documento_atual:
-                cal.calevent_create(
-                    d,
-                    descricao_estado_essencial_calendario(registro_dia),
-                    self.TAG_EVENTO_DIA_PREENCHIDO,
-                )
+                cal.calevent_create(d, "", self.TAG_EVENTO_DIA_PREENCHIDO)
             elif estado == "parcial" and self._documento_atual:
-                cal.calevent_create(
-                    d,
-                    descricao_estado_essencial_calendario(registro_dia),
-                    self.TAG_EVENTO_DIA_PARCIAL,
-                )
+                cal.calevent_create(d, "", self.TAG_EVENTO_DIA_PARCIAL)
         try:
             cal._display_calendar()
         except (tk.TclError, AttributeError):
