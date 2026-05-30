@@ -39,7 +39,9 @@
       "nome_funcionario": "J2",
       "contratante": "C3",
       "empreendimento": "C4",
-      "natureza_servico": "F5"
+      "natureza_servico": "F5",
+      "cidade": "O4",
+      "estado": "R4"
     },
     "data_mes_referencia_celula": "A8",
     "primeira_linha_dia": 10,
