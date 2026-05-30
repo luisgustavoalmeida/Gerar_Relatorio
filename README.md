@@ -33,6 +33,14 @@ Aplicação desktop para registo de atividades diárias em projetos de engenhari
 - **Auto-save:** gravação automática cerca de **1,2 s** após parar de digitar
 - **Validação em tempo real:** formatação de horários (`0830` → `08:30`) e indicação visual de dias incompletos ou inválidos
 
+![Aba Cabeçalhos — campos reutilizáveis para RDO e FT](Imagens%20Interface/Cabe%C3%A7alhos.png)
+
+*Aba **Cabeçalhos** — informações reutilizáveis para as planilhas RDO e FT.*
+
+![Aba Relatórios de trabalho — formulário diário, calendário e métricas](Imagens%20Interface/Relat%C3%B3rios.png)
+
+*Aba **Relatórios de trabalho** — registo diário, horários de ponto, calendário com código de cores e métricas mensais.*
+
 #### Cores do calendário
 
 | Cor | Significado |
