@@ -1,8 +1,15 @@
 # Interface e calendário
+customtkinter>=5.2.2
 tkcalendar>=1.6.1
 
 # Feriados nacionais do Brasil (sincronização em config_regras_horas.json)
 holidays>=0.57
 
-# Para etapa futura: gerar Excel a partir do JSON
-openpyxl>=3.1.0
+# Exportação Excel (RDO e Folha de Tempo)
+openpyxl>=3.1.5
+
+# Compilação do executável Windows (.exe)
+pyinstaller>=6.20.0
+
+# Ícone multi-tamanho para o Explorer (build_resources/preparar_icone.py)
+pillow>=10.0.0

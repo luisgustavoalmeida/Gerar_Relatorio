@@ -6,8 +6,10 @@ import json
 import tkinter as tk
 from datetime import date, datetime
 from pathlib import Path
-from tkinter import messagebox, ttk
+from tkinter import messagebox
 from typing import Any
+
+import customtkinter as ctk
 
 from rdo_diario.config_horas import (
     carregar_config_regras_horas,
@@ -22,11 +24,43 @@ from rdo_diario.gui.calendario import MixinCalendario
 from rdo_diario.gui.formulario_dia import MixinFormularioDia
 from rdo_diario.gui.menu import MixinMenu
 from rdo_diario.gui.ortografia import MixinOrtografia
+from rdo_diario.gui.combo_suspenso import configurar_combo_ctk_aprimorado
+from rdo_diario.gui.icone_janela import aplicar_icone_janela, preparar_icone_processo_windows
+from rdo_diario.gui.tema import (
+    COR_BORDA,
+    COR_FUNDO,
+    COR_FUNDO_CARD,
+    COR_FUNDO_SECUNDARIO,
+    COR_TEXTO,
+    COR_TEXTO_SECUNDARIO,
+    FONT_DICA_ABA,
+    FONT_CONTAGEM_MES,
+    FONT_DATA_SELECIONADA,
+    FONT_INTERFACE,
+    FONT_METRICAS,
+    ALTURA_JANELA,
+    LARGURA_JANELA,
+    RAIO_BORDA,
+    alternar_tema,
+    configurar_aparencia,
+    configurar_estilo_ttk,
+    forcar_redesenho_tema,
+    obter_cores_tema,
+    configurar_abas_tabview,
+    opcoes_tabview_ctk,
+    opcoes_combo_ctk,
+    opcoes_campo_entrada_ctk,
+    texto_interno_campo,
+)
 from rdo_diario.horario_util import (
     texto_duracao_permitido_na_digitacao,
     texto_horario_permitido_na_digitacao,
 )
-from rdo_diario.paths import ARQUIVO_MODELO_CABECALHO_JSON, PASTA_DADOS_RDO
+from rdo_diario.paths import (
+    ARQUIVO_MODELO_CABECALHO_JSON,
+    PASTA_DADOS_RDO,
+    garantir_pastas_executavel,
+)
 from rdo_diario.schema import (
     CAMPOS_JSON_CABECALHO,
     CHAVE_JSON_CONTRATANTE,
@@ -45,7 +79,7 @@ from rdo_diario.storage import (
 
 
 class AplicacaoRdo(
-    tk.Tk,
+    ctk.CTk,
     MixinMenu,
     MixinCalendario,
     MixinFormularioDia,
@@ -55,22 +89,25 @@ class AplicacaoRdo(
 
     def __init__(self) -> None:
         super().__init__()
+        aplicar_icone_janela(self)
+        configurar_estilo_ttk(self)
         self.title("Relatório de atividades diárias")
-        self.geometry("980x760")
-        self.minsize(720, 600)
+        self.geometry(f"{LARGURA_JANELA}x{ALTURA_JANELA}")
+        self.minsize(980, 600)
 
         self._documento_atual: dict[str, Any] | None = None
         self._caminho_arquivo_atual: Path | None = None
         self._data_em_edicao: date = date.today()
-        self._widgets_cabecalho: dict[str, ttk.Entry] = {}
-        self._widgets_campos_dia: dict[str, tk.Text] = {}
-        self._widgets_tempo_atividade: dict[str, ttk.Entry] = {}
-        self._widgets_horarios: dict[str, ttk.Entry] = {}
+        self._widgets_cabecalho: dict[str, ctk.CTkEntry] = {}
+        self._widgets_campos_dia: dict[str, ctk.CTkTextbox] = {}
+        self._widgets_tempo_atividade: dict[str, ctk.CTkEntry] = {}
+        self._widgets_horarios: dict[str, ctk.CTkEntry] = {}
         self._id_agendamento_salvar: str | None = None
         self._widget_calendario = None
-        self._combo_selecao_cliente: ttk.Combobox | None = None
+        self._combo_selecao_cliente: ctk.CTkComboBox | None = None
         self._mapa_rotulo_para_caminho: dict[str, Path] = {}
         self._rotulo_texto_data = None
+        self._rotulo_data_atual = None
         self._rotulo_contagem_mes = None
         self._comando_validacao_entrada_hora = None
         self._comando_validacao_entrada_duracao = None
@@ -81,6 +118,9 @@ class AplicacaoRdo(
         self._config_regras_horas: dict[str, Any] = carregar_config_regras_horas()
         self._rotulo_metricas_dia = None
         self._rotulo_metricas_mes = None
+        self._barra_cliente: ctk.CTkFrame | None = None
+        self._rotulo_barra_cliente: ctk.CTkLabel | None = None
+        self._tabview: ctk.CTkTabview | None = None
 
         self._montar_barra_menu()
         self._montar_barra_cliente()
@@ -95,51 +135,138 @@ class AplicacaoRdo(
         self.protocol("WM_DELETE_WINDOW", self._ao_fechar_janela)
         self.after(200, self._inicializar_apos_abrir)
 
+    def refresh_apos_tema(self) -> None:
+        """Atualiza widgets ttk/tk embutidos após troca claro/escuro."""
+        configurar_estilo_ttk(self)
+        self._atualizar_barra_menu_tema()
+        self._atualizar_barra_cliente_tema()
+        cores = obter_cores_tema()
+        for texto in self._widgets_campos_dia.values():
+            texto.configure(
+                border_color=COR_BORDA,
+                fg_color=COR_FUNDO_CARD,
+                text_color=COR_TEXTO,
+            )
+            texto_interno_campo(texto).tag_configure(
+                self.TAG_ERRO_ORTOGRAFIA,
+                foreground=cores["erro"],
+            )
+        for entrada in (
+            *self._widgets_horarios.values(),
+            *self._widgets_tempo_atividade.values(),
+            *self._widgets_cabecalho.values(),
+        ):
+            entrada.configure(
+                border_color=COR_BORDA,
+                fg_color=COR_FUNDO_CARD,
+                text_color=COR_TEXTO,
+            )
+        if self._rotulo_texto_data is not None:
+            self._rotulo_texto_data.configure(font=FONT_DATA_SELECIONADA, text_color=COR_TEXTO)
+        if self._rotulo_data_atual is not None:
+            self._rotulo_data_atual.configure(font=FONT_DATA_SELECIONADA, text_color=COR_TEXTO)
+        if self._rotulo_contagem_mes is not None:
+            self._rotulo_contagem_mes.configure(
+                font=FONT_CONTAGEM_MES,
+                text_color=COR_TEXTO_SECUNDARIO,
+            )
+        if self._rotulo_metricas_dia is not None:
+            self._rotulo_metricas_dia.configure(font=FONT_METRICAS, text_color=COR_TEXTO)
+        if self._rotulo_metricas_mes is not None:
+            self._rotulo_metricas_mes.configure(font=FONT_METRICAS, text_color=COR_TEXTO)
+        if self._widget_calendario:
+            from rdo_diario.gui.calendario import aplicar_cores_tema_calendario
+
+            aplicar_cores_tema_calendario(self._widget_calendario, compacto=True)
+            self._atualizar_marcadores_calendario()
+        if self._tabview is not None:
+            self._tabview.configure(**opcoes_tabview_ctk())
+            configurar_abas_tabview(self._tabview)
+
+    def _alternar_tema_aplicacao(self) -> None:
+        alternar_tema()
+        forcar_redesenho_tema(self)
+
     def _montar_barra_cliente(self) -> None:
         """Barra superior: seleção de cliente (contratante + natureza)."""
-        barra = ttk.Frame(self, padding=6)
-        barra.pack(fill=tk.X)
-        ttk.Label(barra, text="Cliente (contratante + natureza):").pack(side=tk.LEFT, padx=(0, 6))
-        self._combo_selecao_cliente = ttk.Combobox(barra, width=70, state="readonly")
-        self._combo_selecao_cliente.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=4)
-        self._combo_selecao_cliente.bind("<<ComboboxSelected>>", self._ao_trocar_cliente_combo)
+        self._barra_cliente = ctk.CTkFrame(
+            self,
+            fg_color=COR_FUNDO_SECUNDARIO,
+            corner_radius=0,
+        )
+        self._barra_cliente.pack(fill="x", padx=0, pady=0)
+        conteudo = ctk.CTkFrame(self._barra_cliente, fg_color="transparent")
+        conteudo.pack(fill="x", padx=8, pady=8)
+        self._rotulo_barra_cliente = ctk.CTkLabel(
+            conteudo,
+            text="Cliente (contratante + natureza):",
+            font=FONT_INTERFACE,
+        )
+        self._rotulo_barra_cliente.pack(side="left", padx=(0, 6))
+        self._combo_selecao_cliente = ctk.CTkComboBox(
+            conteudo,
+            state="readonly",
+            command=self._ao_trocar_cliente_combo,
+            **opcoes_combo_ctk(largura=520),
+        )
+        configurar_combo_ctk_aprimorado(self._combo_selecao_cliente)
+        self._combo_selecao_cliente.pack(side="left", fill="x", expand=True, padx=4)
+
+    def _atualizar_barra_cliente_tema(self) -> None:
+        if self._barra_cliente is not None:
+            self._barra_cliente.configure(fg_color=COR_FUNDO_SECUNDARIO)
+        if self._combo_selecao_cliente is not None:
+            self._combo_selecao_cliente.configure(**opcoes_combo_ctk(largura=520))
+            self._combo_selecao_cliente.update()
 
     def _montar_corpo_janela(self) -> None:
         """Abas «Dados fixos» e «Relatórios», com calendário na segunda."""
-        notebook = ttk.Notebook(self)
-        notebook.pack(fill=tk.BOTH, expand=True, padx=6, pady=6)
+        self._tabview = ctk.CTkTabview(self, **opcoes_tabview_ctk())
+        self._tabview.pack(fill="both", expand=True, padx=8, pady=(0, 8))
 
-        aba_cabecalho = ttk.Frame(notebook)
-        aba_registros = ttk.Frame(notebook)
-        notebook.add(aba_cabecalho, text="Cabeçalhos")
-        notebook.add(aba_registros, text="Relatórios de trabalho")
+        self._tabview.add("Cabeçalhos")
+        self._tabview.add("Relatórios de trabalho")
+        configurar_abas_tabview(self._tabview)
+        aba_cabecalho = self._tabview.tab("Cabeçalhos")
+        aba_registros = self._tabview.tab("Relatórios de trabalho")
 
-        dica_cab = ttk.Label(
+        dica_cab = ctk.CTkLabel(
             aba_cabecalho,
-            text="Informações destinadas ao cabeçalhos das planilha (RDO e FT).",
+            text="Informações destinadas aos cabeçalhos das planilhas (RDO e FT).",
+            font=FONT_DICA_ABA,
+            text_color=COR_TEXTO_SECUNDARIO,
             wraplength=800,
+            justify="left",
         )
-        dica_cab.pack(fill=tk.X, padx=8, pady=(8, 4))
-        area_rolavel = self._criar_area_com_rolagem(aba_cabecalho)
-        form_cab = ttk.Frame(area_rolavel, padding=12)
-        form_cab.pack(fill=tk.BOTH, expand=True)
+        dica_cab.pack(fill="x", padx=8, pady=(8, 4))
+        area_rolavel = ctk.CTkScrollableFrame(
+            aba_cabecalho,
+            fg_color=COR_FUNDO,
+            corner_radius=RAIO_BORDA,
+        )
+        area_rolavel.pack(fill="both", expand=True, padx=8, pady=(0, 8))
+        form_cab = ctk.CTkFrame(area_rolavel, fg_color="transparent")
+        form_cab.pack(fill="both", expand=True, padx=4, pady=4)
         for indice, campo in enumerate(CAMPOS_JSON_CABECALHO):
-            ttk.Label(form_cab, text=ROTULOS_CABECALHO[campo] + ":").grid(
-                row=indice, column=0, sticky=tk.NW, pady=4, padx=(0, 10)
+            ctk.CTkLabel(form_cab, text=ROTULOS_CABECALHO[campo] + ":", anchor="w", font=FONT_INTERFACE).grid(
+                row=indice, column=0, sticky="nw", pady=6, padx=(0, 10)
             )
-            entrada = ttk.Entry(form_cab, width=70)
-            entrada.grid(row=indice, column=1, sticky=tk.EW, pady=4)
+            entrada = ctk.CTkEntry(form_cab, width=480, **opcoes_campo_entrada_ctk())
+            entrada.grid(row=indice, column=1, sticky="ew", pady=6)
             entrada.bind("<KeyRelease>", self._agendar_salvamento_automatico)
             self._widgets_cabecalho[campo] = entrada
         form_cab.columnconfigure(1, weight=1)
 
-        painel = ttk.PanedWindow(aba_registros, orient=tk.HORIZONTAL)
-        painel.pack(fill=tk.BOTH, expand=True, padx=4, pady=8)
+        painel = ctk.CTkFrame(aba_registros, fg_color="transparent")
+        painel.pack(fill="both", expand=True, padx=4, pady=8)
+        painel.grid_columnconfigure(0, weight=4)
+        painel.grid_columnconfigure(1, weight=0)
+        painel.grid_rowconfigure(0, weight=1)
 
-        coluna_formulario = ttk.Frame(painel)
-        coluna_calendario = ttk.Frame(painel, width=260)
-        painel.add(coluna_formulario, weight=4)
-        painel.add(coluna_calendario, weight=0)
+        coluna_formulario = ctk.CTkFrame(painel, fg_color="transparent")
+        coluna_calendario = ctk.CTkFrame(painel, fg_color="transparent", width=280)
+        coluna_formulario.grid(row=0, column=0, sticky="nsew", padx=(0, 8))
+        coluna_calendario.grid(row=0, column=1, sticky="n")
 
         self._montar_coluna_formulario_dia(coluna_formulario)
         self._montar_coluna_calendario(coluna_calendario)
@@ -186,7 +313,7 @@ class AplicacaoRdo(
             rotulos.append(rotulo)
             self._mapa_rotulo_para_caminho[rotulo] = caminho
         if self._combo_selecao_cliente:
-            self._combo_selecao_cliente["values"] = rotulos
+            self._combo_selecao_cliente.configure(values=rotulos if rotulos else [""])
 
     def _marcar_combo_cliente_atual(self, documento: dict[str, Any]) -> None:
         """Seleciona no combo o item correspondente ao documento carregado."""
@@ -194,10 +321,10 @@ class AplicacaoRdo(
         c = str(chave.get(CHAVE_JSON_CONTRATANTE, "")).strip()
         n = str(chave.get(CHAVE_JSON_NATUREZA_SERVICO, "")).strip()
         rotulo = f"{c} — {n}" if c and n else (c or n)
-        if self._combo_selecao_cliente and rotulo in self._combo_selecao_cliente["values"]:
+        if self._combo_selecao_cliente and rotulo in (self._combo_selecao_cliente.cget("values") or ()):
             self._combo_selecao_cliente.set(rotulo)
 
-    def _ao_trocar_cliente_combo(self, _evento: tk.Event | None = None) -> None:
+    def _ao_trocar_cliente_combo(self, _valor: str | None = None) -> None:
         """Troca de cliente: grava o dia atual, abre o novo JSON e recarrega o formulário."""
         if not self._combo_selecao_cliente:
             return
@@ -222,18 +349,19 @@ class AplicacaoRdo(
 
     def _abrir_dialogo_novo_cliente(self) -> None:
         """Diálogo modal para criar contratante + natureza e abrir o ficheiro novo."""
-        topo = tk.Toplevel(self)
+        topo = ctk.CTkToplevel(self)
         topo.title("Novo cliente")
         topo.transient(self)
         topo.grab_set()
-        ttk.Label(topo, text="Contratante (chave):").grid(row=0, column=0, sticky=tk.W, padx=8, pady=6)
-        entrada_contratante = ttk.Entry(topo, width=48)
-        entrada_contratante.grid(row=0, column=1, padx=8, pady=6)
-        ttk.Label(topo, text="Natureza do serviço (chave):").grid(
-            row=1, column=0, sticky=tk.W, padx=8, pady=6
+        topo.geometry("520x200")
+        ctk.CTkLabel(topo, text="Contratante (chave):").grid(row=0, column=0, sticky="w", padx=12, pady=8)
+        entrada_contratante = ctk.CTkEntry(topo, width=320)
+        entrada_contratante.grid(row=0, column=1, padx=12, pady=8)
+        ctk.CTkLabel(topo, text="Natureza do serviço (chave):").grid(
+            row=1, column=0, sticky="w", padx=12, pady=8
         )
-        entrada_natureza = ttk.Entry(topo, width=48)
-        entrada_natureza.grid(row=1, column=1, padx=8, pady=6)
+        entrada_natureza = ctk.CTkEntry(topo, width=320)
+        entrada_natureza.grid(row=1, column=1, padx=12, pady=8)
 
         def confirmar() -> None:
             c = entrada_contratante.get().strip()
@@ -256,8 +384,8 @@ class AplicacaoRdo(
             self._atualizar_marcadores_calendario()
             topo.destroy()
 
-        ttk.Button(topo, text="Criar e abrir", command=confirmar).grid(
-            row=2, column=0, columnspan=2, pady=12
+        ctk.CTkButton(topo, text="Criar e abrir", command=confirmar).grid(
+            row=2, column=0, columnspan=2, pady=16
         )
 
     def _excluir_cliente_atual(self) -> None:
@@ -328,10 +456,10 @@ class AplicacaoRdo(
             if self._combo_selecao_cliente:
                 self._combo_selecao_cliente.set("")
             for widget in self._widgets_cabecalho.values():
-                widget.delete(0, tk.END)
+                widget.delete(0, "end")
             self._preencher_formulario_com_registro_dia({})
             for widget in self._widgets_horarios.values():
-                widget.delete(0, tk.END)
+                widget.delete(0, "end")
             self._atualizar_rotulo_jornada_liquida()
             self._atualizar_rotulo_contagem_relatorios_mes()
 
@@ -352,7 +480,7 @@ class AplicacaoRdo(
             return
         cabecalho = self._documento_atual.get("cabecalho_fixo") or {}
         for campo, widget in self._widgets_cabecalho.items():
-            widget.delete(0, tk.END)
+            widget.delete(0, "end")
             widget.insert(0, str(cabecalho.get(campo, "") or ""))
 
     def _copiar_cabecalho_formulario_para_documento(self) -> None:
@@ -468,7 +596,7 @@ class AplicacaoRdo(
 
         for campo, widget in self._widgets_cabecalho.items():
             valor = str(modelo.get(campo, "") or "")
-            widget.delete(0, tk.END)
+            widget.delete(0, "end")
             widget.insert(0, valor)
 
         if self._documento_atual:
@@ -521,6 +649,9 @@ class AplicacaoRdo(
 
 def iniciar_aplicacao() -> None:
     """Garante a pasta de dados e abre a janela principal."""
+    preparar_icone_processo_windows()
+    garantir_pastas_executavel()
+    configurar_aparencia()
     PASTA_DADOS_RDO.mkdir(parents=True, exist_ok=True)
     garantir_arquivo_config_regras_existe()
     app = AplicacaoRdo()

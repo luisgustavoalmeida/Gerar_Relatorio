@@ -1,88 +1,66 @@
 @echo off
-REM ============================================================================
-REM Script SIMPLIFICADO para testar onde está fechando
-REM ============================================================================
-
-cd /d "%~dp0"
 chcp 65001 >nul
 setlocal enabledelayedexpansion
+cd /d "%~dp0"
 
-title Gerar Relatório RDO - TESTE SIMPLES
+title Gerar Relatório RDO - Instalação
 
-cls
 echo.
 echo ===============================================================
-echo   Gerar Relatório RDO - TESTE SIMPLES (SEM TIMEOUTS)
+echo   Gerar Relatório RDO - Instalação
 echo ===============================================================
 echo.
 
-echo ✓ Verificando Python...
-python --version
+python --version >nul 2>&1
 if errorlevel 1 (
-    echo ❌ ERRO: Python não encontrado
+    echo ERRO: Python nao encontrado.
+    echo Instale Python 3.12+ de https://www.python.org/
     pause
     exit /b 1
 )
-echo ✓ Python OK
-pause
 
-echo ✓ Verificando .venv...
+echo Python encontrado:
+python --version
+echo.
+
 if not exist ".venv" (
-    echo ⏳ Criando .venv...
+    echo Criando ambiente virtual...
     python -m venv .venv
     if errorlevel 1 (
-        echo ❌ ERRO: Falha ao criar .venv
+        echo ERRO: Falha ao criar .venv
         pause
         exit /b 1
     )
+    echo Ambiente virtual criado.
+) else (
+    echo Ambiente virtual ja existe.
 )
-echo ✓ .venv OK
-pause
-
-echo ✓ Ativando ambiente virtual...
-call .venv\Scripts\activate.bat
-if errorlevel 1 (
-    echo ❌ ERRO: Falha ao ativar
-    pause
-    exit /b 1
-)
-echo ✓ Ambiente ativado
-pause
-
-echo ✓ Atualizando pip...
-python -m pip install --upgrade pip --quiet
-echo ✓ pip OK
-pause
-
-echo ✓ Instalando dependências...
-pip install -r requirements.txt
-if errorlevel 1 (
-    echo ❌ ERRO: Falha ao instalar dependências
-    pause
-    exit /b 1
-)
-echo ✓ Dependências OK
-pause
-
-echo ✓ Verificando main.py...
-if not exist "main.py" (
-    echo ❌ ERRO: main.py não encontrado
-    pause
-    exit /b 1
-)
-echo ✓ main.py OK
-pause
-
-echo ✓ Todas as verificações passaram!
 echo.
-echo Pressione qualquer tecla para iniciar a aplicação...
-pause
 
-python main.py
+set "PY=%~dp0.venv\Scripts\python.exe"
+if not exist "%PY%" (
+    echo ERRO: %PY% nao encontrado.
+    pause
+    exit /b 1
+)
 
-set ERRO=%errorlevel%
+echo Atualizando pip...
+"%PY%" -m pip install --upgrade pip --quiet
 echo.
-echo Aplicação finalizada com código: %ERRO%
-pause
-exit /b %ERRO%
 
+echo Instalando dependencias...
+"%PY%" -m pip install -r requirements.txt
+if errorlevel 1 (
+    echo ERRO: Falha ao instalar dependencias.
+    pause
+    exit /b 1
+)
+echo.
+
+echo ===============================================================
+echo Instalacao concluida. Iniciando a aplicacao...
+echo ===============================================================
+echo.
+
+"%PY%" main.py
+exit /b %errorlevel%

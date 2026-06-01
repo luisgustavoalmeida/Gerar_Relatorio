@@ -21,7 +21,7 @@ pip install pyinstaller
 echo.
 echo ========================================
 echo Instalação concluída!
-echo Agora você pode executar: compilar_exe.bat
+echo Agora voce pode executar: compilar.bat ou executar.bat
 echo ========================================
 pause
 

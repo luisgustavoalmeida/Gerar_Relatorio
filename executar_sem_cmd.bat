@@ -7,11 +7,6 @@ if not exist ".venv" (
     exit /b 1
 )
 
-REM Executar via PowerShell (sem janela visível)
+REM Executar via PowerShell (sem janela cmd visível)
 powershell -WindowStyle Hidden -Command "& '.\executar.bat'"
-
-REM Se PowerShell não funcionar, tentar alternativa
-if errorlevel 1 (
-    cscript.exe executar_silencioso.vbs
-)
 

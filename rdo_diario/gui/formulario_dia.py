@@ -2,18 +2,36 @@
 
 from __future__ import annotations
 
-from datetime import date
 import tkinter as tk
-from tkinter import messagebox, ttk
+from datetime import date
+from tkinter import messagebox
 from typing import TYPE_CHECKING, Any
 
+import customtkinter as ctk
+
 from rdo_diario.calculo_metricas_horas import calcular_metricas_horas_para_dia
+from rdo_diario.gui.tema import (
+    COR_TEXTO_SECUNDARIO,
+    FONT_CONTAGEM_MES,
+    FONT_DATA_SELECIONADA,
+    FONT_GRUPO,
+    FONT_INTERFACE,
+    aplicar_validacao_entrada_ctk,
+    criar_painel_ctk_com_titulo,
+    icursor_fim_entrada_ctk,
+    obter_cores_tema,
+    opcoes_caixa_texto_ctk,
+    opcoes_campo_entrada_ctk,
+    resolver_entrada_ctk,
+    texto_interno_campo,
+)
 from rdo_diario.horario_util import (
     normalizar_duracao_hhmm,
     normalizar_texto_horario,
 )
 from rdo_diario.schema import (
     CAMPOS_JSON_DESLOCAMENTO,
+    CAMPOS_JSON_HORARIOS,
     CAMPOS_JSON_PONTO,
     CAMPOS_JSON_TEXTO_DIA,
     CHAVE_JSON_BATIDAS_PONTO,
@@ -32,15 +50,18 @@ from rdo_diario.schema import (
 if TYPE_CHECKING:
     from rdo_diario.gui.app import AplicacaoRdo
 
+_ALTURA_TEXTO_GRANDE = 200
+_ALTURA_TEXTO_PEQUENO = 56
+
 
 class MixinFormularioDia:
     """Campos de texto, horários e leitura/gravação do registro do dia."""
 
-    _widgets_campos_dia: dict[str, tk.Text]
-    _widgets_tempo_atividade: dict[str, ttk.Entry]
-    _widgets_horarios: dict[str, ttk.Entry]
-    _rotulo_texto_data: ttk.Label | None
-    _rotulo_contagem_mes: ttk.Label | None
+    _widgets_campos_dia: dict[str, ctk.CTkTextbox]
+    _widgets_tempo_atividade: dict[str, ctk.CTkEntry]
+    _widgets_horarios: dict[str, ctk.CTkEntry]
+    _rotulo_texto_data: ctk.CTkLabel | None
+    _rotulo_contagem_mes: ctk.CTkLabel | None
     _comando_validacao_entrada_hora: Any
     _comando_validacao_entrada_duracao: Any
     _data_em_edicao: date
@@ -49,130 +70,88 @@ class MixinFormularioDia:
     _id_agendamento_salvar: str | None
     TAG_ERRO_ORTOGRAFIA: str
 
-    def _criar_area_com_rolagem(self, pai: tk.Widget) -> ttk.Frame:
-        """
-        Devolve um `Frame` interior com scroll vertical; útil para formulários longos.
-        """
-        externo = ttk.Frame(pai)
-        externo.pack(fill=tk.BOTH, expand=True)
-        tela = tk.Canvas(externo, highlightthickness=0)
-        barra = ttk.Scrollbar(externo, orient=tk.VERTICAL, command=tela.yview)
-        interior = ttk.Frame(tela)
-        interior.bind(
-            "<Configure>",
-            lambda _e: tela.configure(scrollregion=tela.bbox("all")),
-        )
-        id_janela = tela.create_window((0, 0), window=interior, anchor="nw")
+    def _criar_grupo_ctk(self, pai: ctk.CTkBaseClass, titulo: str) -> tuple[ctk.CTkFrame, ctk.CTkFrame]:
+        return criar_painel_ctk_com_titulo(pai, titulo)
 
-        def _ajustar_largura(_evt: tk.Event | None = None) -> None:
-            tela.itemconfigure(id_janela, width=tela.winfo_width())
-
-        tela.bind("<Configure>", _ajustar_largura)
-        tela.configure(yscrollcommand=barra.set)
-        tela.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        barra.pack(side=tk.RIGHT, fill=tk.Y)
-
-        def _roda_mouse(evento: tk.Event) -> str:
-            tela.yview_scroll(int(-1 * (evento.delta / 120)), "units")
-            return "break"
-
-        tela.bind("<Enter>", lambda _e: tela.bind_all("<MouseWheel>", _roda_mouse))
-        tela.bind("<Leave>", lambda _e: tela.unbind_all("<MouseWheel>"))
-        return interior
-
-    def _criar_texto_multilinha_com_rolagem(
+    def _criar_texto_multilinha(
         self,
-        pai: tk.Widget,
+        pai: ctk.CTkBaseClass,
         *,
-        altura: int = 9,
+        altura_px: int = _ALTURA_TEXTO_GRANDE,
         expandir_verticalmente: bool = True,
-    ) -> tk.Text:
-        """
-        Caixa de texto com várias linhas, barra de rolagem vertical e roda do rato.
-
-        Se ``expandir_verticalmente`` for False, a moldura não compete por altura
-        (útil para campos baixos e deixar espaço para ponto / outros blocos).
-        """
-        moldura = ttk.Frame(pai)
+    ) -> ctk.CTkTextbox:
+        texto = ctk.CTkTextbox(pai, **opcoes_caixa_texto_ctk(altura_px=altura_px))
         if expandir_verticalmente:
-            moldura.pack(fill=tk.BOTH, expand=True, pady=2)
+            texto.pack(fill="both", expand=True, pady=4)
         else:
-            moldura.pack(fill=tk.X, expand=False, pady=2)
-        barra = ttk.Scrollbar(moldura)
-        texto = tk.Text(
-            moldura,
-            height=altura,
-            wrap=tk.WORD,
-            font=("Segoe UI", 10),
-            yscrollcommand=barra.set,
+            texto.pack(fill="x", expand=False, pady=4)
+
+        interno = texto_interno_campo(texto)
+        interno.tag_configure(
+            self.TAG_ERRO_ORTOGRAFIA,
+            foreground=obter_cores_tema()["erro"],
+            underline=True,
         )
-        barra.config(command=texto.yview)
-        barra.pack(side=tk.RIGHT, fill=tk.Y)
-        texto.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-
-        def _roda_em_texto(evento: tk.Event) -> str:
-            texto.yview_scroll(int(-1 * (evento.delta / 120)), "units")
-            return "break"
-
-        texto.bind("<Enter>", lambda _e: texto.bind_all("<MouseWheel>", _roda_em_texto))
-        texto.bind("<Leave>", lambda _e: texto.unbind_all("<MouseWheel>"))
-        texto.tag_configure(self.TAG_ERRO_ORTOGRAFIA, foreground="#cc0000", underline=True)
-        texto.bind(
+        interno.bind(
             "<KeyRelease>",
             lambda e, w=texto: self._ao_tecla_released_campo_relatorio(w, e),
         )
-        texto.bind("<Button-3>", lambda e, w=texto: self._menu_correcoes_ortografia(w, e))
-        texto.bind("<Control-Button-1>", lambda e, w=texto: self._menu_correcoes_ortografia(w, e))
+        interno.bind("<Button-3>", lambda e, w=texto: self._menu_correcoes_ortografia(w, e))
+        interno.bind(
+            "<Control-Button-1>",
+            lambda e, w=texto: self._menu_correcoes_ortografia(w, e),
+        )
         return texto
 
-    def _montar_linha_tempo_atividade(self, pai: tk.Widget, chave_json_tempo: str) -> None:
-        """Uma linha com rótulo e campo de duração (h:mm) para extra-escopo ou ociosidade."""
-        linha = ttk.Frame(pai)
-        linha.pack(fill=tk.X, pady=(2, 0))
+    def _montar_linha_tempo_atividade(self, pai: ctk.CTkBaseClass, chave_json_tempo: str) -> None:
+        linha = ctk.CTkFrame(pai, fg_color="transparent")
+        linha.pack(fill="x", pady=(4, 0))
         rotulo = ROTULOS_TEMPO_ATIVIDADE_DIA[chave_json_tempo]
-        ttk.Label(linha, text=rotulo + ":").pack(side=tk.LEFT, padx=(0, 6))
-        entrada = ttk.Entry(
-            linha,
-            width=10,
-            font=("Segoe UI", 10),
-            validate="key",
-            validatecommand=(self._comando_validacao_entrada_duracao, "%P"),
-        )
-        entrada.pack(side=tk.LEFT)
+        ctk.CTkLabel(linha, text=rotulo + ":", anchor="w", font=FONT_INTERFACE).pack(side="left", padx=(0, 6))
+        entrada = ctk.CTkEntry(linha, **opcoes_campo_entrada_ctk(largura=88))
+        entrada.pack(side="left")
+        aplicar_validacao_entrada_ctk(entrada, self._comando_validacao_entrada_duracao)
         entrada.bind("<KeyRelease>", self._ao_tecla_solta_campo_duracao)
-        entrada.bind("<FocusOut>", lambda e, w=entrada: self._ao_sair_foco_campo_duracao(w))
+        entrada.bind("<FocusOut>", lambda _e, w=entrada: self._ao_sair_foco_campo_duracao(w))
         self._widgets_tempo_atividade[chave_json_tempo] = entrada
 
-    def _montar_coluna_formulario_dia(self, coluna_formulario: ttk.Frame) -> None:
-        """Monta rótulos de data, campos de texto e bloco de horários do relatório diário."""
-        moldura_dia = ttk.LabelFrame(coluna_formulario, text="Relatório: ", padding=8)
-        moldura_dia.pack(fill=tk.BOTH, expand=True)
+    def _montar_coluna_formulario_dia(self, coluna_formulario: ctk.CTkBaseClass) -> None:
+        grupo_dia, moldura_dia = self._criar_grupo_ctk(coluna_formulario, "Relatório")
+        grupo_dia.pack(fill="both", expand=True)
 
-        linha_data = ttk.Frame(moldura_dia)
-        linha_data.pack(fill=tk.X, pady=(0, 6))
-        ttk.Label(linha_data, text="Data selecionada:").pack(side=tk.LEFT)
-        self._rotulo_texto_data = ttk.Label(linha_data, text="", font=("Segoe UI", 11, "bold"))
-        self._rotulo_texto_data.pack(side=tk.LEFT, padx=8)
-        self._rotulo_contagem_mes = ttk.Label(
+        linha_data = ctk.CTkFrame(moldura_dia, fg_color="transparent")
+        linha_data.pack(fill="x", pady=(0, 6))
+        ctk.CTkLabel(linha_data, text="Data selecionada:", anchor="w", font=FONT_INTERFACE).pack(side="left")
+        self._rotulo_texto_data = ctk.CTkLabel(
             linha_data,
             text="",
-            font=("Segoe UI", 10),
-            foreground="#333333",
+            font=FONT_DATA_SELECIONADA,
+            anchor="w",
         )
-        self._rotulo_contagem_mes.pack(side=tk.LEFT, padx=(12, 0))
+        self._rotulo_texto_data.pack(side="left", padx=8)
+        self._rotulo_contagem_mes = ctk.CTkLabel(
+            linha_data,
+            text="",
+            font=FONT_CONTAGEM_MES,
+            text_color=COR_TEXTO_SECUNDARIO,
+            anchor="w",
+        )
+        self._rotulo_contagem_mes.pack(side="left", padx=(12, 0))
 
-        campos = ttk.Frame(moldura_dia)
-        campos.pack(fill=tk.BOTH, expand=True)
+        campos = ctk.CTkFrame(moldura_dia, fg_color="transparent")
+        campos.pack(fill="both", expand=True)
         for campo in CAMPOS_JSON_TEXTO_DIA:
-            ttk.Label(campos, text=ROTULOS_TEXTO_DIA[campo] + ":").pack(anchor=tk.W, pady=(6, 0))
+            ctk.CTkLabel(campos, text=ROTULOS_TEXTO_DIA[campo] + ":", anchor="w", font=FONT_INTERFACE).pack(
+                anchor="w", pady=(8, 0)
+            )
             if campo in ("registro_extra_escopo", "registro_ociosidade"):
-                texto = self._criar_texto_multilinha_com_rolagem(
+                texto = self._criar_texto_multilinha(
                     campos,
-                    altura=2,
+                    altura_px=_ALTURA_TEXTO_PEQUENO,
                     expandir_verticalmente=False,
                 )
             else:
-                texto = self._criar_texto_multilinha_com_rolagem(campos, altura=9)
+                texto = self._criar_texto_multilinha(campos, altura_px=_ALTURA_TEXTO_GRANDE)
             self._widgets_campos_dia[campo] = texto
             if campo == "registro_extra_escopo":
                 self._montar_linha_tempo_atividade(campos, "tempo_extra_escopo")
@@ -181,54 +160,47 @@ class MixinFormularioDia:
 
         self._montar_secao_horarios(campos)
 
-    def _montar_secao_horarios(self, pai: tk.Widget) -> None:
-        """Bloco de horários: linha ponto, linha deslocamento, rótulo de jornada líquida."""
-        moldura = ttk.LabelFrame(
+    def _montar_secao_horarios(self, pai: ctk.CTkBaseClass) -> None:
+        grupo_horarios, moldura = self._criar_grupo_ctk(
             pai,
-            text="Horários — ponto e deslocamento (24h, HH:MM)",
-            padding=8,
+            "Horários — ponto e deslocamento (24h, HH:MM)",
         )
-        moldura.pack(fill=tk.X, pady=(14, 6))
+        grupo_horarios.pack(fill="x", pady=(14, 6))
 
-        def par_horario(linha: ttk.Frame, chave_campo: str) -> None:
-            bloco = ttk.Frame(linha)
-            bloco.pack(side=tk.LEFT, padx=(0, 16), pady=2)
-            ttk.Label(bloco, text=ROTULOS_HORARIO[chave_campo] + ":").pack(side=tk.LEFT, padx=(0, 4))
-            ent = ttk.Entry(
-                bloco,
-                width=6,
-                font=("Segoe UI", 10),
-                validate="key",
-                validatecommand=(self._comando_validacao_entrada_hora, "%P"),
+        def par_horario(linha: ctk.CTkFrame, chave_campo: str) -> None:
+            bloco = ctk.CTkFrame(linha, fg_color="transparent")
+            bloco.pack(side="left", padx=(0, 16), pady=2)
+            ctk.CTkLabel(bloco, text=ROTULOS_HORARIO[chave_campo] + ":", anchor="w", font=FONT_INTERFACE).pack(
+                side="left", padx=(0, 4)
             )
-            ent.pack(side=tk.LEFT)
+            ent = ctk.CTkEntry(bloco, **opcoes_campo_entrada_ctk(largura=72))
+            ent.pack(side="left")
+            aplicar_validacao_entrada_ctk(ent, self._comando_validacao_entrada_hora)
             ent.bind("<KeyRelease>", self._ao_tecla_solta_campo_hora)
-            ent.bind("<FocusOut>", lambda e, w=ent: self._ao_sair_foco_campo_hora(w))
+            ent.bind("<FocusOut>", lambda _e, w=ent: self._ao_sair_foco_campo_hora(w))
+            self._configurar_enter_proximo_campo_horario(ent, chave_campo)
             self._widgets_horarios[chave_campo] = ent
 
-        linha_ponto = ttk.Frame(moldura)
-        linha_ponto.pack(fill=tk.X)
-        ttk.Label(linha_ponto, text="Ponto:", font=("Segoe UI", 9, "bold")).pack(
-            side=tk.LEFT, padx=(0, 10)
+        linha_ponto = ctk.CTkFrame(moldura, fg_color="transparent")
+        linha_ponto.pack(fill="x")
+        ctk.CTkLabel(linha_ponto, text="Ponto:", font=FONT_GRUPO, anchor="w").pack(
+            side="left", padx=(0, 10)
         )
         for chave in CAMPOS_JSON_PONTO:
             par_horario(linha_ponto, chave)
 
-        linha_desloc = ttk.Frame(moldura)
-        linha_desloc.pack(fill=tk.X, pady=(6, 0))
-        ttk.Label(linha_desloc, text="Deslocamento:", font=("Segoe UI", 9, "bold")).pack(
-            side=tk.LEFT, padx=(0, 10)
-        )
+        linha_desloc = ctk.CTkFrame(moldura, fg_color="transparent")
+        linha_desloc.pack(fill="x", pady=(6, 0))
+        ctk.CTkLabel(
+            linha_desloc,
+            text="Deslocamento:",
+            font=FONT_GRUPO,
+            anchor="w",
+        ).pack(side="left", padx=(0, 10))
         for chave in CAMPOS_JSON_DESLOCAMENTO:
             par_horario(linha_desloc, chave)
 
-    def _aplicar_formatacao_campo_entrada(self, entrada: ttk.Entry, tipo: str = "horario") -> None:
-        """
-        Aplica formatação automática para horários ou durações.
-
-        tipo: "horario" (HH:MM) ou "duracao" (H:MM)
-        Insere ":" automaticamente após 4 dígitos.
-        """
+    def _aplicar_formatacao_campo_entrada(self, entrada: ctk.CTkEntry, tipo: str = "horario") -> None:
         texto = entrada.get()
         if ":" in texto:
             return
@@ -237,66 +209,68 @@ class MixinFormularioDia:
             normalizador = normalizar_texto_horario if tipo == "horario" else normalizar_duracao_hhmm
             normalizado = normalizador(digitos)
             if normalizado:
-                entrada.delete(0, tk.END)
+                entrada.delete(0, "end")
                 entrada.insert(0, normalizado)
-                entrada.icursor(tk.END)
+                icursor_fim_entrada_ctk(entrada)
 
-    def _normalizar_campo_entrada(self, entrada: ttk.Entry, tipo: str = "horario") -> None:
-        """
-        Normaliza campo ao sair (FocusOut).
-
-        tipo: "horario" (HH:MM) ou "duracao" (H:MM)
-        Garante que o valor está no formato correto.
-        """
+    def _normalizar_campo_entrada(self, entrada: ctk.CTkEntry, tipo: str = "horario") -> None:
         bruto = entrada.get().strip()
         if not bruto:
             return
         normalizador = normalizar_texto_horario if tipo == "horario" else normalizar_duracao_hhmm
         normalizado = normalizador(bruto)
         if normalizado != bruto or (bruto and not normalizado):
-            entrada.delete(0, tk.END)
+            entrada.delete(0, "end")
             if normalizado:
                 entrada.insert(0, normalizado)
 
+    def _configurar_enter_proximo_campo_horario(self, entrada: ctk.CTkEntry, chave_campo: str) -> None:
+        def ao_enter(_evento: tk.Event) -> str:
+            self._normalizar_campo_entrada(entrada, "horario")
+            self._atualizar_rotulo_jornada_liquida()
+            self._agendar_salvamento_automatico()
+            try:
+                indice = CAMPOS_JSON_HORARIOS.index(chave_campo)
+            except ValueError:
+                return "break"
+            if indice + 1 < len(CAMPOS_JSON_HORARIOS):
+                proximo = self._widgets_horarios.get(CAMPOS_JSON_HORARIOS[indice + 1])
+                if proximo is not None:
+                    proximo.focus_set()
+            return "break"
+
+        entrada.bind("<Return>", ao_enter)
+        entrada.bind("<KP_Enter>", ao_enter)
+
     def _ao_tecla_solta_campo_hora(self, evento: tk.Event) -> None:
-        """Após digitar hora: tenta inserir «:» após 4 dígitos, atualiza total e agenda save."""
-        widget = evento.widget
-        if isinstance(widget, ttk.Entry) and widget in self._widgets_horarios.values():
-            self.after_idle(lambda e=widget: self._aplicar_formatacao_campo_entrada(e, "horario"))
+        entrada = resolver_entrada_ctk(evento.widget, self._widgets_horarios)
+        if entrada is not None:
+            self.after_idle(lambda e=entrada: self._aplicar_formatacao_campo_entrada(e, "horario"))
         self._atualizar_rotulo_jornada_liquida()
         self._agendar_salvamento_automatico()
 
-    def _ao_sair_foco_campo_hora(self, entrada: ttk.Entry) -> None:
-        """Ao sair do campo, normaliza o valor e atualiza totais."""
+    def _ao_sair_foco_campo_hora(self, entrada: ctk.CTkEntry) -> None:
         self._normalizar_campo_entrada(entrada, "horario")
         self._atualizar_rotulo_jornada_liquida()
         self._agendar_salvamento_automatico()
 
     def _ao_tecla_solta_campo_duracao(self, evento: tk.Event) -> None:
-        """Normaliza duração após quatro dígitos (ex.: 0130 → 1:30) e agenda salvamento."""
-        widget = evento.widget
-        if isinstance(widget, ttk.Entry) and widget in self._widgets_tempo_atividade.values():
-            self.after_idle(lambda e=widget: self._aplicar_formatacao_campo_entrada(e, "duracao"))
+        entrada = resolver_entrada_ctk(evento.widget, self._widgets_tempo_atividade)
+        if entrada is not None:
+            self.after_idle(lambda e=entrada: self._aplicar_formatacao_campo_entrada(e, "duracao"))
         self._agendar_salvamento_automatico()
 
-    def _ao_sair_foco_campo_duracao(self, entrada: ttk.Entry) -> None:
-        """Ao sair do campo, aplica normalização de duração h:mm."""
+    def _ao_sair_foco_campo_duracao(self, entrada: ctk.CTkEntry) -> None:
         self._normalizar_campo_entrada(entrada, "duracao")
         self._agendar_salvamento_automatico()
 
     def _atualizar_rotulo_jornada_liquida(self) -> None:
-        """Mantém as métricas do painel do calendário sincronizadas com os horários digitados."""
         self._atualizar_painel_metricas_horas()
 
     def _payload_formulario_dia_sem_contagem_mes(self) -> dict[str, Any]:
-        """
-        Lê textos e horários do formulário do dia atual, sem ``numero``/``folha``.
-
-        Usado na contagem do mês para evitar recursão com o payload completo.
-        """
         saida: dict[str, Any] = {}
         for chave, widget in self._widgets_campos_dia.items():
-            saida[chave] = widget.get("1.0", tk.END).strip()
+            saida[chave] = widget.get("1.0", "end").strip()
         for chave, widget in self._widgets_tempo_atividade.items():
             bruto = widget.get().strip()
             saida[chave] = normalizar_duracao_hhmm(bruto) if bruto else ""
@@ -309,7 +283,6 @@ class MixinFormularioDia:
         return saida
 
     def _montar_dicionario_dia_desde_formulario(self: AplicacaoRdo) -> dict[str, Any]:
-        """Payload completo do dia para gravar no JSON, incluindo número e folha no mês."""
         saida = self._payload_formulario_dia_sem_contagem_mes()
         saida[CHAVE_JSON_METRICAS_HORAS] = calcular_metricas_horas_para_dia(
             self._data_em_edicao, saida, self._config_regras_horas
@@ -321,18 +294,16 @@ class MixinFormularioDia:
         return saida
 
     def _preencher_formulario_com_registro_dia(self, registro: dict[str, Any]) -> None:
-        """Preenche textos do dia a partir de um dicionário de registro."""
         for campo, widget in self._widgets_campos_dia.items():
             valor = str(registro.get(campo, "") or "")
-            widget.delete("1.0", tk.END)
+            widget.delete("1.0", "end")
             widget.insert("1.0", valor)
         for campo, widget in self._widgets_tempo_atividade.items():
-            widget.delete(0, tk.END)
+            widget.delete(0, "end")
             bruto = str(registro.get(campo, "") or "").strip()
             widget.insert(0, normalizar_duracao_hhmm(bruto) if bruto else "")
 
     def _carregar_registro_dia_no_formulario(self: AplicacaoRdo, dia: date) -> None:
-        """Carrega o registro ISO do dia nos widgets (texto + horários normalizados)."""
         if not self._documento_atual:
             return
         iso = dia.isoformat()
@@ -342,7 +313,7 @@ class MixinFormularioDia:
         self._preencher_formulario_com_registro_dia(registro)
         horarios = extrair_horarios_do_registro_dia(registro)
         for campo, widget in self._widgets_horarios.items():
-            widget.delete(0, tk.END)
+            widget.delete(0, "end")
             bruto = str(horarios.get(campo, "") or "").strip()
             widget.insert(0, normalizar_texto_horario(bruto) if bruto else "")
         self._atualizar_rotulo_jornada_liquida()
@@ -351,7 +322,6 @@ class MixinFormularioDia:
             self.after(600, lambda x=w: self._executar_verificacao_ortografia(x))
 
     def _limpar_informacoes_dia_em_edicao(self: AplicacaoRdo) -> None:
-        """Apaga textos, horários e registro JSON do dia selecionado no calendário."""
         if not self._documento_atual:
             messagebox.showwarning(
                 "Limpar dia",
@@ -379,7 +349,6 @@ class MixinFormularioDia:
         self._salvar_documento_agora(silencioso=True)
 
     def _persistir_dia_atual_no_documento(self) -> None:
-        """Escreve ou remove o registro do dia atual em `registros_diarios` conforme o conteúdo."""
         if not self._documento_atual:
             return
         iso = self._data_em_edicao.isoformat()

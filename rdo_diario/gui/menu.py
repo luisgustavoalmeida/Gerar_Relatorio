@@ -8,8 +8,10 @@ import subprocess
 import sys
 import tkinter as tk
 from pathlib import Path
-from tkinter import messagebox, scrolledtext, simpledialog, ttk
+from tkinter import messagebox, scrolledtext, simpledialog
 from typing import TYPE_CHECKING, Any, Callable
+
+import customtkinter as ctk
 
 from rdo_diario.ajuda_conteudo import (
     carregar_documento_ajuda,
@@ -23,6 +25,8 @@ from rdo_diario.config_horas import (
     salvar_config_regras_horas,
     sincronizar_feriados_brasil,
 )
+from rdo_diario.gui.menu_barra import EntradaMenuBarra, MenuSuspensoCtk, criar_barra_menu_ctk
+from rdo_diario.gui.tema import opcoes_texto_tk_embutido
 from rdo_diario.paths import (
     ARQUIVO_CONFIG_REGRAS_HORAS_JSON,
     ARQUIVO_MANUAL_AJUDA_JSON,
@@ -44,92 +48,89 @@ class MixinMenu:
     _config_regras_horas: dict[str, Any]
 
     def _montar_barra_menu(self) -> None:
-        """Cria os menus «Arquivo» e «Revisão»."""
-        barra_menu = tk.Menu(self)
-        menu_arquivo = tk.Menu(barra_menu, tearoff=0)
-        menu_arquivo.add_command(label="Salvar agora", command=self._salvar_documento_agora)
-        menu_arquivo.add_command(
-            label="Novo cliente",
-            command=self._abrir_dialogo_novo_cliente,
-        )
-        menu_arquivo.add_command(
-            label="Limpar informações do dia em edição",
-            command=self._limpar_informacoes_dia_em_edicao,
-        )
-        menu_arquivo.add_command(
-            label="Excluir cliente",
-            command=self._excluir_cliente_atual,
+        """Barra de menus CustomTkinter (listas suspensas arredondadas)."""
+        self._menus_ctk: list[MenuSuspensoCtk] = []
+        self._barra_menu_frame, self._menus_ctk = criar_barra_menu_ctk(
+            self,
+            [
+                ("Arquivo", self._itens_menu_arquivo()),
+                ("Revisão", self._itens_menu_revisao()),
+                ("Horas", self._itens_menu_horas()),
+                ("Exibir", self._itens_menu_exibir()),
+                ("Ajuda", self._itens_menu_ajuda()),
+            ],
         )
 
-        menu_arquivo.add_separator()
-        menu_arquivo.add_command(
-            label="Gerar Excel (RDO/FT)",
-            command=self._gerar_relatorios_excel,
-        )
-        menu_arquivo.add_command(
-            label="Abrir pasta relatórios",
-            command=self._abrir_pasta_relatorios,
-        )
+    def _atualizar_barra_menu_tema(self) -> None:
+        """Fecha listas abertas e atualiza a barra após troca de tema."""
+        from rdo_diario.gui.tema import COR_FUNDO_SECUNDARIO
 
-        menu_arquivo.add_separator()
-        menu_arquivo.add_command(
-            label="Salvar modelo de cabeçalho",
-            command=self._salvar_modelo_cabecalho,
-        )
-        menu_arquivo.add_command(
-            label="Carregar modelo de cabeçalho",
-            command=self._carregar_modelo_cabecalho,
-        )
+        for menu in getattr(self, "_menus_ctk", []):
+            menu.fechar()
+        if getattr(self, "_barra_menu_frame", None) is not None:
+            self._barra_menu_frame.configure(fg_color=COR_FUNDO_SECUNDARIO)
 
-        menu_arquivo.add_separator()
-        menu_arquivo.add_command(
-            label="Abrir Templates",
-            command=self._abrir_pasta_templates,
-        )
-        menu_arquivo.add_command(
-            label="Abrir dados (.json)",
-            command=self._abrir_pasta_dados_json,
-        )
-        barra_menu.add_cascade(label="Arquivo", menu=menu_arquivo)
-        menu_revisao = tk.Menu(barra_menu, tearoff=0)
-        menu_revisao.add_command(
-            label="Verificar ortografia e gramática agora",
-            command=self._verificar_ortografia_todos_campos_relatorio,
-        )
-        menu_revisao.add_command(
-            label="Dicionário pessoal",
-            command=self._abrir_dialogo_dicionario_ortografia,
-        )
-        menu_revisao.add_command(
-            label="Sobre a verificação ortográfica",
-            command=self._mostrar_info_verificacao_ortografia,
-        )
-        barra_menu.add_cascade(label="Revisão", menu=menu_revisao)
-        menu_horas = tk.Menu(barra_menu, tearoff=0)
-        menu_horas.add_command(
-            label="Editar regras de horas (.json)",
-            command=self._abrir_editor_regras_horas,
-        )
-        menu_horas.add_command(
-            label="Sincronizar feriados nacionais",
-            command=self._dialogo_sincronizar_feriados_brasil,
-        )
-        menu_horas.add_command(
-            label="Copiar relatório detalhado do mês (métricas)",
-            command=self._copiar_relatorio_metricas_mes,
-        )
+    def _itens_menu_arquivo(self) -> list[EntradaMenuBarra]:
+        return [
+            EntradaMenuBarra("Salvar agora", self._salvar_documento_agora),
+            EntradaMenuBarra("Novo cliente", self._abrir_dialogo_novo_cliente),
+            EntradaMenuBarra(
+                "Limpar informações do dia em edição",
+                self._limpar_informacoes_dia_em_edicao,
+            ),
+            EntradaMenuBarra("Excluir cliente", self._excluir_cliente_atual),
+            EntradaMenuBarra.sep(),
+            EntradaMenuBarra("Gerar Excel (RDO/FT)", self._gerar_relatorios_excel),
+            EntradaMenuBarra("Abrir pasta relatórios", self._abrir_pasta_relatorios),
+            EntradaMenuBarra.sep(),
+            EntradaMenuBarra("Salvar modelo de cabeçalho", self._salvar_modelo_cabecalho),
+            EntradaMenuBarra("Carregar modelo de cabeçalho", self._carregar_modelo_cabecalho),
+            EntradaMenuBarra.sep(),
+            EntradaMenuBarra("Abrir Templates", self._abrir_pasta_templates),
+            EntradaMenuBarra("Abrir dados (.json)", self._abrir_pasta_dados_json),
+        ]
 
-        menu_horas.add_separator()
-        menu_horas.add_command(
-            label="Abrir pasta do arquivo de regras",
-            command=self._abrir_pasta_config_regras_horas,
-        )
-        barra_menu.add_cascade(label="Horas", menu=menu_horas)
-        menu_ajuda = tk.Menu(barra_menu, tearoff=0)
-        menu_ajuda.add_command(label="Manual", command=self._mostrar_manual_ajuda)
-        menu_ajuda.add_command(label="Sobre", command=self._mostrar_sobre_ajuda)
-        barra_menu.add_cascade(label="Ajuda", menu=menu_ajuda)
-        self.config(menu=barra_menu)
+    def _itens_menu_revisao(self) -> list[EntradaMenuBarra]:
+        return [
+            EntradaMenuBarra(
+                "Verificar ortografia e gramática agora",
+                self._verificar_ortografia_todos_campos_relatorio,
+            ),
+            EntradaMenuBarra("Dicionário pessoal", self._abrir_dialogo_dicionario_ortografia),
+            EntradaMenuBarra(
+                "Sobre a verificação ortográfica",
+                self._mostrar_info_verificacao_ortografia,
+            ),
+        ]
+
+    def _itens_menu_horas(self) -> list[EntradaMenuBarra]:
+        return [
+            EntradaMenuBarra("Editar regras de horas (.json)", self._abrir_editor_regras_horas),
+            EntradaMenuBarra(
+                "Sincronizar feriados nacionais",
+                self._dialogo_sincronizar_feriados_brasil,
+            ),
+            EntradaMenuBarra(
+                "Copiar relatório detalhado do mês (métricas)",
+                self._copiar_relatorio_metricas_mes,
+            ),
+            EntradaMenuBarra.sep(),
+            EntradaMenuBarra(
+                "Abrir pasta do arquivo de regras",
+                self._abrir_pasta_config_regras_horas,
+            ),
+        ]
+
+    def _itens_menu_exibir(self) -> list[EntradaMenuBarra]:
+        return [
+            EntradaMenuBarra("Alternar tema claro/escuro", self._alternar_tema_aplicacao),
+        ]
+
+    def _itens_menu_ajuda(self) -> list[EntradaMenuBarra]:
+        return [
+            EntradaMenuBarra("Manual", self._mostrar_manual_ajuda),
+            EntradaMenuBarra("Sobre", self._mostrar_sobre_ajuda),
+        ]
 
     def _mostrar_dialogo_conteudo_ajuda(
         self,
@@ -155,31 +156,33 @@ class MixinMenu:
             )
             return
         titulo_janela = str(doc.get("titulo", titulo_padrao) or titulo_padrao).strip()
-        topo = tk.Toplevel(self)
+        topo = ctk.CTkToplevel(self)
         topo.title(titulo_janela)
         topo.transient(self)
         topo.geometry("760x620")
         topo.minsize(520, 400)
-        ttk.Label(
+        ctk.CTkLabel(
             topo,
             text=str(caminho),
-            font=("Segoe UI", 8),
-            foreground="#666666",
-        ).pack(fill=tk.X, padx=10, pady=(8, 4))
-        corpo = ttk.Frame(topo, padding=(10, 0))
-        corpo.pack(fill=tk.BOTH, expand=True)
+            font=ctk.CTkFont(size=11),
+            text_color=("#666666", "#AAAAAA"),
+            anchor="w",
+        ).pack(fill="x", padx=12, pady=(10, 4))
+        corpo = ctk.CTkFrame(topo, fg_color="transparent")
+        corpo.pack(fill="both", expand=True, padx=12, pady=(0, 4))
         texto = scrolledtext.ScrolledText(
             corpo,
             wrap=tk.WORD,
             font=("Segoe UI", 10),
             padx=8,
             pady=8,
+            **opcoes_texto_tk_embutido(),
         )
-        texto.pack(fill=tk.BOTH, expand=True)
+        texto.pack(fill="both", expand=True)
         configurar_tags_texto_ajuda(texto)
         preencher(texto, doc)
         texto.configure(state=tk.DISABLED)
-        ttk.Button(topo, text="Fechar", command=topo.destroy).pack(pady=10)
+        ctk.CTkButton(topo, text="Fechar", command=topo.destroy).pack(pady=12)
 
     def _mostrar_manual_ajuda(self) -> None:
         self._mostrar_dialogo_conteudo_ajuda(
@@ -198,32 +201,34 @@ class MixinMenu:
     def _abrir_editor_regras_horas(self: AplicacaoRdo) -> None:
         """Janela com o JSON de regras para edição manual."""
         self._config_regras_horas = carregar_config_regras_horas()
-        topo = tk.Toplevel(self)
+        topo = ctk.CTkToplevel(self)
         topo.title("Regras de horas (JSON)")
         topo.transient(self)
         topo.geometry("720x560")
-        ttk.Label(
+        ctk.CTkLabel(
             topo,
             text=str(ARQUIVO_CONFIG_REGRAS_HORAS_JSON),
-            font=("Segoe UI", 8),
-            foreground="#444444",
-        ).pack(fill=tk.X, padx=8, pady=(8, 4))
-        corpo = ttk.Frame(topo, padding=(8, 0))
-        corpo.pack(fill=tk.BOTH, expand=True)
+            font=ctk.CTkFont(size=11),
+            text_color=("#444444", "#AAAAAA"),
+            anchor="w",
+        ).pack(fill="x", padx=12, pady=(10, 4))
+        corpo = ctk.CTkFrame(topo, fg_color="transparent")
+        corpo.pack(fill="both", expand=True, padx=12, pady=(0, 4))
         texto = scrolledtext.ScrolledText(
             corpo,
             wrap=tk.NONE,
             font=("Consolas", 10),
             undo=True,
+            **opcoes_texto_tk_embutido(),
         )
-        texto.pack(fill=tk.BOTH, expand=True)
+        texto.pack(fill="both", expand=True)
         try:
             texto.insert("1.0", json.dumps(self._config_regras_horas, ensure_ascii=False, indent=2))
         except (TypeError, ValueError):
             texto.insert("1.0", "{}")
 
-        botoes = ttk.Frame(topo, padding=8)
-        botoes.pack(fill=tk.X)
+        botoes = ctk.CTkFrame(topo, fg_color="transparent")
+        botoes.pack(fill="x", padx=12, pady=12)
 
         def guardar() -> None:
             bruto = texto.get("1.0", "end-1c")
@@ -246,8 +251,8 @@ class MixinMenu:
             messagebox.showinfo("Regras de horas", "Alterações gravadas.", parent=topo)
             topo.destroy()
 
-        ttk.Button(botoes, text="Guardar e fechar", command=guardar).pack(side=tk.RIGHT)
-        ttk.Button(botoes, text="Cancelar", command=topo.destroy).pack(side=tk.RIGHT, padx=(0, 8))
+        ctk.CTkButton(botoes, text="Guardar e fechar", command=guardar).pack(side="right")
+        ctk.CTkButton(botoes, text="Cancelar", command=topo.destroy).pack(side="right", padx=(0, 8))
 
     def _dialogo_sincronizar_feriados_brasil(self: AplicacaoRdo) -> None:
         """Pede o ano central e sincroniza feriados BR (ano−1, ano, ano+1)."""

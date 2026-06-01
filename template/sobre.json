@@ -43,8 +43,8 @@
     "Auto-save e menu Arquivo (salvar, limpar dia, modelos de cabeçalho)"
   ],
   "historico_versoes": [
-    { "versao": "1.0.2", "data": "2026-04-01", "notas": "Menu Ajuda (Manual e Sobre); melhorias na interface como validadção de informações." },
-    { "versao": "1.0.1", "data": "2026-05-19", "notas": "Implemetado a opção de salvar e recarregar um modelo de cabeçalho" },
+    { "versao": "1.0.2", "data": "2026-05-28", "notas": "Menu Ajuda (Manual e Sobre); melhorias na interface como validação de informações." },
+    { "versao": "1.0.1", "data": "2026-05-19", "notas": "Implementada a opção de salvar e recarregar um modelo de cabeçalho." },
     { "versao": "1.0.0", "data": "2026-04-01", "notas": "Versão inicial com registo diário, métricas e exportação Excel." }
   ],
   "requisitos": [

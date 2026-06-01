@@ -1,33 +1,40 @@
 @echo off
-REM Reinstalar PyInstaller corretamente
-REM Autor: Build Script
-REM Data: 2026-04-27
+chcp 65001 >nul
+cd /d "%~dp0"
+
+set "PY=%~dp0.venv\Scripts\python.exe"
 
 echo ========================================
 echo Reinstalando PyInstaller
 echo ========================================
 echo.
 
-python --version
+if not exist "%PY%" (
+    echo ERRO: Ambiente virtual nao encontrado.
+    echo Execute primeiro: instalar_simples.bat ou compilar.bat
+    pause
+    exit /b 1
+)
 
+"%PY%" --version
 echo.
+
 echo Desinstalando PyInstaller antigo...
-pip uninstall pyinstaller -y
+"%PY%" -m pip uninstall pyinstaller -y
 
 echo.
 echo Instalando PyInstaller novamente...
-pip install --force-reinstall pyinstaller
+"%PY%" -m pip install --force-reinstall pyinstaller
 
 echo.
 echo Verificando instalacao...
-pip show pyinstaller
+"%PY%" -m pip show pyinstaller
 
 echo.
 echo ========================================
 echo PyInstaller foi reinstalado!
 echo.
-echo Agora execute: compilar_exe_global.bat
+echo Agora execute: compilar.bat
 echo ========================================
 echo.
 pause
-

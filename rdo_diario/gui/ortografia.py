@@ -4,8 +4,10 @@ from __future__ import annotations
 
 import threading
 import tkinter as tk
-from tkinter import messagebox, ttk
+from tkinter import messagebox
 from typing import TYPE_CHECKING, Any
+
+import customtkinter as ctk
 
 from rdo_diario.dicionario_ortografia_usuario import (
     adicionar_palavra,
@@ -14,6 +16,7 @@ from rdo_diario.dicionario_ortografia_usuario import (
     salvar_lista,
     trecho_deve_ser_ignorado,
 )
+from rdo_diario.gui.tema import configurar_menu_tk, opcoes_listbox_tk_embutido, texto_interno_campo
 from rdo_diario.verificacao_ortografia import (
     extrair_sugestoes_do_match,
     offset_caractere_para_indice_tk,
@@ -29,13 +32,13 @@ class MixinOrtografia:
 
     TAG_ERRO_ORTOGRAFIA = "erro_ortografia"
 
-    _widgets_campos_dia: dict[str, tk.Text]
+    _widgets_campos_dia: dict[str, ctk.CTkTextbox]
     _ortografia_timers_por_widget: dict[int, str]
     _ortografia_job_id_por_widget: dict[int, int]
     _ortografia_alvos_por_widget: dict[int, list[dict[str, Any]]]
     _conjunto_dicionario_ortografia: set[str]
 
-    def _ao_tecla_released_campo_relatorio(self, widget: tk.Text, evento: tk.Event) -> None:
+    def _ao_tecla_released_campo_relatorio(self, widget: ctk.CTkTextbox, evento: tk.Event) -> None:
         """Autosave e debounce da verificação ortográfica (LanguageTool) nos textos do relatório."""
         self._agendar_salvamento_automatico(evento)
         self._agendar_verificacao_ortografia(widget)
@@ -48,10 +51,11 @@ class MixinOrtografia:
             return t or " "
         return t[: maximo - 1] + "…"
 
-    def _menu_correcoes_ortografia(self, widget: tk.Text, evento: tk.Event) -> None:
+    def _menu_correcoes_ortografia(self, widget: ctk.CTkTextbox, evento: tk.Event) -> None:
         """Menu de contexto com todas as sugestões do LanguageTool no trecho sob o cursor."""
+        caixa = texto_interno_campo(widget)
         try:
-            indice = widget.index(f"@{evento.x},{evento.y}")
+            indice = caixa.index(f"@{evento.x},{evento.y}")
         except tk.TclError:
             return
         wid = id(widget)
@@ -59,7 +63,7 @@ class MixinOrtografia:
         escolhido: dict[str, Any] | None = None
         for alvo in alvos:
             try:
-                if widget.compare(indice, ">=", alvo["inicio"]) and widget.compare(indice, "<", alvo["fim"]):
+                if caixa.compare(indice, ">=", alvo["inicio"]) and caixa.compare(indice, "<", alvo["fim"]):
                     escolhido = alvo
                     break
             except tk.TclError:
@@ -110,6 +114,7 @@ class MixinOrtografia:
                     w, t, i, f
                 ),
             )
+        configurar_menu_tk(menu)
         try:
             menu.tk_popup(evento.x_root, evento.y_root)
         finally:
@@ -120,7 +125,7 @@ class MixinOrtografia:
 
     def _adicionar_ao_dicionario_e_reverificar(
         self,
-        widget: tk.Text,
+        widget: ctk.CTkTextbox,
         trecho: str,
         indice_inicio: str,
         indice_fim: str,
@@ -151,29 +156,37 @@ class MixinOrtografia:
 
     def _abrir_dialogo_dicionario_ortografia(self) -> None:
         """Janela para listar, acrescentar e remover entradas do ficheiro JSON local."""
-        topo = tk.Toplevel(self)
+        topo = ctk.CTkToplevel(self)
         topo.title("Dicionário ortográfico pessoal")
         topo.transient(self)
-        topo.geometry("420x500")
-        ttk.Label(
+        topo.geometry("440x520")
+        ctk.CTkLabel(
             topo,
             text="Palavras e siglas que o corretor não deve marcar (comparação sem maiúsculas).",
-            wraplength=380,
-        ).pack(fill=tk.X, padx=10, pady=(10, 4))
-        moldura = ttk.Frame(topo, padding=8)
-        moldura.pack(fill=tk.BOTH, expand=True)
-        barra = ttk.Scrollbar(moldura)
-        lista = tk.Listbox(moldura, height=16, yscrollcommand=barra.set, font=("Segoe UI", 10))
-        barra.config(command=lista.yview)
-        lista.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        barra.pack(side=tk.RIGHT, fill=tk.Y)
+            wraplength=400,
+            justify="left",
+            anchor="w",
+        ).pack(fill="x", padx=12, pady=(12, 4))
+        moldura = ctk.CTkFrame(topo, fg_color="transparent")
+        moldura.pack(fill="both", expand=True, padx=12, pady=4)
+        barra = ctk.CTkScrollbar(moldura, orientation="vertical")
+        lista = tk.Listbox(
+            moldura,
+            height=16,
+            yscrollcommand=barra.set,
+            font=("Segoe UI", 10),
+            **opcoes_listbox_tk_embutido(),
+        )
+        barra.configure(command=lista.yview)
+        lista.pack(side="left", fill="both", expand=True)
+        barra.pack(side="right", fill="y")
         for item in carregar_lista():
             lista.insert(tk.END, item)
-        linha = ttk.Frame(topo, padding=(10, 0))
-        linha.pack(fill=tk.X)
-        ttk.Label(linha, text="Nova entrada:").pack(side=tk.LEFT)
-        entrada = ttk.Entry(linha, width=32)
-        entrada.pack(side=tk.LEFT, padx=6, fill=tk.X, expand=True)
+        linha = ctk.CTkFrame(topo, fg_color="transparent")
+        linha.pack(fill="x", padx=12, pady=(4, 0))
+        ctk.CTkLabel(linha, text="Nova entrada:", anchor="w").pack(side="left")
+        entrada = ctk.CTkEntry(linha, width=220)
+        entrada.pack(side="left", padx=8, fill="x", expand=True)
 
         def acrescentar() -> None:
             t = entrada.get().strip()
@@ -185,17 +198,17 @@ class MixinOrtografia:
                 return
             lista.insert(tk.END, t)
             lista.see(tk.END)
-            entrada.delete(0, tk.END)
+            entrada.delete(0, "end")
 
         def remover_selecionados() -> None:
             for i in reversed(lista.curselection()):
                 lista.delete(i)
 
-        botoes = ttk.Frame(topo, padding=10)
-        botoes.pack(fill=tk.X)
-        ttk.Button(linha, text="Adicionar", command=acrescentar).pack(side=tk.LEFT)
-        ttk.Button(botoes, text="Remover selecionado(s)", command=remover_selecionados).pack(
-            side=tk.LEFT, padx=(0, 8)
+        botoes = ctk.CTkFrame(topo, fg_color="transparent")
+        botoes.pack(fill="x", padx=12, pady=12)
+        ctk.CTkButton(linha, text="Adicionar", width=100, command=acrescentar).pack(side="left", padx=(8, 0))
+        ctk.CTkButton(botoes, text="Remover selecionado(s)", command=remover_selecionados).pack(
+            side="left", padx=(0, 8)
         )
 
         def guardar_e_fechar() -> None:
@@ -205,18 +218,19 @@ class MixinOrtografia:
             self._verificar_ortografia_todos_campos_relatorio()
             topo.destroy()
 
-        ttk.Button(botoes, text="Guardar e fechar", command=guardar_e_fechar).pack(side=tk.RIGHT)
-        ttk.Button(botoes, text="Cancelar", command=topo.destroy).pack(side=tk.RIGHT, padx=(0, 8))
+        ctk.CTkButton(botoes, text="Guardar e fechar", command=guardar_e_fechar).pack(side="right")
+        ctk.CTkButton(botoes, text="Cancelar", command=topo.destroy).pack(side="right", padx=(0, 8))
         entrada.bind("<Return>", lambda _e: acrescentar())
 
     def _aplicar_sugestao_ortografia(
         self,
-        widget: tk.Text,
+        widget: ctk.CTkTextbox,
         indice_inicio: str,
         indice_fim: str,
         texto_corrigido: str,
     ) -> None:
         """Substitui o trecho marcado pela sugestão escolhida e volta a verificar o campo."""
+        caixa = texto_interno_campo(widget)
         try:
             widget.delete(indice_inicio, indice_fim)
             widget.insert(indice_inicio, texto_corrigido)
@@ -224,11 +238,11 @@ class MixinOrtografia:
             return
         wid = id(widget)
         self._ortografia_alvos_por_widget.pop(wid, None)
-        widget.tag_remove(self.TAG_ERRO_ORTOGRAFIA, "1.0", tk.END)
+        caixa.tag_remove(self.TAG_ERRO_ORTOGRAFIA, "1.0", tk.END)
         self._agendar_salvamento_automatico()
         self._executar_verificacao_ortografia(widget)
 
-    def _agendar_verificacao_ortografia(self, widget: tk.Text) -> None:
+    def _agendar_verificacao_ortografia(self, widget: ctk.CTkTextbox) -> None:
         """Agenda verificação após pausa na digitação (evita exceder o limite gratuito da API)."""
         wid = id(widget)
         anterior = self._ortografia_timers_por_widget.pop(wid, None)
@@ -242,12 +256,13 @@ class MixinOrtografia:
             lambda w=widget: self._executar_verificacao_ortografia(w),
         )
 
-    def _executar_verificacao_ortografia(self, widget: tk.Text) -> None:
+    def _executar_verificacao_ortografia(self, widget: ctk.CTkTextbox) -> None:
         """
         Consulta o LanguageTool em segundo plano e marca trechos com erro em vermelho.
 
         O texto é enviado ao serviço público (rede necessária). Veja o menu Revisão para detalhes.
         """
+        caixa = texto_interno_campo(widget)
         wid = id(widget)
         self._ortografia_timers_por_widget.pop(wid, None)
         try:
@@ -276,7 +291,7 @@ class MixinOrtografia:
                 if atual != texto_ref:
                     self._ortografia_alvos_por_widget.pop(wid, None)
                     return
-                widget.tag_remove(self.TAG_ERRO_ORTOGRAFIA, "1.0", tk.END)
+                caixa.tag_remove(self.TAG_ERRO_ORTOGRAFIA, "1.0", tk.END)
                 alvos: list[dict[str, Any]] = []
                 conj_dic = self._conjunto_dicionario_ortografia
                 for m in correspondencias:
@@ -303,7 +318,7 @@ class MixinOrtografia:
                             "sugestoes": sugestoes,
                         }
                     )
-                    widget.tag_add(self.TAG_ERRO_ORTOGRAFIA, i0, i1)
+                    caixa.tag_add(self.TAG_ERRO_ORTOGRAFIA, i0, i1)
                 self._ortografia_alvos_por_widget[wid] = alvos
 
             self.after(0, aplicar_marcas)

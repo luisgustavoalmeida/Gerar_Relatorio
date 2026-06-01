@@ -186,7 +186,7 @@ def calcular_metricas_horas_para_dia(
             "adicional_noturno_hhmm": "0:00",
             "adicional_noturno_equivalente_hhmm": "0:00",
             "calculo_valido": False,
-            "mensagem": "Preencha os horários entrada/saída e saída/entrada do almoço.",
+            "mensagem": "Preencha os horários.",
         }
 
     jornada_n = int(regras.get("minutos_jornada_normal", 480))

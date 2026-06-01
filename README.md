@@ -30,14 +30,19 @@ Aplicação desktop para registo de atividades diárias em projetos de engenhari
 
 - **Seleção de cliente:** combobox no topo da janela (contratante + natureza do serviço); cada cliente tem um ficheiro JSON em `dados_rdo/`
 - **Abas:** *Cabeçalhos* (13 campos fixos reutilizáveis) e *Relatórios de trabalho* (formulário diário + calendário + métricas)
+- **Tema claro/escuro:** alternância em *Exibir → Alternar tema claro/escuro*; preferência gravada em `dados_rdo/config_usuario.json`; paleta editável em `template/tema_aplicacao.json`
 - **Auto-save:** gravação automática cerca de **1,2 s** após parar de digitar
 - **Validação em tempo real:** formatação de horários (`0830` → `08:30`) e indicação visual de dias incompletos ou inválidos
 
-![Aba Cabeçalhos — campos reutilizáveis para RDO e FT](Imagens%20Interface/Cabe%C3%A7alhos.png)
+![Aba Cabeçalhos — tema claro](Imagens%20Interface/Cabe%C3%A7alhos_tema_claro.png)
 
-*Aba **Cabeçalhos** — informações reutilizáveis para as planilhas RDO e FT.*
+![Aba Cabeçalhos — tema escuro](Imagens%20Interface/Cabe%C3%A7alhos_tema_escuro.png)
 
-![Aba Relatórios de trabalho — formulário diário, calendário e métricas](Imagens%20Interface/Relat%C3%B3rios.png)
+*Aba **Cabeçalhos** — informações reutilizáveis para as planilhas RDO e FT (temas claro e escuro).*
+
+![Aba Relatórios de trabalho — tema claro](Imagens%20Interface/Relat%C3%B3rios_tema_claro.png)
+
+![Aba Relatórios de trabalho — tema escuro](Imagens%20Interface/Relat%C3%B3rios_tema_escuro.png)
 
 *Aba **Relatórios de trabalho** — registo diário, horários de ponto, calendário com código de cores e métricas mensais.*
 
@@ -95,7 +100,7 @@ Painel *Métricas de horas diárias e mensais* abaixo do calendário:
 - **Saída:** `saida_relatorios/<contratante>/<natureza>/RDO_YYYY-MM.xlsx` e `FT_YYYY-MM.xlsx`
 - Gera **todos os meses** que tenham registos no JSON do cliente (não apenas o mês visível no calendário)
 
-> **Nota:** o repositório inclui `template/RDO.xlsx`. O ficheiro `template/FT.xlsx` é necessário para exportar a Folha de Tempo — coloque-o na pasta `template/` se ainda não existir no seu ambiente.
+> **Nota:** o repositório inclui `template/RDO.xlsx` e `template/FT.xlsx` para exportação dos relatórios.
 
 ### Feriados nacionais
 
@@ -232,6 +237,12 @@ O script irá:
 | Copiar relatório detalhado do mês (métricas) | Copia texto de métricas do mês para a área de transferência |
 | Abrir pasta do arquivo de regras | Abre a pasta de `config_regras_horas.json` |
 
+### Exibir
+
+| Item | Função |
+|------|--------|
+| Alternar tema claro/escuro | Troca a aparência da interface (preferência gravada em `dados_rdo/config_usuario.json`) |
+
 ### Ajuda
 
 | Item | Função |
@@ -245,17 +256,19 @@ O script irá:
 Gerar_Relatorio/
 ├── main.py                          # Ponto de entrada (iniciar_aplicacao)
 ├── requirements.txt                 # Dependências Python
-├── Gerar_Relatorio.spec             # Spec PyInstaller (gerado/atualizado na compilação)
-├── COMPILAR_INSTRUCOES.md           # Guia detalhado de build .exe
-├── LEIA-ME-PRIMEIRO.txt               # Resumo rápido de compilação
+├── gerar_relatorio.spec             # Spec PyInstaller (onefile)
+├── LEIA-ME-PRIMEIRO.txt             # Resumo rápido de compilação
 │
-├── instalar_simples.bat             # Instalação automatizada (.venv + deps)
-├── instalar_dependencias.bat        # Instala deps + PyInstaller (Python global)
+├── instalar_simples.bat             # Instalação automatizada (.venv + deps + execução)
+├── instalar_dependencias.bat        # Instala dependências de requirements.txt (Python global)
 ├── executar.bat                     # Execução com .venv
 ├── executar_sem_cmd.bat / executar.vbs
-├── compilar.bat                     # Build com .venv local
-├── compilar_exe_global.bat          # Build com Python global + ícone
-├── criar_atalhos.bat                # Atalhos para pastas junto ao .exe compilado
+├── compilar.bat                     # Build onefile com .venv local
+├── reinstalar_pyinstaller.bat       # Reinstala PyInstaller no .venv
+│
+├── build_resources/                 # Ícone multi-tamanho para o .exe
+│   ├── preparar_icone.py
+│   └── icone_exe.ico
 │
 ├── rdo_diario/                      # Pacote principal
 │   ├── paths.py                     # Caminhos raiz, template, dados, saída
@@ -270,27 +283,33 @@ Gerar_Relatorio/
 │   ├── ajuda_conteudo.py            # Renderização Manual/Sobre a partir de JSON
 │   └── gui/
 │       ├── app.py                   # Janela principal (AplicacaoRdo)
-│       ├── menu.py                  # Menus Arquivo, Revisão, Horas, Ajuda
+│       ├── menu.py                  # Menus Arquivo, Revisão, Horas, Exibir, Ajuda
+│       ├── menu_barra.py            # Barra de menus CustomTkinter
 │       ├── calendario.py            # Calendário mensal + métricas
 │       ├── formulario_dia.py        # Formulário diário
-│       └── ortografia.py            # Debounce e menu de contexto
+│       ├── ortografia.py            # Debounce e menu de contexto
+│       ├── tema.py                  # Paleta claro/escuro
+│       ├── combo_suspenso.py        # Combobox aprimorado (CustomTkinter)
+│       └── icone_janela.py          # Ícone da janela e barra de tarefas
 │
 ├── dados_rdo/                       # Um JSON por cliente
-│   ├── _ultimo_cliente.json         # Último cliente aberto
+│   ├── _ultimo_cliente.json         # Último cliente aberto (local)
+│   ├── config_usuario.json          # Preferências (tema; local)
 │   └── [Contratante_-_Natureza].json
 │
 ├── template/
 │   ├── RDO.xlsx                     # Modelo RDO
-│   ├── FT.xlsx                      # Modelo Folha de Tempo (necessário para export FT)
+│   ├── FT.xlsx                      # Modelo Folha de Tempo
 │   ├── mapa_celulas_excel.json      # Mapeamento JSON → células Excel
 │   ├── config_regras_horas.json     # Regras de jornada, extras e noturno
+│   ├── tema_aplicacao.json          # Paleta de cores da interface
 │   ├── modelo_cabecalho.json        # Modelo reutilizável de cabeçalho
 │   ├── _dicionario_ortografia.json
 │   ├── manual.json                  # Manual (Ajuda → Manual)
 │   └── sobre.json                   # Sobre (Ajuda → Sobre)
 │
-├── saida_relatorios/                # Relatórios Excel gerados (criada automaticamente)
-└── Icone/                           # icone.ico / icone.png (compilação)
+├── Imagens Interface/               # Capturas de ecrã para documentação (README)
+└── saida_relatorios/                # Relatórios Excel gerados (criada automaticamente)
 ```
 
 ## Configurações
@@ -305,6 +324,11 @@ Ficheiro: `template/config_regras_horas.json` (versão **2** do formato de confi
 - **adicional_noturno:** horário de início/fim, hora reduzida CLT opcional (`incluir_hora_reduzida_clt`)
 
 Edite pelo menu *Horas → Editar regras de horas (.json)* ou diretamente no ficheiro.
+
+### Tema da interface
+
+- Menu *Exibir → Alternar tema claro/escuro* (preferência em `dados_rdo/config_usuario.json`)
+- Cores e estilos editáveis em `template/tema_aplicacao.json` (sem recompilar o executável)
 
 ### Dicionário ortográfico
 
@@ -385,31 +409,24 @@ A gravação usa ficheiro temporário (`.json.tmp`) e substituição atómica, r
 
 ## Compilação para executável (.exe)
 
-A aplicação pode ser empacotada com **PyInstaller** (modo `--onedir`, sem consola).
+A aplicação pode ser empacotada com **PyInstaller** (modo **onefile**, sem consola).
 
-### Opção rápida
-
-```cmd
-compilar_exe_global.bat
-```
-
-Ou, com ambiente virtual local:
+### Compilar
 
 ```cmd
 compilar.bat
 ```
 
+O script cria o `.venv` (se necessário), instala dependências de `requirements.txt` (inclui PyInstaller e Pillow), gera o ícone em `build_resources/` e compila com `gerar_relatorio.spec`.
+
 ### Resultado
 
 ```
-dist/Gerar_Relatorio/
-├── Gerar_Relatorio.exe
-├── template/          # Modelos e configs (embutidos no build)
-├── dados_rdo/
-└── saida_relatorios/
+dist/
+└── Gerar_Relatorio.exe
 ```
 
-As pastas `template/`, `dados_rdo/` e `saida_relatorios/` devem permanecer **junto ao `.exe`**. Detalhes adicionais em `COMPILAR_INSTRUCOES.md` e `LEIA-ME-PRIMEIRO.txt`.
+Na **primeira execução**, ao lado do `.exe` são criadas automaticamente as pastas `template/`, `dados_rdo/` e `saida_relatorios/` (copiadas do bundle interno). Mantenha-as na mesma pasta do executável. Resumo em `LEIA-ME-PRIMEIRO.txt`.
 
 ## Solução de problemas
 
@@ -439,7 +456,7 @@ pip install -r requirements.txt --force-reinstall
 - O serviço LanguageTool pode estar temporariamente indisponível
 
 **Exportação FT falha:**
-- Coloque `FT.xlsx` em `template/` (modelo da Folha de Tempo)
+- Confirme que `template/FT.xlsx` existe junto ao `.exe` (ou no repositório em desenvolvimento)
 
 ### Logs e debug
 
@@ -491,11 +508,12 @@ Este software é **gratuito**. Se quiser apoiar o desenvolvimento, pode enviar u
 
 | Tecnologia | Uso |
 |------------|-----|
-| **Python 3.12+ / Tkinter** | Interface gráfica principal |
+| **Python 3.12+ / CustomTkinter** | Interface gráfica principal (tema claro/escuro) |
 | **tkcalendar** | Calendário mensal |
 | **openpyxl** | Exportação RDO e Folha de Tempo |
 | **holidays** | Feriados nacionais do Brasil |
 | **LanguageTool** (API HTTP) | Ortografia e gramática online |
-| **PyInstaller** | Compilação para `.exe` (scripts de build) |
+| **PyInstaller** | Compilação para `.exe` (`compilar.bat`) |
+| **Pillow** | Ícone multi-tamanho do executável (`build_resources/preparar_icone.py`) |
 
-Dependências em `requirements.txt`: `tkcalendar`, `holidays`, `openpyxl`.
+Dependências em `requirements.txt`: `customtkinter`, `tkcalendar`, `holidays`, `openpyxl`, `pyinstaller`, `pillow`.

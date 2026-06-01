@@ -1,12 +1,14 @@
 @echo off
 chcp 65001 >nul
 setlocal enabledelayedexpansion
+cd /d "%~dp0"
 
 REM ============================================================================
 REM Script para compilar a aplicação em executável .EXE usando PyInstaller
 REM ============================================================================
 
 title Compilador RDO - PyInstaller
+set "PY=%~dp0.venv\Scripts\python.exe"
 
 echo.
 echo ===============================================================
@@ -18,7 +20,7 @@ REM Verificar se Python está instalado
 python --version >nul 2>&1
 if errorlevel 1 (
     echo ❌ ERRO: Python não encontrado!
-    echo    Por favor, instale Python 3.14+ de https://www.python.org/
+    echo    Por favor, instale Python 3.12+ de https://www.python.org/
     pause
     exit /b 1
 )
@@ -30,29 +32,32 @@ REM Verificar/criar .venv
 if not exist ".venv" (
     echo ⏳ Criando ambiente virtual...
     python -m venv .venv
-    call .venv\Scripts\activate.bat
     echo ✓ Ambiente virtual criado
 ) else (
     echo ✓ Ambiente virtual já existe
-    call .venv\Scripts\activate.bat
+)
+if not exist "%PY%" (
+    echo ❌ ERRO: %PY% nao encontrado.
+    pause
+    exit /b 1
 )
 echo.
 
 REM Atualizar pip
 echo ⏳ Atualizando pip...
-python -m pip install --upgrade pip --quiet
+"%PY%" -m pip install --upgrade pip --quiet
 echo ✓ pip atualizado
 echo.
 
 REM Instalar dependências do projeto
 echo ⏳ Instalando dependências...
-pip install -r requirements.txt --quiet
+"%PY%" -m pip install -r requirements.txt --quiet
 echo ✓ Dependências instaladas
 echo.
 
 REM Instalar PyInstaller
 echo ⏳ Instalando PyInstaller...
-pip install pyinstaller --quiet
+"%PY%" -m pip install pyinstaller --quiet
 if errorlevel 1 (
     echo ❌ ERRO: Falha ao instalar PyInstaller
     pause
@@ -80,20 +85,19 @@ echo    (isso pode levar 1-2 minutos)
 echo ===============================================================
 echo.
 
-REM Ativar ambiente virtual antes de compilar
-call .venv\Scripts\activate.bat
+echo ⏳ Preparando icone (varios tamanhos para o Explorer)...
+"%PY%" -m pip install pillow --quiet
+"%PY%" build_resources\preparar_icone.py
+if errorlevel 1 (
+    echo ❌ ERRO: Nao foi possivel gerar build_resources\icone_exe.ico
+    pause
+    exit /b 1
+)
+echo ✓ Icone: build_resources\icone_exe.ico
+echo.
 
-REM Usar python -m para executar PyInstaller (mais confiável)
-pyinstaller --onedir ^
-    --windowed ^
-    --add-data "saida_relatorios;saida_relatorios" ^
-    --add-data "template;template" ^
-    --add-data "dados_rdo;dados_rdo" ^
-    --collect-all tkcalendar ^
-    --collect-all holidays ^
-    --collect-all openpyxl ^
-    --name "Gerar_Relatorio" ^
-    main.py
+REM Spec onefile (mesmo modelo do Manipulador PDF) + icone embutido
+"%PY%" -m PyInstaller --noconfirm --clean gerar_relatorio.spec
 
 if errorlevel 1 (
     echo.
@@ -101,7 +105,7 @@ if errorlevel 1 (
     echo.
     echo ⚠️  Dica de troubleshooting:
     echo    - Verifique se PyInstaller foi instalado corretamente
-    echo    - Tente novamente ou use: compilar_alternativo.bat
+    echo    - Tente novamente ou execute: reinstalar_pyinstaller.bat
     pause
     exit /b 1
 )
@@ -111,18 +115,13 @@ echo ===============================================================
 echo ✓ COMPILAÇÃO CONCLUÍDA COM SUCESSO!
 echo ===============================================================
 echo.
-echo 📁 Localização do executável:
-echo    dist\Gerar_Relatorio\Gerar_Relatorio.exe
+echo 📁 Executavel (onefile):
+echo    dist\Gerar_Relatorio.exe
 echo.
-echo 📋 Próximos passos:
-echo    1. Teste o executável em dist\Gerar_Relatorio\
-echo    2. Certifique-se que as pastas dados_rdo\ e template\ estão presentes
-echo    3. Distribua o conteúdo de dist\Gerar_Relatorio\
+echo 📋 Na primeira execucao, ao lado do .exe sao criadas:
+echo    template\  dados_rdo\  saida_relatorios\
 echo.
-echo ⚠️  IMPORTANTE:
-echo    - As pastas dados_rdo\ e template\ devem estar junto ao .exe
-echo    - Não mova o .exe para outro local sozinho
-echo    - Distribua toda a pasta dist\Gerar_Relatorio\
+echo ⚠️  Distribua o .exe; mantenha as pastas geradas na mesma pasta do executavel.
 echo.
 pause
 
