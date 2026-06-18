@@ -11,23 +11,29 @@ from tkcalendar import Calendar
 
 from rdo_diario.calculo_metricas_horas import (
     agregar_metricas_mes,
+    agregar_metricas_totais,
     calcular_metricas_horas_para_dia,
     formatar_resumo_metricas_texto,
 )
 from rdo_diario.config_horas import conjunto_feriados_iso_para_ano
-from rdo_diario.horario_util import formatar_minutos_como_texto
 from rdo_diario.gui.tema import (
+    COR_BORDA,
+    COR_FUNDO,
+    COR_FUNDO_SECUNDARIO,
     COR_TEXTO,
     COR_TEXTO_SECUNDARIO,
     FONT_AUXILIAR,
     FONT_DATA_SELECIONADA,
     FONT_GRUPO,
-    FONT_INTERFACE,
     FONT_METRICAS,
+    FONT_PAINEL_TITULO,
+    RAIO_BORDA,
     criar_painel_ctk_com_titulo,
     obter_cores_tema,
     opcoes_calendario_tk_embutido,
+    registrar_painel_tema,
 )
+from rdo_diario.horario_util import formatar_minutos_como_texto
 from rdo_diario.schema import (
     estado_informacoes_essenciais_dia,
     nome_dia_semana_portugues,
@@ -52,7 +58,7 @@ TAG_CAL_VM_OM_DU_PAR = "cal_vm_om_du_par"
 TAG_CAL_VM_OM_FDS_PAR = "cal_vm_om_fds_par"
 
 _COR_CALENDARIO_COMPLETO = "#7ccd7c"
-_COR_CALENDARIO_PARCIAL = "#ea580c"
+_COR_CALENDARIO_PARCIAL = "#f5d0b0"
 TAG_DIA_HOJE = "dia_hoje"
 
 _TAGS_DESTAQUE_VERMELHO: tuple[str, ...] = (
@@ -69,6 +75,81 @@ _TAGS_DESTAQUE_VERMELHO: tuple[str, ...] = (
     TAG_CAL_VM_OM_FDS_P,
     TAG_CAL_VM_OM_FDS_PAR,
 )
+
+_TEXTO_DICA_CALENDARIO = (
+    "Selecione uma data para visualizar / editar.\n"
+    "Azul = data em edição.\n"
+    "Azul claro = hoje (sem registo);\n"
+    "Verde = registro de serviço e horários válidos.\n"
+    "Laranja = incompleto ou horários inválidos.\n"
+    "Vermelho = feriado nacional."
+)
+
+
+def _criar_painel_calendario_com_dica(
+    pai: ctk.CTkBaseClass,
+) -> tuple[ctk.CTkFrame, ctk.CTkFrame]:
+    """Painel do calendário com botão «+» para mostrar/ocultar a legenda."""
+    externo = ctk.CTkFrame(
+        pai,
+        fg_color=COR_FUNDO,
+        corner_radius=RAIO_BORDA,
+        border_width=1,
+        border_color=COR_BORDA,
+    )
+    registrar_painel_tema(pai, externo)
+
+    cabecalho = ctk.CTkFrame(externo, fg_color="transparent")
+    cabecalho.pack(fill="x", padx=12, pady=(10, 4))
+    ctk.CTkLabel(cabecalho, text="Calendário", font=FONT_PAINEL_TITULO, anchor="w").pack(
+        side="left"
+    )
+
+    moldura = ctk.CTkFrame(externo, fg_color="transparent")
+    moldura.pack(fill="both", expand=True, padx=12, pady=(0, 12))
+
+    ancora_dica = ctk.CTkFrame(moldura, fg_color="transparent", height=0)
+    ancora_dica.pack(anchor="w", fill="x")
+    ancora_dica.pack_propagate(False)
+
+    rotulo_dica = ctk.CTkLabel(
+        moldura,
+        text=_TEXTO_DICA_CALENDARIO,
+        font=FONT_AUXILIAR,
+        text_color=COR_TEXTO_SECUNDARIO,
+        wraplength=260,
+        justify="left",
+        anchor="w",
+    )
+    dica_visivel = {"valor": False}
+
+    def alternar_dica() -> None:
+        if dica_visivel["valor"]:
+            rotulo_dica.pack_forget()
+            botao_dica.configure(text="+")
+            dica_visivel["valor"] = False
+        else:
+            rotulo_dica.pack(anchor="w", fill="x", before=ancora_dica)
+            botao_dica.configure(text="−")
+            dica_visivel["valor"] = True
+
+    botao_dica = ctk.CTkButton(
+        cabecalho,
+        text="+",
+        width=24,
+        height=24,
+        corner_radius=6,
+        font=FONT_AUXILIAR,
+        fg_color="transparent",
+        border_width=1,
+        border_color=COR_BORDA,
+        text_color=COR_TEXTO_SECUNDARIO,
+        hover_color=COR_FUNDO_SECUNDARIO,
+        command=alternar_dica,
+    )
+    botao_dica.pack(side="right")
+
+    return externo, moldura
 
 
 def _grelha_datas_exibidas_calendario(cal: Calendar) -> list[date]:
@@ -201,29 +282,29 @@ def criar_widget_calendario(pai: tk.Misc, *, compacto: bool = False) -> Calendar
     return cal
 
 
-def _fundo_destaque_dia_hoje(cal: Calendar, tag_status: str | None) -> str:
-    """Fundo do dia atual: cor de hoje ou a do estado (verde/laranja/feriado)."""
-    if tag_status:
+def _cor_fundo_marcador_calendario(cal: Calendar, tag_fundo: str | None) -> str:
+    """Fundo da célula conforme estado (verde/laranja/hoje), sem misturar com feriado."""
+    if tag_fundo == TAG_DIA_HOJE:
+        return obter_cores_tema()["calendario_hoje_fundo"]
+    if tag_fundo:
         try:
-            return str(cal.tag_cget(tag_status, "background"))
+            return str(cal.tag_cget(tag_fundo, "background"))
         except (ValueError, tk.TclError):
             pass
     return obter_cores_tema()["calendario_hoje_fundo"]
 
 
-def _texto_destaque_dia_hoje(
+def _cor_texto_marcador_calendario(
     cal: Calendar,
     d: date,
     ano_visivel: int,
     mes_visivel: int,
-    tag_status: str | None,
+    *,
+    e_feriado: bool,
 ) -> str:
-    """Cor do número igual à da marca de estado ou às demais células do mesmo tipo."""
-    if tag_status:
-        try:
-            return str(cal.tag_cget(tag_status, "foreground"))
-        except (ValueError, tk.TclError):
-            pass
+    """Texto vermelho em feriados; caso contrário, cor padrão do tipo de dia."""
+    if e_feriado:
+        return obter_cores_tema()["erro"]
     fds = d.weekday() >= 5
     no_mes_visivel = d.month == mes_visivel and d.year == ano_visivel
     if not no_mes_visivel:
@@ -233,6 +314,23 @@ def _texto_destaque_dia_hoje(
     if fds:
         return str(cal.cget("weekendforeground"))
     return str(cal.cget("normalforeground"))
+
+
+def _tag_fundo_para_estado(
+    estado: str,
+    *,
+    e_hoje: bool,
+    tag_completo: str,
+    tag_parcial: str,
+) -> str | None:
+    """Tag de fundo (verde/laranja/hoje) independente de ser feriado."""
+    if estado == "completo":
+        return tag_completo
+    if estado == "parcial":
+        return tag_parcial
+    if e_hoje:
+        return TAG_DIA_HOJE
+    return None
 
 
 def _configurar_tag_dia_hoje(cal: Calendar) -> None:
@@ -299,6 +397,25 @@ def _tag_destaque_vermelho_para_data(
     return TAG_CAL_VM_DU
 
 
+def _limpar_foreground_direto_calendario(cal: Calendar) -> None:
+    """Remove cores de texto definidas diretamente nos rótulos (evita «herdar» posição da grelha)."""
+    try:
+        for linha in cal._calendar:
+            for rotulo in linha:
+                rotulo.configure(foreground="")
+    except (tk.TclError, AttributeError):
+        pass
+
+
+def _configurar_selecao_feriado(cal: Calendar, data_selecionada: date, feriados_iso: set[str]) -> None:
+    """Dia em edição (fundo azul): texto vermelho se for feriado."""
+    cores = obter_cores_tema()
+    if data_selecionada.isoformat() in feriados_iso:
+        cal.configure(selectforeground=cores["erro"])
+    else:
+        cal.configure(selectforeground=cores["texto_botao"])
+
+
 class MixinCalendario:
     """Marcação de dias, seleção de data e painel de métricas sob o calendário."""
 
@@ -312,30 +429,15 @@ class MixinCalendario:
     _rotulo_contagem_mes: ctk.CTkLabel | None
     _rotulo_metricas_dia: ctk.CTkLabel | None
     _rotulo_metricas_mes: ctk.CTkLabel | None
+    _rotulo_metricas_totais: ctk.CTkLabel | None
     _data_em_edicao: date
     _documento_atual: dict[str, Any] | None
     _config_regras_horas: dict[str, Any]
 
     def _montar_coluna_calendario(self, coluna_calendario: ctk.CTkBaseClass) -> None:
         """Monta calendário compacto, legenda e painel de métricas."""
-        grupo_cal, moldura_cal = criar_painel_ctk_com_titulo(coluna_calendario, "Calendário")
+        grupo_cal, moldura_cal = _criar_painel_calendario_com_dica(coluna_calendario)
         grupo_cal.pack(side=tk.TOP, anchor=tk.N)
-        ctk.CTkLabel(
-            moldura_cal,
-            text=(
-                "Selecione uma data para visualizar / editar.\n"
-                "Azul = data em edição.\n"
-                "Fundo destacado = hoje (sem registo); com registo mantém verde/laranja/vermelho.\n"
-                "Verde = registro de serviço e horários válidos.\n"
-                "Laranja = incompleto ou horários inválidos.\n"
-                "Vermelho = feriado nacional.\n"
-            ),
-            font=FONT_AUXILIAR,
-            text_color=COR_TEXTO_SECUNDARIO,
-            wraplength=260,
-            justify="left",
-            anchor="w",
-        ).pack(anchor="w", fill="x")
         hoje = date.today()
         self._rotulo_data_atual = ctk.CTkLabel(
             moldura_cal,
@@ -357,7 +459,7 @@ class MixinCalendario:
             self._widget_calendario.tag_config(
                 self.TAG_EVENTO_DIA_PARCIAL,
                 background=_COR_CALENDARIO_PARCIAL,
-                foreground="#FFFFFF",
+                foreground=cores["texto"],
             )
             _configurar_tags_destaque_vermelho(self._widget_calendario)
         except tk.TclError:
@@ -367,12 +469,12 @@ class MixinCalendario:
         self._montar_painel_metricas_calendario(moldura_cal)
 
     def _montar_painel_metricas_calendario(self, moldura_cal: ctk.CTkBaseClass) -> None:
-        """Abaixo do calendário: métricas do dia selecionado e totais do mês."""
+        """Abaixo do calendário: métricas do dia, do mês e totais do projeto."""
         grupo, painel = criar_painel_ctk_com_titulo(
             moldura_cal,
-            "Métricas de horas diárias e mensais",
+            "Métricas:",
         )
-        grupo.pack(fill="x", pady=(10, 0))
+        grupo.pack(fill="x", pady=(8, 0))
         ctk.CTkLabel(
             painel,
             text="Métricas do dia:",
@@ -389,15 +491,15 @@ class MixinCalendario:
             justify="left",
             anchor="w",
         )
-        self._rotulo_metricas_dia.pack(anchor="w", fill="x", pady=(4, 0))
+        self._rotulo_metricas_dia.pack(anchor="w", fill="x")
         ctk.CTkLabel(
             painel,
-            text="Métricas mensais:",
+            text="Métricas do mês:",
             font=FONT_GRUPO,
             wraplength=260,
             justify="left",
             anchor="w",
-        ).pack(anchor="w", fill="x", pady=(10, 0))
+        ).pack(anchor="w", fill="x", pady=(8, 0))
         self._rotulo_metricas_mes = ctk.CTkLabel(
             painel,
             text="",
@@ -406,15 +508,37 @@ class MixinCalendario:
             justify="left",
             anchor="w",
         )
-        self._rotulo_metricas_mes.pack(anchor="w", fill="x", pady=(4, 0))
+        self._rotulo_metricas_mes.pack(anchor="w", fill="x")
+        ctk.CTkLabel(
+            painel,
+            text="Métricas do projeto:",
+            font=FONT_GRUPO,
+            wraplength=260,
+            justify="left",
+            anchor="w",
+        ).pack(anchor="w", fill="x", pady=(8, 0))
+        self._rotulo_metricas_totais = ctk.CTkLabel(
+            painel,
+            text="",
+            font=FONT_METRICAS,
+            wraplength=260,
+            justify="left",
+            anchor="w",
+        )
+        self._rotulo_metricas_totais.pack(anchor="w", fill="x")
 
     def _atualizar_painel_metricas_horas(self: AplicacaoRdo) -> None:
-        """Atualiza os rótulos sob o calendário com o dia atual e o mês corrente."""
-        if not self._rotulo_metricas_dia or not self._rotulo_metricas_mes:
+        """Atualiza os rótulos sob o calendário com o dia, o mês e o total do projeto."""
+        if (
+            not self._rotulo_metricas_dia
+            or not self._rotulo_metricas_mes
+            or not self._rotulo_metricas_totais
+        ):
             return
         if not self._documento_atual:
             self._rotulo_metricas_dia.configure(text="(Selecione um cliente.)")
             self._rotulo_metricas_mes.configure(text="")
+            self._rotulo_metricas_totais.configure(text="")
             return
         payload = self._payload_formulario_dia_sem_contagem_mes()
         m = calcular_metricas_horas_para_dia(
@@ -449,6 +573,17 @@ class MixinCalendario:
                 f"{formatar_resumo_metricas_texto(agg)}"
             )
         )
+        agg_total = agregar_metricas_totais(regs, self._config_regras_horas)
+        n_total = int(agg_total.get("dias_com_calculo_valido") or 0)
+        meses_total = int(agg_total.get("meses_com_dados") or 0)
+        periodo = str(agg_total.get("periodo_texto") or "").strip()
+        linhas_total = [
+            f"Período: {periodo}" if periodo else "Período: —",
+            f"Meses com dados: {meses_total}",
+            f"Dias válidos: {n_total}",
+            formatar_resumo_metricas_texto(agg_total),
+        ]
+        self._rotulo_metricas_totais.configure(text="\n".join(linhas_total))
 
     def _ao_mudar_mes_calendario(self, _evento: tk.Event | None = None) -> None:
         """Ao mudar mês/ano no calendário, repõe feriados (vermelho) e marcas de registo."""
@@ -609,34 +744,37 @@ class MixinCalendario:
         for d in celulas:
             iso = d.isoformat()
             estado = estados_por_data.get(iso, "vazio")
-            registro_dia = registros_efetivos.get(iso)
-            if not isinstance(registro_dia, dict):
-                registro_dia = {}
-            tag_vm = _tag_destaque_vermelho_para_data(
-                d, ano_vis, mes_vis, estado, feriados_iso
+            e_feriado = iso in feriados_iso
+            e_hoje = d == hoje
+            tag_fundo = _tag_fundo_para_estado(
+                estado if self._documento_atual else "vazio",
+                e_hoje=e_hoje,
+                tag_completo=self.TAG_EVENTO_DIA_PREENCHIDO,
+                tag_parcial=self.TAG_EVENTO_DIA_PARCIAL,
             )
-            tag_status: str | None = None
-            if tag_vm:
-                tag_status = tag_vm
-            elif estado == "completo" and self._documento_atual:
-                tag_status = self.TAG_EVENTO_DIA_PREENCHIDO
-            elif estado == "parcial" and self._documento_atual:
-                tag_status = self.TAG_EVENTO_DIA_PARCIAL
 
-            if d == hoje:
+            if e_hoje:
                 try:
                     cal.tag_config(
                         TAG_DIA_HOJE,
-                        background=_fundo_destaque_dia_hoje(cal, tag_status),
-                        foreground=_texto_destaque_dia_hoje(
-                            cal, d, ano_vis, mes_vis, tag_status
+                        background=_cor_fundo_marcador_calendario(cal, tag_fundo),
+                        foreground=_cor_texto_marcador_calendario(
+                            cal, d, ano_vis, mes_vis, e_feriado=e_feriado
                         ),
                     )
                     cal.calevent_create(d, "", TAG_DIA_HOJE)
                 except tk.TclError:
                     pass
-            elif tag_status:
-                cal.calevent_create(d, "", tag_status)
+            elif e_feriado:
+                tag_vm = _tag_destaque_vermelho_para_data(
+                    d, ano_vis, mes_vis, estado, feriados_iso
+                )
+                if tag_vm:
+                    cal.calevent_create(d, "", tag_vm)
+            elif tag_fundo:
+                cal.calevent_create(d, "", tag_fundo)
+        _limpar_foreground_direto_calendario(cal)
+        _configurar_selecao_feriado(cal, self._data_em_edicao, feriados_iso)
         try:
             cal._display_calendar()
         except (tk.TclError, AttributeError):

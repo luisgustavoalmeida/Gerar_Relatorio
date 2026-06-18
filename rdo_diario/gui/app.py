@@ -41,6 +41,11 @@ from rdo_diario.gui.tema import (
     ALTURA_JANELA,
     LARGURA_JANELA,
     RAIO_BORDA,
+    capturar_geometria_janela_para_salvar,
+    carregar_geometria_janela_salva,
+    aplicar_geometria_janela_tela,
+    resolver_geometria_janela_inicial,
+    salvar_geometria_janela,
     alternar_tema,
     configurar_aparencia,
     configurar_estilo_ttk,
@@ -92,8 +97,7 @@ class AplicacaoRdo(
         aplicar_icone_janela(self)
         configurar_estilo_ttk(self)
         self.title("Relatório de atividades diárias")
-        self.geometry(f"{LARGURA_JANELA}x{ALTURA_JANELA}")
-        self.minsize(980, 600)
+        self.minsize(LARGURA_JANELA, ALTURA_JANELA)
 
         self._documento_atual: dict[str, Any] | None = None
         self._caminho_arquivo_atual: Path | None = None
@@ -118,9 +122,13 @@ class AplicacaoRdo(
         self._config_regras_horas: dict[str, Any] = carregar_config_regras_horas()
         self._rotulo_metricas_dia = None
         self._rotulo_metricas_mes = None
+        self._rotulo_metricas_totais = None
         self._barra_cliente: ctk.CTkFrame | None = None
         self._rotulo_barra_cliente: ctk.CTkLabel | None = None
         self._tabview: ctk.CTkTabview | None = None
+        self._id_agendamento_salvar_geometria: str | None = None
+        self._persistencia_geometria_ativa = False
+        self._ultima_geometria_salva: str | None = carregar_geometria_janela_salva()
 
         self._montar_barra_menu()
         self._montar_barra_cliente()
@@ -131,7 +139,10 @@ class AplicacaoRdo(
             lambda proposta: texto_duracao_permitido_na_digitacao(proposta)
         )
         self._montar_corpo_janela()
+        self._aplicar_geometria_inicial_janela()
 
+        self.bind("<Configure>", self._agendar_salvamento_geometria_janela, add="+")
+        self.bind("<ButtonRelease-1>", self._agendar_salvamento_geometria_janela, add="+")
         self.protocol("WM_DELETE_WINDOW", self._ao_fechar_janela)
         self.after(200, self._inicializar_apos_abrir)
 
@@ -174,6 +185,8 @@ class AplicacaoRdo(
             self._rotulo_metricas_dia.configure(font=FONT_METRICAS, text_color=COR_TEXTO)
         if self._rotulo_metricas_mes is not None:
             self._rotulo_metricas_mes.configure(font=FONT_METRICAS, text_color=COR_TEXTO)
+        if self._rotulo_metricas_totais is not None:
+            self._rotulo_metricas_totais.configure(font=FONT_METRICAS, text_color=COR_TEXTO)
         if self._widget_calendario:
             from rdo_diario.gui.calendario import aplicar_cores_tema_calendario
 
@@ -638,12 +651,55 @@ class AplicacaoRdo(
             f"Foram criados ou atualizados {len(caminhos)} ficheiro(s):\n\n{linhas}",
         )
 
+    def _aplicar_geometria_inicial_janela(self) -> None:
+        """Aplica posição/tamanho após montar a interface (evita layout sobrescrever)."""
+        self._persistencia_geometria_ativa = False
+        geometria = resolver_geometria_janela_inicial(
+            self,
+            largura_padrao=LARGURA_JANELA,
+            altura_padrao=ALTURA_JANELA,
+            geometria_salva=carregar_geometria_janela_salva(),
+            largura_minima=LARGURA_JANELA,
+            altura_minima=ALTURA_JANELA,
+        )
+        aplicar_geometria_janela_tela(self, geometria)
+        self.update_idletasks()
+        self.after(300, self._finalizar_geometria_inicial_janela)
+
+    def _finalizar_geometria_inicial_janela(self) -> None:
+        """Define a posição real como referência, sem gravar alterações da abertura."""
+        self.update_idletasks()
+        geometria_atual = capturar_geometria_janela_para_salvar(self)
+        if geometria_atual:
+            self._ultima_geometria_salva = geometria_atual
+        self._persistencia_geometria_ativa = True
+
+    def _agendar_salvamento_geometria_janela(self, event: tk.Event) -> None:
+        """Grava tamanho e posição após mover ou redimensionar a janela."""
+        if event.widget is not self or not self._persistencia_geometria_ativa:
+            return
+        if self._id_agendamento_salvar_geometria is not None:
+            self.after_cancel(self._id_agendamento_salvar_geometria)
+        self._id_agendamento_salvar_geometria = self.after(400, self._salvar_geometria_janela_agora)
+
+    def _salvar_geometria_janela_agora(self) -> None:
+        self._id_agendamento_salvar_geometria = None
+        geometria = capturar_geometria_janela_para_salvar(self)
+        if not geometria or geometria == self._ultima_geometria_salva:
+            return
+        salvar_geometria_janela(geometria)
+        self._ultima_geometria_salva = geometria
+
     def _ao_fechar_janela(self) -> None:
         """Salva em silêncio e encerra a aplicação."""
         try:
             self._salvar_documento_agora(silencioso=True)
         except Exception:
             pass
+        if self._id_agendamento_salvar_geometria is not None:
+            self.after_cancel(self._id_agendamento_salvar_geometria)
+            self._id_agendamento_salvar_geometria = None
+            self._salvar_geometria_janela_agora()
         self.destroy()
 
 

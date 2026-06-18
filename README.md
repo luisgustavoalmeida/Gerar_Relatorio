@@ -1,12 +1,12 @@
 # Gerar Relatório — Relatório Diário de Obra (RDO)
 
 [![Python](https://img.shields.io/badge/Python-3.12+-blue.svg)](https://www.python.org/)
-[![Versão](https://img.shields.io/badge/Versão-1.0.3-informational.svg)](template/sobre.json)
+[![Versão](https://img.shields.io/badge/Versão-1.0.4-informational.svg)](template/sobre.json)
 [![Windows](https://img.shields.io/badge/Platform-Windows-blue.svg)](https://www.microsoft.com/windows)
 
 Aplicação desktop para registo de atividades diárias em projetos de engenharia e serviços no Brasil. Permite o registo detalhado de atividades, controlo de horários de ponto, cálculo automático de métricas de horas (normais, extras, noturno) e exportação para planilhas Excel (RDO e Folha de Tempo).
 
-**Versão atual:** 1.0.3 · **Formato dos dados (JSON):** 1 · **Plataforma:** Windows 10 ou superior
+**Versão atual:** 1.0.4 · **Formato dos dados (JSON):** 1 · **Plataforma:** Windows 10 ou superior
 
 ## Sumário
 
@@ -29,8 +29,10 @@ Aplicação desktop para registo de atividades diárias em projetos de engenhari
 ### Interface gráfica
 
 - **Seleção de cliente:** combobox no topo da janela (contratante + natureza do serviço); cada cliente tem um ficheiro JSON em `dados_rdo/`
+- **Barra de menus CustomTkinter:** listas suspensas arredondadas (*Arquivo*, *Revisão*, *Horas*, *Exibir*, *Ajuda*)
 - **Abas:** *Cabeçalhos* (13 campos fixos reutilizáveis) e *Relatórios de trabalho* (formulário diário + calendário + métricas)
 - **Tema claro/escuro:** alternância em *Exibir → Alternar tema claro/escuro*; preferência gravada em `dados_rdo/config_usuario.json`; paleta editável em `template/tema_aplicacao.json`
+- **Geometria da janela:** tamanho e posição são gravados automaticamente em `config_usuario.json` ao redimensionar ou mover a janela; na próxima execução, a janela reabre na mesma posição (se ainda couber no ecrã)
 - **Auto-save:** gravação automática cerca de **1,2 s** após parar de digitar
 - **Validação em tempo real:** formatação de horários (`0830` → `08:30`) e indicação visual de dias incompletos ou inválidos
 
@@ -50,13 +52,14 @@ Aplicação desktop para registo de atividades diárias em projetos de engenhari
 
 | Cor | Significado |
 |-----|-------------|
+| **Azul** | Data selecionada para edição |
+| **Azul claro** | Dia de hoje, sem registro de serviço nem horários preenchidos |
 | **Verde** | Registro de serviço **e** horários de ponto **válidos** (informações essenciais completas) |
 | **Laranja** | Falta registro de serviço, horários incompletos ou horários que não respeitam as regras abaixo |
-| **Azul** | Data selecionada para edição |
-| **Sem destaque** | Nenhum registro de serviço nem horário preenchido naquele dia |
+| **Sem destaque** | Nenhum registro de serviço nem horário preenchido naquele dia (exceto hoje → azul claro) |
 | **Vermelho** (número do dia) | Feriado nacional (fundo verde ou laranja se o dia também tiver dados, conforme o estado acima) |
 
-O calendário atualiza enquanto digita (antes do auto-save gravar no disco), refletindo o dia aberto no formulário. A legenda acima do calendário explica o significado de cada cor.
+O calendário atualiza enquanto digita (antes do auto-save gravar no disco), refletindo o dia aberto no formulário. Clique no botão **+** no canto do painel do calendário para mostrar ou ocultar a legenda das cores.
 
 ### Registro de atividades diárias
 
@@ -77,13 +80,20 @@ O calendário atualiza enquanto digita (antes do auto-save gravar no disco), ref
 
 ### Métricas de horas
 
-Painel *Métricas de horas diárias e mensais* abaixo do calendário:
+Painel *Métricas* abaixo do calendário, com três blocos:
 
-- **Horas normais:** com base nas regras em `template/config_regras_horas.json`
+- **Métricas do dia:** horas trabalhadas, normais, extra 50%, extra 100% e adicional noturno do dia em edição
+- **Métricas do mês:** totais do mês visível no calendário (dias com cálculo válido)
+- **Métricas do projeto:** totais acumulados de todos os meses com registos válidos (período e número de meses com dados)
+
+Classificação com base em `template/config_regras_horas.json`:
+
+- **Horas normais:** jornada normal configurada por dia da semana
 - **Horas extras 50%:** sobretempo diurno após a jornada normal
 - **Horas extras 100%:** restante ou conforme regras (noturno, domingos, feriados)
 - **Adicional noturno:** horas entre 22:00 e 06:00 (configurável; suporte opcional à hora reduzida CLT)
-- **Totais mensais:** consolidados no painel e copiáveis via menu *Horas*
+
+O menu *Horas → Copiar relatório detalhado do mês (métricas)* copia o resumo mensal para a área de transferência.
 
 ### Verificação ortográfica e gramatical
 
@@ -200,6 +210,7 @@ O script irá:
 ### Atalhos e dicas
 
 - **Auto-save:** grava após ~1,2 s de inatividade; *Arquivo → Salvar agora* força gravação imediata
+- **Janela:** redimensione ou mova à vontade — a geometria é memorizada para a próxima sessão
 - **Contagem no mês** («No mês: X de Y»): posição cronológica entre dias com qualquer conteúdo; as cores do calendário usam só registro de serviço e validação de ponto
 - **Ortografia:** clique com o botão direito em palavras sublinhadas para correções
 - **Dicionário:** *Revisão → Dicionário pessoal*
@@ -241,7 +252,7 @@ O script irá:
 
 | Item | Função |
 |------|--------|
-| Alternar tema claro/escuro | Troca a aparência da interface (preferência gravada em `dados_rdo/config_usuario.json`) |
+| Alternar tema claro/escuro | Troca a aparência da interface (preferência gravada em `dados_rdo/config_usuario.json`; a geometria da janela também é memorizada nesse ficheiro) |
 
 ### Ajuda
 
@@ -294,7 +305,7 @@ Gerar_Relatorio/
 │
 ├── dados_rdo/                       # Um JSON por cliente
 │   ├── _ultimo_cliente.json         # Último cliente aberto (local)
-│   ├── config_usuario.json          # Preferências (tema; local)
+│   ├── config_usuario.json          # Preferências locais (tema, geometria da janela)
 │   └── [Contratante_-_Natureza].json
 │
 ├── template/
@@ -325,10 +336,11 @@ Ficheiro: `template/config_regras_horas.json` (versão **2** do formato de confi
 
 Edite pelo menu *Horas → Editar regras de horas (.json)* ou diretamente no ficheiro.
 
-### Tema da interface
+### Tema e aparência da interface
 
-- Menu *Exibir → Alternar tema claro/escuro* (preferência em `dados_rdo/config_usuario.json`)
+- Menu *Exibir → Alternar tema claro/escuro* (preferência em `dados_rdo/config_usuario.json`, chave `tema_aparencia`)
 - Cores e estilos editáveis em `template/tema_aplicacao.json` (sem recompilar o executável)
+- Tamanho e posição da janela principal gravados automaticamente em `config_usuario.json` (chave `geometria_janela`); tamanho mínimo predefinido: 1075×900 px
 
 ### Dicionário ortográfico
 
@@ -344,11 +356,12 @@ Edite `template/manual.json` e `template/sobre.json`; as alterações aparecem a
 
 ### Estado essencial do dia (calendário)
 
-Lógica em `rdo_diario/schema.py` (`estado_informacoes_essenciais_dia`, `horarios_ponto_validos_no_registro`), reutilizando `calcular_minutos_jornada_liquida` em `horario_util.py`.
+Lógica em `rdo_diario/schema.py` (`estado_informacoes_essenciais_dia`, `horarios_ponto_validos_no_registro`), reutilizando `calcular_minutos_jornada_liquida` em `horario_util.py`. Cálculo de métricas em `rdo_diario/calculo_metricas_horas.py` (`calcular_metricas_horas_para_dia`, `agregar_metricas_mes`, `agregar_metricas_totais`).
 
 - **Completo (verde):** texto em *Registro de serviço* + ponto válido (entrada e saída, ordem cronológica)
 - **Parcial (laranja):** só serviço, só horários, horários inválidos ou só deslocamento preenchido
-- **Vazio:** sem registro de serviço e sem nenhum horário preenchido
+- **Hoje sem dados (azul claro):** dia atual sem registro de serviço nem horários
+- **Vazio:** sem registro de serviço e sem nenhum horário preenchido (dias que não são hoje)
 
 ### Formato dos dados (JSON)
 

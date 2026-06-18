@@ -52,6 +52,7 @@ if TYPE_CHECKING:
 
 _ALTURA_TEXTO_GRANDE = 200
 _ALTURA_TEXTO_PEQUENO = 56
+_LARGURA_CAMPO_ENTRADA = 60
 
 
 class MixinFormularioDia:
@@ -108,7 +109,7 @@ class MixinFormularioDia:
         linha.pack(fill="x", pady=(4, 0))
         rotulo = ROTULOS_TEMPO_ATIVIDADE_DIA[chave_json_tempo]
         ctk.CTkLabel(linha, text=rotulo + ":", anchor="w", font=FONT_INTERFACE).pack(side="left", padx=(0, 6))
-        entrada = ctk.CTkEntry(linha, **opcoes_campo_entrada_ctk(largura=88))
+        entrada = ctk.CTkEntry(linha, **opcoes_campo_entrada_ctk(largura=_LARGURA_CAMPO_ENTRADA))
         entrada.pack(side="left")
         aplicar_validacao_entrada_ctk(entrada, self._comando_validacao_entrada_duracao)
         entrada.bind("<KeyRelease>", self._ao_tecla_solta_campo_duracao)
@@ -167,13 +168,13 @@ class MixinFormularioDia:
         )
         grupo_horarios.pack(fill="x", pady=(14, 6))
 
-        def par_horario(linha: ctk.CTkFrame, chave_campo: str) -> None:
+        def par_horario(linha: ctk.CTkFrame, chave_campo: str, *, espacamento_direita: int = 16) -> None:
             bloco = ctk.CTkFrame(linha, fg_color="transparent")
-            bloco.pack(side="left", padx=(0, 16), pady=2)
+            bloco.pack(side="left", padx=(0, espacamento_direita), pady=2)
             ctk.CTkLabel(bloco, text=ROTULOS_HORARIO[chave_campo] + ":", anchor="w", font=FONT_INTERFACE).pack(
                 side="left", padx=(0, 4)
             )
-            ent = ctk.CTkEntry(bloco, **opcoes_campo_entrada_ctk(largura=72))
+            ent = ctk.CTkEntry(bloco, **opcoes_campo_entrada_ctk(largura=_LARGURA_CAMPO_ENTRADA))
             ent.pack(side="left")
             aplicar_validacao_entrada_ctk(ent, self._comando_validacao_entrada_hora)
             ent.bind("<KeyRelease>", self._ao_tecla_solta_campo_hora)
@@ -184,10 +185,10 @@ class MixinFormularioDia:
         linha_ponto = ctk.CTkFrame(moldura, fg_color="transparent")
         linha_ponto.pack(fill="x")
         ctk.CTkLabel(linha_ponto, text="Ponto:", font=FONT_GRUPO, anchor="w").pack(
-            side="left", padx=(0, 10)
+            side="left", padx=(0, 6)
         )
         for chave in CAMPOS_JSON_PONTO:
-            par_horario(linha_ponto, chave)
+            par_horario(linha_ponto, chave, espacamento_direita=8)
 
         linha_desloc = ctk.CTkFrame(moldura, fg_color="transparent")
         linha_desloc.pack(fill="x", pady=(6, 0))

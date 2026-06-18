@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 import tkinter as tk
 from tkinter import ttk
 from typing import Any, Literal
@@ -16,6 +17,9 @@ CorTema = tuple[str, str]  # (claro, escuro)
 
 NOME_ESTILO_TTK = "Rdo"
 CHAVE_TEMA = "tema_aparencia"
+CHAVE_GEOMETRIA_JANELA = "geometria_janela"
+_MIN_INTERSECAO_VISIVEL_LARGURA = 120
+_MIN_INTERSECAO_VISIVEL_ALTURA = 80
 MODO_ATUAL: ModoAparencia = "dark"
 
 
@@ -44,8 +48,8 @@ COR_CALENDARIO_FDS_OM_TEXTO = _par("#6b7a9a", "#7878a0")
 COR_CALENDARIO_HOJE_FUNDO = _par("#7eb3f5", "#5a74c4")
 
 # Dimensões
-LARGURA_JANELA = 1140
-ALTURA_JANELA = 910
+LARGURA_JANELA = 1075
+ALTURA_JANELA = 900
 PADDING = 16
 RAIO_BORDA = 10
 
@@ -83,12 +87,8 @@ def resolver_cor(par: CorTema) -> str:
 
 def carregar_tema_salvo() -> ModoAparencia:
     """Lê o tema salvo em config_usuario.json; padrão: escuro."""
-    arquivo = ARQUIVO_CONFIG_USUARIO_JSON
-    if not arquivo.is_file():
-        return "dark"
     try:
-        dados = json.loads(arquivo.read_text(encoding="utf-8"))
-        modo = dados.get(CHAVE_TEMA, "dark")
+        modo = _ler_config_usuario().get(CHAVE_TEMA, "dark")
         if modo in ("dark", "light"):
             return modo  # type: ignore[return-value]
     except Exception:
@@ -98,14 +98,24 @@ def carregar_tema_salvo() -> ModoAparencia:
 
 def salvar_tema(modo: ModoAparencia) -> None:
     """Persiste a preferência de tema."""
-    arquivo = ARQUIVO_CONFIG_USUARIO_JSON
-    dados: dict[str, Any] = {}
-    if arquivo.is_file():
-        try:
-            dados = json.loads(arquivo.read_text(encoding="utf-8"))
-        except Exception:
-            dados = {}
+    dados = _ler_config_usuario()
     dados[CHAVE_TEMA] = modo
+    _gravar_config_usuario(dados)
+
+
+def _ler_config_usuario() -> dict[str, Any]:
+    arquivo = ARQUIVO_CONFIG_USUARIO_JSON
+    if not arquivo.is_file():
+        return {}
+    try:
+        dados = json.loads(arquivo.read_text(encoding="utf-8"))
+        return dados if isinstance(dados, dict) else {}
+    except Exception:
+        return {}
+
+
+def _gravar_config_usuario(dados: dict[str, Any]) -> None:
+    arquivo = ARQUIVO_CONFIG_USUARIO_JSON
     try:
         arquivo.parent.mkdir(parents=True, exist_ok=True)
         arquivo.write_text(
@@ -114,6 +124,229 @@ def salvar_tema(modo: ModoAparencia) -> None:
         )
     except Exception:
         pass
+
+
+def _parse_coordenada_geometria(texto: str) -> int:
+    if texto.startswith("+"):
+        return int(texto[1:])
+    return int(texto)
+
+
+def parse_geometria_janela(geo: str) -> tuple[int, int, int, int] | None:
+    """Interpreta geometria Tk ``LARGURAxALTURA±X±Y`` (inclui formas como ``+-8``)."""
+    correspondencia = re.fullmatch(r"(\d+)x(\d+)([+-][-]?\d+)([+-][-]?\d+)", geo.strip())
+    if not correspondencia:
+        return None
+    largura = int(correspondencia.group(1))
+    altura = int(correspondencia.group(2))
+    x = _parse_coordenada_geometria(correspondencia.group(3))
+    y = _parse_coordenada_geometria(correspondencia.group(4))
+    if largura < 1 or altura < 1:
+        return None
+    return largura, altura, x, y
+
+
+def formatar_geometria_janela(largura: int, altura: int, x: int, y: int) -> str:
+    return f"{largura}x{altura}{x:+d}{y:+d}"
+
+
+def _limites_area_virtual_janela(janela: tk.Misc) -> tuple[int, int, int, int]:
+    """Retorna (x, y, largura, altura) da área virtual (todos os monitores)."""
+    janela.update_idletasks()
+    return (
+        janela.winfo_vrootx(),
+        janela.winfo_vrooty(),
+        janela.winfo_vrootwidth(),
+        janela.winfo_vrootheight(),
+    )
+
+
+def _intersecao_visivel(largura: int, altura: int, x: int, y: int, area: tuple[int, int, int, int]) -> tuple[int, int]:
+    ax, ay, aw, ah = area
+    overlap_w = max(0, min(x + largura, ax + aw) - max(x, ax))
+    overlap_h = max(0, min(y + altura, ay + ah) - max(y, ay))
+    return overlap_w, overlap_h
+
+
+def geometria_janela_totalmente_visivel(
+    janela: tk.Misc,
+    largura: int,
+    altura: int,
+    x: int,
+    y: int,
+) -> bool:
+    """Verifica se a janela inteira cabe na área virtual (sem corte horizontal ou vertical)."""
+    ax, ay, aw, ah = _limites_area_virtual_janela(janela)
+    return (
+        x >= ax
+        and y >= ay
+        and x + largura <= ax + aw
+        and y + altura <= ay + ah
+    )
+
+
+def geometria_janela_eh_visivel(
+    janela: tk.Misc,
+    largura: int,
+    altura: int,
+    x: int,
+    y: int,
+) -> bool:
+    """Verifica se parte suficiente da janela intersecta a área virtual."""
+    area = _limites_area_virtual_janela(janela)
+    overlap_w, overlap_h = _intersecao_visivel(largura, altura, x, y, area)
+    return (
+        overlap_w >= _MIN_INTERSECAO_VISIVEL_LARGURA
+        and overlap_h >= _MIN_INTERSECAO_VISIVEL_ALTURA
+    )
+
+
+def _centralizar_geometria_monitor_primario(
+    janela: tk.Misc,
+    largura: int,
+    altura: int,
+) -> tuple[int, int, int, int]:
+    """Centraliza a janela no monitor primário, totalmente visível."""
+    janela.update_idletasks()
+    sw = janela.winfo_screenwidth()
+    sh = janela.winfo_screenheight()
+    largura = max(1, min(largura, sw))
+    altura = max(1, min(altura, sh))
+    x = max(0, (sw - largura) // 2)
+    y = max(0, (sh - altura) // 2)
+    return largura, altura, x, y
+
+
+def _centralizar_geometria_janela(
+    janela: tk.Misc,
+    largura: int,
+    altura: int,
+) -> tuple[int, int, int, int]:
+    """Centraliza a janela na área virtual, garantindo dimensões totalmente visíveis."""
+    ax, ay, aw, ah = _limites_area_virtual_janela(janela)
+    largura = max(1, min(largura, aw))
+    altura = max(1, min(altura, ah))
+    x = ax + max(0, (aw - largura) // 2)
+    y = ay + max(0, (ah - altura) // 2)
+    return largura, altura, x, y
+
+
+def _ajustar_geometria_dentro_area(
+    janela: tk.Misc,
+    largura: int,
+    altura: int,
+    x: int,
+    y: int,
+) -> tuple[int, int, int, int]:
+    """Mantém a janela inteira dentro da área virtual."""
+    ax, ay, aw, ah = _limites_area_virtual_janela(janela)
+    largura = max(1, min(largura, aw))
+    altura = max(1, min(altura, ah))
+    x = max(ax, min(x, ax + aw - largura))
+    y = max(ay, min(y, ay + ah - altura))
+    return largura, altura, x, y
+
+
+def resolver_geometria_janela_inicial(
+    janela: tk.Misc,
+    *,
+    largura_padrao: int,
+    altura_padrao: int,
+    geometria_salva: str | None = None,
+    largura_minima: int | None = None,
+    altura_minima: int | None = None,
+) -> str:
+    """
+    Restaura geometria salva quando a janela cabe inteira na tela; caso contrário,
+    centraliza no monitor primário com o tamanho padrão/mínimo.
+    """
+    if largura_minima is None:
+        largura_minima = largura_padrao
+    if altura_minima is None:
+        altura_minima = altura_padrao
+
+    if geometria_salva:
+        parseada = parse_geometria_janela(geometria_salva)
+        if parseada:
+            largura, altura, x, y = parseada
+            largura = max(largura_minima, largura)
+            altura = max(altura_minima, altura)
+            if geometria_janela_totalmente_visivel(janela, largura, altura, x, y):
+                return formatar_geometria_janela(largura, altura, x, y)
+
+    largura, altura, x, y = _centralizar_geometria_monitor_primario(
+        janela,
+        largura_padrao,
+        altura_padrao,
+    )
+    return formatar_geometria_janela(largura, altura, x, y)
+
+
+def carregar_geometria_janela_salva() -> str | None:
+    """Lê a última geometria da janela principal em config_usuario.json."""
+    geometria = _ler_config_usuario().get(CHAVE_GEOMETRIA_JANELA)
+    if not isinstance(geometria, str) or not geometria.strip():
+        return None
+    if parse_geometria_janela(geometria) is None:
+        return None
+    return geometria.strip()
+
+
+def salvar_geometria_janela(geometria: str) -> None:
+    """Persiste a geometria da janela principal."""
+    if parse_geometria_janela(geometria) is None:
+        return
+    dados = _ler_config_usuario()
+    dados[CHAVE_GEOMETRIA_JANELA] = geometria
+    _gravar_config_usuario(dados)
+
+
+def _medir_deslocamento_geometry_para_tela(janela: tk.Misc) -> tuple[int, int]:
+    """Diferença entre ``geometry()`` e a posição real na tela (``winfo_rootx/y``)."""
+    janela.update_idletasks()
+    parseada = parse_geometria_janela(janela.winfo_geometry())
+    if not parseada:
+        return 0, 0
+    _, _, gx, gy = parseada
+    return janela.winfo_rootx() - gx, janela.winfo_rooty() - gy
+
+
+def aplicar_geometria_janela_tela(janela: tk.Misc, geometria: str) -> None:
+    """
+    Aplica largura, altura e posição na tela.
+
+    O formato ``WxH+X+Y`` usa X/Y como coordenadas reais da tela (``winfo_rootx/y``),
+  não as de ``geometry()``, que no Windows costumam ter deslocamento da moldura.
+    """
+    parseada = parse_geometria_janela(geometria)
+    if not parseada:
+        return
+    largura, altura, x_tela, y_tela = parseada
+    janela.geometry(formatar_geometria_janela(largura, altura, 0, 0))
+    janela.update_idletasks()
+    dx, dy = _medir_deslocamento_geometry_para_tela(janela)
+    x_geo = x_tela - dx
+    y_geo = y_tela - dy
+    janela.geometry(formatar_geometria_janela(largura, altura, x_geo, y_geo))
+    janela.update_idletasks()
+
+
+def capturar_geometria_janela_para_salvar(janela: tk.Misc) -> str | None:
+    """Obtém tamanho e posição real na tela, ignorando estados maximizado/iconificado."""
+    try:
+        if janela.state() != "normal":
+            return None
+    except tk.TclError:
+        return None
+    janela.update_idletasks()
+    geometria = janela.winfo_geometry()
+    parseada = parse_geometria_janela(geometria)
+    if not parseada:
+        return None
+    largura, altura, _, _ = parseada
+    if largura < 200 or altura < 200:
+        return None
+    return formatar_geometria_janela(largura, altura, janela.winfo_rootx(), janela.winfo_rooty())
 
 
 def aplicar_tema(modo: ModoAparencia, persistir: bool = True) -> ModoAparencia:

@@ -4,12 +4,12 @@
   "aplicacao": {
     "nome": "Gerar Relatório",
     "nome_completo": "Gerar Relatório Diário",
-    "versao": "1.0.3",
+    "versao": "1.0.4",
     "data_versao": "2026-05-29",
     "versao_formato_dados": 1,
     "descricao": "Aplicação desktop para registo de atividades diárias, com controlo de horários de ponto, cálculo automático de métricas de horas (normais, extras, noturno) e exportação para planilhas Excel (RDO e Folha de Tempo).",
     "data_lancamento": "2026-04-01",
-    "ultima_atualizacao": "2026-05-28",
+    "ultima_atualizacao": "2026-06-18",
     "plataforma": "Windows 10 ou superior",
     "python_minimo": "3.12 ou superior"
   },

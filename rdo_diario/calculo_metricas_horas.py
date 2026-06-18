@@ -244,26 +244,32 @@ def calcular_metricas_horas_para_dia(
     }
 
 
-def agregar_metricas_mes(
+_CHAVES_METRICAS_AGREGADAS = (
+    "minutos_trabalhados_total",
+    "minutos_normais",
+    "minutos_extra_50",
+    "minutos_extra_100",
+    "minutos_adicional_noturno",
+)
+
+
+def _somar_metricas_registros(
     registros_diarios: dict[str, Any],
-    ano: int,
-    mes: int,
     config: dict[str, Any],
+    *,
+    prefixo_mes: str | None = None,
 ) -> dict[str, Any]:
-    """Soma métricas de todos os dias do mês com cálculo válido."""
-    chaves = (
-        "minutos_trabalhados_total",
-        "minutos_normais",
-        "minutos_extra_50",
-        "minutos_extra_100",
-        "minutos_adicional_noturno",
-    )
-    totais: dict[str, int] = {k: 0 for k in chaves}
+    """Soma métricas dos dias com cálculo válido (opcionalmente filtrados por mês ISO)."""
+    totais: dict[str, int] = {k: 0 for k in _CHAVES_METRICAS_AGREGADAS}
     equiv_not = 0.0
     dias_com_ponto = 0
-    prefixo = f"{ano:04d}-{mes:02d}-"
+    meses: set[tuple[int, int]] = set()
+    datas_validas: list[date] = []
+
     for iso, reg in (registros_diarios or {}).items():
-        if not isinstance(iso, str) or not iso.startswith(prefixo):
+        if not isinstance(iso, str):
+            continue
+        if prefixo_mes is not None and not iso.startswith(prefixo_mes):
             continue
         if not isinstance(reg, dict):
             continue
@@ -275,14 +281,48 @@ def agregar_metricas_mes(
         if not m.get("calculo_valido"):
             continue
         dias_com_ponto += 1
-        for k in chaves:
+        meses.add((d.year, d.month))
+        datas_validas.append(d)
+        for k in _CHAVES_METRICAS_AGREGADAS:
             totais[k] += int(m.get(k) or 0)
         equiv_not += float(m.get("minutos_adicional_noturno_equivalente") or 0.0)
 
-    saida: dict[str, Any] = {k: int(totais[k]) for k in chaves}
+    saida: dict[str, Any] = {k: int(totais[k]) for k in _CHAVES_METRICAS_AGREGADAS}
     saida["minutos_adicional_noturno_equivalente"] = round(equiv_not, 2)
     saida["dias_com_calculo_valido"] = dias_com_ponto
+    saida["meses_com_dados"] = len(meses)
+    if datas_validas:
+        inicio = min(datas_validas)
+        fim = max(datas_validas)
+        if (inicio.year, inicio.month) == (fim.year, fim.month):
+            saida["periodo_texto"] = f"{inicio.month:02d}/{inicio.year}"
+        else:
+            saida["periodo_texto"] = f"{inicio.month:02d}/{inicio.year} – {fim.month:02d}/{fim.year}"
+    else:
+        saida["periodo_texto"] = ""
     return saida
+
+
+def agregar_metricas_mes(
+    registros_diarios: dict[str, Any],
+    ano: int,
+    mes: int,
+    config: dict[str, Any],
+) -> dict[str, Any]:
+    """Soma métricas de todos os dias do mês com cálculo válido."""
+    return _somar_metricas_registros(
+        registros_diarios,
+        config,
+        prefixo_mes=f"{ano:04d}-{mes:02d}-",
+    )
+
+
+def agregar_metricas_totais(
+    registros_diarios: dict[str, Any],
+    config: dict[str, Any],
+) -> dict[str, Any]:
+    """Soma métricas de todos os dias com cálculo válido no projeto (todos os meses)."""
+    return _somar_metricas_registros(registros_diarios, config)
 
 
 def gerar_relatorio_metricas_mes_texto(
