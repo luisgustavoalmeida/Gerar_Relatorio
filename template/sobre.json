@@ -43,6 +43,8 @@
     "Auto-save e menu Arquivo (salvar, limpar dia, modelos de cabeçalho)"
   ],
   "historico_versoes": [
+    { "versao": "1.0.4", "data": "2026-06-18", "notas": "Métricas acumuladas do projeto no painel; memorização de tamanho e posição da janela; legenda expansível e cores refinadas no calendário." },
+    { "versao": "1.0.3", "data": "2026-06-01", "notas": "Tema claro/escuro (CustomTkinter) com paleta editável; nova barra de menus, ícone da janela e melhorias gerais na interface; simplificação da compilação .exe." },
     { "versao": "1.0.2", "data": "2026-05-28", "notas": "Menu Ajuda (Manual e Sobre); melhorias na interface como validação de informações." },
     { "versao": "1.0.1", "data": "2026-05-19", "notas": "Implementada a opção de salvar e recarregar um modelo de cabeçalho." },
     { "versao": "1.0.0", "data": "2026-04-01", "notas": "Versão inicial com registo diário, métricas e exportação Excel." }
