@@ -126,7 +126,7 @@ _CHAVE_REGRAS_POR_WEEKDAY: dict[int, str] = {
 }
 
 
-def classificar_tipo_dia(d: date, config: dict[str, Any]) -> str:
+def _classificar_tipo_dia(d: date, config: dict[str, Any]) -> str:
     """
     Chave usada nas métricas e no JSON do dia: «feriado» ou um dos dias
     «segunda» … «domingo» (conforme `dias_semana` em config_regras_horas.json).
@@ -149,7 +149,7 @@ def calcular_metricas_horas_para_dia(
     Chaves devolvidas alinhadas com `CHAVE_JSON_METRICAS_HORAS` / subcampos em schema.
     """
     cfg = garantir_config_reglas_completa(config)
-    tipo = classificar_tipo_dia(dia, cfg)
+    tipo = _classificar_tipo_dia(dia, cfg)
     dias_sem = cfg.get("dias_semana") or {}
     tipos = cfg.get("tipos_dia") or {}
     if tipo == "feriado":
@@ -385,7 +385,6 @@ def formatar_resumo_metricas_texto(metricas: dict[str, Any]) -> str:
     def fmt(k: str) -> str:
         return formatar_minutos_como_texto(int(metricas.get(k) or 0))
 
-    eq = float(metricas.get("minutos_adicional_noturno_equivalente") or 0)
     linhas = [
         f"Trabalhadas: {fmt('minutos_trabalhados_total')}",
         f"Normais: {fmt('minutos_normais')}",

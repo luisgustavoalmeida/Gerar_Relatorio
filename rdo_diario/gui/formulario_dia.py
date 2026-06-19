@@ -42,6 +42,7 @@ from rdo_diario.schema import (
     ROTULOS_TEMPO_ATIVIDADE_DIA,
     ROTULOS_TEXTO_DIA,
     aplicar_metadados_data_no_registro_diario,
+    atualizar_numero_folha_mes_em_registros,
     extrair_horarios_do_registro_dia,
     nome_dia_semana_portugues,
     registro_de_dia_possui_conteudo,
@@ -359,3 +360,8 @@ class MixinFormularioDia:
             registros[iso] = dados
         elif iso in registros:
             del registros[iso]
+        atualizar_numero_folha_mes_em_registros(
+            registros,
+            self._data_em_edicao.year,
+            self._data_em_edicao.month,
+        )

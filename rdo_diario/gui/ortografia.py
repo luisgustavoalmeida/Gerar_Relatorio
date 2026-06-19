@@ -5,7 +5,7 @@ from __future__ import annotations
 import threading
 import tkinter as tk
 from tkinter import messagebox
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 import customtkinter as ctk
 
@@ -22,9 +22,6 @@ from rdo_diario.verificacao_ortografia import (
     offset_caractere_para_indice_tk,
     verificar_com_languagetool,
 )
-
-if TYPE_CHECKING:
-    from rdo_diario.gui.app import AplicacaoRdo
 
 
 class MixinOrtografia:

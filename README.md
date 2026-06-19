@@ -59,7 +59,7 @@ Aplicação desktop para registo de atividades diárias em projetos de engenhari
 | **Verde** | Registro de serviço **e** horários de ponto **válidos** (informações essenciais completas) |
 | **Laranja** | Falta registro de serviço, horários incompletos ou horários que não respeitam as regras abaixo |
 | **Sem destaque** | Nenhum registro de serviço nem horário preenchido naquele dia |
-| **Vermelho** (número do dia) | Feriado nacional (fundo verde ou laranja se o dia também tiver dados, conforme o estado acima) |
+| **Vermelho** (número do dia) | Feriado nacional (fundo verde ou laranja se o dia também tiver dados, conforme o estado acima); passe o rato sobre o dia para ver o nome do feriado |
 
 O calendário atualiza enquanto digita (antes do auto-save gravar no disco), refletindo o dia aberto no formulário. Clique no botão **+** no canto do painel do calendário para mostrar ou ocultar a legenda das cores.
 
@@ -69,6 +69,7 @@ O calendário atualiza enquanto digita (antes do auto-save gravar no disco), ref
 - **Registro extra-escopo:** atividades fora do escopo contratual, com tempo associado (h:mm)
 - **Registro de ociosidade:** períodos de inatividade com justificativa e tempo (h:mm)
 - **Tempo de serviço:** calculado automaticamente (horas trabalhadas − extra-escopo − ociosidade)
+- **Numeração no mês:** cada dia com conteúdo recebe automaticamente `numero` (posição) e `folha` («X de Y») entre os relatórios preenchidos do mês; o rótulo **No mês:** ao lado da data reflecte o mesmo valor e estes campos são copiados para o Excel
 
 ### Controlo de horários
 
@@ -108,9 +109,9 @@ O menu *Horas → Copiar relatório detalhado do mês (métricas)* copia o resum
 
 - **RDO (Relatório Diário de Obra):** uma folha por dia com registro, a partir de `template/RDO.xlsx`
 - **FT (Folha de Tempo):** resumo mensal, a partir de `template/FT.xlsx`
-- **Mapeamento:** células definidas em `template/mapa_celulas_excel.json`
-- **Saída:** `saida_relatorios/<contratante>/<natureza>/RDO_YYYY-MM.xlsx` e `FT_YYYY-MM.xlsx`
-- **Por mês ou completo:** *Arquivo → Gerar Excel — mês em edição (RDO/FT)* exporta só o mês da data seleccionada no calendário; *Gerar Excel — todos os meses (RDO/FT)* gera **todos os meses** com registos no JSON do cliente
+- **Mapeamento:** células definidas em `template/mapa_celulas_excel.json` (inclui `numero` e `folha` por dia no RDO)
+- **Saída:** `saida_relatorios/<contratante>/<natureza>/` com ficheiros nomeados por mês, tipo, natureza do serviço e funcionário — por exemplo `2026-05_RDO_Supervisorio_UHE_Rondon_Luis_Gustavo_de_Almeida.xlsx` e o equivalente `FT_...`
+- **Por mês ou completo:** *Arquivo → Gerar Excel — mês em edição (RDO/FT)* exporta só o mês da data seleccionada no calendário; *Gerar Excel — todos os meses (RDO/FT)* gera **todos os meses** com dias que tenham conteúdo no JSON do cliente (texto, horários ou tempos)
 
 > **Nota:** o repositório inclui `template/RDO.xlsx` e `template/FT.xlsx` para exportação dos relatórios.
 
@@ -119,7 +120,7 @@ O menu *Horas → Copiar relatório detalhado do mês (métricas)* copia o resum
 - Sincronização via biblioteca `holidays` (Brasil)
 - Menu *Horas → Sincronizar feriados nacionais* (atualiza ano anterior, ano corrente e ano seguinte)
 - Regras de feriado configuráveis em `template/config_regras_horas.json`
-- Dias de feriado marcados em vermelho no calendário
+- Dias de feriado marcados em vermelho no calendário; o nome do feriado aparece num balão ao passar o rato sobre o dia
 
 ## Pré-requisitos
 
@@ -213,7 +214,7 @@ O script irá:
 
 - **Auto-save:** grava após ~1,2 s de inatividade; *Arquivo → Salvar agora* força gravação imediata
 - **Janela e abas:** redimensione ou mova à vontade — geometria e aba activa são memorizadas para a próxima sessão
-- **Contagem no mês** («No mês: X de Y»): posição cronológica entre dias com qualquer conteúdo; as cores do calendário usam só registro de serviço e validação de ponto
+- **Contagem no mês** («No mês: X de Y»): posição cronológica do dia entre os dias com qualquer conteúdo no mês (alinhada a `numero` e `folha` no JSON e no Excel); as cores do calendário usam só registro de serviço e validação de ponto
 - **Ortografia:** clique com o botão direito em palavras sublinhadas para correções
 - **Dicionário:** *Revisão → Dicionário pessoal*
 - **Ajuda integrada:** *Ajuda → Manual* e *Ajuda → Sobre* (conteúdo editável em `template/manual.json` e `template/sobre.json`, sem recompilar)
@@ -371,7 +372,7 @@ Edite `template/manual.json` e `template/sobre.json`; as alterações aparecem a
 
 ### Estado essencial do dia (calendário)
 
-Lógica em `rdo_diario/schema.py` (`estado_informacoes_essenciais_dia`, `horarios_ponto_validos_no_registro`), reutilizando `calcular_minutos_jornada_liquida` em `horario_util.py`. Cálculo de métricas em `rdo_diario/calculo_metricas_horas.py` (`calcular_metricas_horas_para_dia`, `agregar_metricas_mes`, `agregar_metricas_totais`).
+Lógica em `rdo_diario/schema.py` (`estado_informacoes_essenciais_dia`, `horarios_ponto_validos_no_registro`, `calcular_numero_e_folha_mes`, `mapa_numero_folha_por_mes`), reutilizando `calcular_minutos_jornada_liquida` em `horario_util.py`. Cálculo de métricas em `rdo_diario/calculo_metricas_horas.py` (`calcular_metricas_horas_para_dia`, `agregar_metricas_mes`, `agregar_metricas_totais`).
 
 - **Completo (verde):** texto em *Registro de serviço* + ponto válido (entrada e saída, ordem cronológica)
 - **Parcial (laranja):** só serviço, só horários, horários inválidos ou só deslocamento preenchido
@@ -411,6 +412,8 @@ Versão do formato: **1** (`schema.VERSAO_ARQUIVO`). Um ficheiro por cliente em 
       "ponto_saida_almoco": "12:00",
       "ponto_entrada_almoco": "13:00",
       "ponto_saida": "17:00",
+      "numero": 3,
+      "folha": "3 de 12",
       "metricas_horas": {
         "trabalhadas": 480,
         "normais": 480,
@@ -426,7 +429,7 @@ Versão do formato: **1** (`schema.VERSAO_ARQUIVO`). Um ficheiro por cliente em 
 }
 ```
 
-A gravação usa ficheiro temporário (`.json.tmp`) e substituição atómica, reduzindo risco de corrupção em caso de falha durante o save.
+A gravação usa ficheiro temporário (`.json.tmp`) e substituição atómica, reduzindo risco de corrupção em caso de falha durante o save. Os campos `numero` e `folha` são recalculados automaticamente para todos os dias com conteúdo do mês sempre que o registo diário é persistido.
 
 ### Verificação ortográfica
 

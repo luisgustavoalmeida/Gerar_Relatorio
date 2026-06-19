@@ -20,8 +20,6 @@ CHAVE_TEMA = "tema_aparencia"
 CHAVE_GEOMETRIA_JANELA = "geometria_janela"
 CHAVE_ABA_ATIVA = "aba_ativa"
 _ABAS_PRINCIPAIS_VALIDAS = frozenset({"Cabeçalhos", "Relatórios de trabalho"})
-_MIN_INTERSECAO_VISIVEL_LARGURA = 120
-_MIN_INTERSECAO_VISIVEL_ALTURA = 80
 MODO_ATUAL: ModoAparencia = "dark"
 
 
@@ -41,7 +39,6 @@ COR_TEXTO_SECUNDARIO = _par("#5f5f78", "#9898b0")
 COR_SUCESSO = _par("#188038", "#34a853")
 COR_AVISO = _par("#e37400", "#fbbc04")
 COR_ERRO = _par("#d93025", "#ea4335")
-COR_ERRO_HOVER = _par("#b3261e", "#c5221f")
 COR_TEXTO_BOTAO_ATIVO = _par("#ffffff", "#ffffff")
 COR_CALENDARIO_FDS_FUNDO = _par("#dce4f5", "#343652")
 COR_CALENDARIO_FDS_TEXTO = _par("#4a5a8a", "#a8b4e0")
@@ -51,11 +48,9 @@ COR_CALENDARIO_FDS_OM_TEXTO = _par("#6b7a9a", "#7878a0")
 # Dimensões
 LARGURA_JANELA = 1075
 ALTURA_JANELA = 900
-PADDING = 16
 RAIO_BORDA = 10
 
 # Tipografia — nomes indicam o papel na interface (Segoe UI)
-FONT_JANELA_TITULO = ("Segoe UI", 14, "bold")           # diálogos modais (ajuda, sobre, ortografia)
 FONT_PAINEL_TITULO = ("Segoe UI", 12, "bold")           # títulos de grupos (Relatório, Calendário…)
 FONT_GRUPO = ("Segoe UI", 11, "bold")                   # subgrupos (Ponto, Métricas do dia, data em destaque)
 FONT_INTERFACE = ("Segoe UI", 14)                       # rótulos, campos e texto digitável do relatório
@@ -66,9 +61,7 @@ FONT_METRICAS = ("Segoe UI", 11)                        # valores do painel de m
 FONT_DICA_ABA = ("Segoe UI", 11)                        # texto explicativo no topo das abas
 FONT_ABA = ("Segoe UI", 12, "bold")                     # botões «Cabeçalhos» / «Relatórios de trabalho»
 FONT_AUXILIAR = ("Segoe UI", 9)                         # legendas compactas (calendário, etc.)
-FONT_BOTAO = ("Segoe UI", 12, "bold")                   # botões (reserva / tema CTk)
-FONT_CALENDARIO = ("Segoe UI", 9)                       # células do calendário compacto
-FONT_CALENDARIO_EXPANSO = ("Segoe UI", 9)               # calendário em layout amplo
+FONT_CALENDARIO = ("Segoe UI", 9)                       # células do calendário
 
 
 def _indice_modo_aparencia() -> int:
@@ -139,13 +132,6 @@ def _limites_area_virtual_janela(janela: tk.Misc) -> tuple[int, int, int, int]:
     )
 
 
-def _intersecao_visivel(largura: int, altura: int, x: int, y: int, area: tuple[int, int, int, int]) -> tuple[int, int]:
-    ax, ay, aw, ah = area
-    overlap_w = max(0, min(x + largura, ax + aw) - max(x, ax))
-    overlap_h = max(0, min(y + altura, ay + ah) - max(y, ay))
-    return overlap_w, overlap_h
-
-
 def geometria_janela_totalmente_visivel(
     janela: tk.Misc,
     largura: int,
@@ -163,22 +149,6 @@ def geometria_janela_totalmente_visivel(
     )
 
 
-def geometria_janela_eh_visivel(
-    janela: tk.Misc,
-    largura: int,
-    altura: int,
-    x: int,
-    y: int,
-) -> bool:
-    """Verifica se parte suficiente da janela intersecta a área virtual."""
-    area = _limites_area_virtual_janela(janela)
-    overlap_w, overlap_h = _intersecao_visivel(largura, altura, x, y, area)
-    return (
-        overlap_w >= _MIN_INTERSECAO_VISIVEL_LARGURA
-        and overlap_h >= _MIN_INTERSECAO_VISIVEL_ALTURA
-    )
-
-
 def _centralizar_geometria_monitor_primario(
     janela: tk.Misc,
     largura: int,
@@ -192,36 +162,6 @@ def _centralizar_geometria_monitor_primario(
     altura = max(1, min(altura, sh))
     x = max(0, (sw - largura) // 2)
     y = max(0, (sh - altura) // 2)
-    return largura, altura, x, y
-
-
-def _centralizar_geometria_janela(
-    janela: tk.Misc,
-    largura: int,
-    altura: int,
-) -> tuple[int, int, int, int]:
-    """Centraliza a janela na área virtual, garantindo dimensões totalmente visíveis."""
-    ax, ay, aw, ah = _limites_area_virtual_janela(janela)
-    largura = max(1, min(largura, aw))
-    altura = max(1, min(altura, ah))
-    x = ax + max(0, (aw - largura) // 2)
-    y = ay + max(0, (ah - altura) // 2)
-    return largura, altura, x, y
-
-
-def _ajustar_geometria_dentro_area(
-    janela: tk.Misc,
-    largura: int,
-    altura: int,
-    x: int,
-    y: int,
-) -> tuple[int, int, int, int]:
-    """Mantém a janela inteira dentro da área virtual."""
-    ax, ay, aw, ah = _limites_area_virtual_janela(janela)
-    largura = max(1, min(largura, aw))
-    altura = max(1, min(altura, ah))
-    x = max(ax, min(x, ax + aw - largura))
-    y = max(ay, min(y, ay + ah - altura))
     return largura, altura, x, y
 
 
@@ -373,11 +313,6 @@ def alternar_tema() -> ModoAparencia:
     """Alterna entre claro e escuro."""
     novo: ModoAparencia = "light" if MODO_ATUAL == "dark" else "dark"
     return aplicar_tema(novo)
-
-
-def configurar_aparencia() -> ModoAparencia:
-    """Alias de compatibilidade para inicialização da aplicação."""
-    return inicializar_tema()
 
 
 def _modo_ctk() -> str:
@@ -788,10 +723,10 @@ def configurar_estilo_ttk(janela: tk.Misc) -> ttk.Style:
     return estilo
 
 
-def opcoes_calendario_tk_embutido(*, compacto: bool = False) -> dict[str, Any]:
+def opcoes_calendario_tk_embutido() -> dict[str, Any]:
     cores = obter_cores_tema()
     return {
-        "font": FONT_CALENDARIO if compacto else FONT_CALENDARIO_EXPANSO,
+        "font": FONT_CALENDARIO,
         "background": cores["fundo"],
         "foreground": cores["texto"],
         "headersbackground": cores["fundo_superior"],
@@ -814,10 +749,6 @@ def opcoes_calendario_tk_embutido(*, compacto: bool = False) -> dict[str, Any]:
 
 def cor_canvas_tk() -> str:
     return obter_cores_tema()["fundo"]
-
-
-def raio_borda() -> int:
-    return RAIO_BORDA
 
 
 def opcoes_caixa_texto_ctk(*, altura_px: int) -> dict[str, Any]:

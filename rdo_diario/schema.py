@@ -299,11 +299,6 @@ def registro_tem_algum_horario_preenchido(registro: dict) -> bool:
     return any(str(horarios.get(campo, "") or "").strip() for campo in CAMPOS_JSON_HORARIOS)
 
 
-def registro_de_dia_tem_horarios(registro: dict) -> bool:
-    """Alias legado: qualquer campo de horário preenchido."""
-    return registro_tem_algum_horario_preenchido(registro)
-
-
 def horarios_ponto_validos_no_registro(registro: dict) -> bool:
     """
     Horários de ponto válidos para o calendário verde: entrada e saída obrigatórias;
@@ -365,6 +360,75 @@ def registro_de_dia_possui_conteudo(registro: dict) -> bool:
     if str(registro.get("jornada_saida", "") or "").strip():
         return True
     return False
+
+
+def datas_com_relatorio_preenchido_no_mes(
+    referencia: date,
+    registros: dict[str, Any],
+) -> list[date]:
+    """Datas ordenadas do mesmo ano/mês que têm relatório com conteúdo."""
+    prefixo = f"{referencia.year:04d}-{referencia.month:02d}-"
+    datas: list[date] = []
+    for iso, registro in registros.items():
+        if not str(iso).startswith(prefixo):
+            continue
+        if not isinstance(registro, dict):
+            continue
+        if not registro_de_dia_possui_conteudo(registro):
+            continue
+        try:
+            datas.append(date.fromisoformat(str(iso).strip()[:10]))
+        except ValueError:
+            continue
+    datas.sort()
+    return datas
+
+
+def calcular_numero_e_folha_mes(
+    referencia: date,
+    registros: dict[str, Any],
+) -> tuple[int | None, int, str]:
+    """
+    Posição (1-based) do dia entre os relatórios preenchidos do mês,
+    o total e a cadeia «X de Y» (ou «— de Y» / «0 de 0»).
+    """
+    datas = datas_com_relatorio_preenchido_no_mes(referencia, registros)
+    total = len(datas)
+    if total == 0:
+        return None, 0, "0 de 0"
+    try:
+        posicao = datas.index(referencia) + 1
+        return posicao, total, f"{posicao} de {total}"
+    except ValueError:
+        return None, total, f"— de {total}"
+
+
+def mapa_numero_folha_por_mes(
+    registros: dict[str, Any],
+    ano: int,
+    mes: int,
+) -> dict[str, tuple[int, int, str]]:
+    """Para cada dia com conteúdo no mês, devolve (posição, total, «X de Y»)."""
+    referencia = date(ano, mes, 1)
+    datas = datas_com_relatorio_preenchido_no_mes(referencia, registros)
+    total = len(datas)
+    resultado: dict[str, tuple[int, int, str]] = {}
+    for indice, dia in enumerate(datas, start=1):
+        resultado[dia.isoformat()] = (indice, total, f"{indice} de {total}")
+    return resultado
+
+
+def atualizar_numero_folha_mes_em_registros(
+    registros: dict[str, Any],
+    ano: int,
+    mes: int,
+) -> None:
+    """Atualiza ``numero`` e ``folha`` em todos os dias com conteúdo do mês."""
+    for iso, (posicao, _total, folha) in mapa_numero_folha_por_mes(registros, ano, mes).items():
+        registro = registros.get(iso)
+        if isinstance(registro, dict):
+            registro[CHAVE_JSON_NUMERO_RELATORIO_MES] = posicao
+            registro[CHAVE_JSON_FOLHA_RELATORIO_MES] = folha
 
 
 def criar_estrutura_documento_vazio(contratante: str, natureza_servico: str) -> dict:

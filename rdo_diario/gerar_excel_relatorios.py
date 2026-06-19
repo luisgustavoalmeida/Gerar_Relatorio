@@ -22,7 +22,13 @@ from rdo_diario.paths import (
     PASTA_SAIDA_RELATORIOS_EXCEL,
     RAIZ_PROJETO,
 )
-from rdo_diario.schema import extrair_horarios_do_registro_dia
+from rdo_diario.schema import (
+    CHAVE_JSON_FOLHA_RELATORIO_MES,
+    CHAVE_JSON_NUMERO_RELATORIO_MES,
+    extrair_horarios_do_registro_dia,
+    mapa_numero_folha_por_mes,
+    registro_de_dia_possui_conteudo,
+)
 
 
 def _resolver_caminho_relativo_raiz(rel: str) -> Path:
@@ -30,7 +36,7 @@ def _resolver_caminho_relativo_raiz(rel: str) -> Path:
     return p if p.is_absolute() else (RAIZ_PROJETO / p)
 
 
-def carregar_mapa_celulas(caminho: Path | None = None) -> dict[str, Any]:
+def _carregar_mapa_celulas(caminho: Path | None = None) -> dict[str, Any]:
     alvo = caminho or ARQUIVO_MAPA_CELULAS_EXCEL_JSON
     with alvo.open(encoding="utf-8") as f:
         return json.load(f)
@@ -42,7 +48,34 @@ def _slug_seguro(texto: str) -> str:
     return t or "sem_nome"
 
 
-def caminho_pasta_saida_cliente(documento: dict[str, Any], base: Path | None = None) -> Path:
+def _nome_arquivo_relatorio_mes(
+    documento: dict[str, Any],
+    ano: int,
+    mes: int,
+    tipo: str,
+) -> str:
+    """
+    Nome do Excel mensal: data, tipo (RDO/FT), natureza do serviço e funcionário.
+
+    Exemplo: ``2026-05_RDO_Supervisorio_UHE_Rondon_Luis_Gustavo_de_Almeida.xlsx``
+    """
+    cab = documento.get("cabecalho_fixo") or {}
+    chave = documento.get("chave") or {}
+    partes = [f"{ano:04d}-{mes:02d}", tipo]
+    for texto in (
+        str(cab.get("natureza_servico") or chave.get("natureza_servico") or ""),
+        str(cab.get("nome_funcionario") or ""),
+    ):
+        slug = _slug_seguro(texto)
+        if slug != "sem_nome":
+            partes.append(slug)
+    nome_base = "_".join(partes)
+    if len(nome_base) > 240:
+        nome_base = nome_base[:240].rstrip("_")
+    return f"{nome_base}.xlsx"
+
+
+def _caminho_pasta_saida_cliente(documento: dict[str, Any], base: Path | None = None) -> Path:
     """Caminho da pasta de saída Excel do cliente (sem criar pastas)."""
     chave = documento.get("chave") or {}
     c = str(chave.get("contratante") or "").strip()
@@ -52,14 +85,14 @@ def caminho_pasta_saida_cliente(documento: dict[str, Any], base: Path | None = N
 
 
 def _pasta_cliente_saida(documento: dict[str, Any], base: Path | None = None) -> Path:
-    pasta = caminho_pasta_saida_cliente(documento, base)
+    pasta = _caminho_pasta_saida_cliente(documento, base)
     pasta.mkdir(parents=True, exist_ok=True)
     return pasta
 
 
 def remover_saida_relatorios_excel_cliente(documento: dict[str, Any]) -> None:
     """Apaga a pasta de relatórios Excel gerados para o cliente (se existir)."""
-    pasta = caminho_pasta_saida_cliente(documento)
+    pasta = _caminho_pasta_saida_cliente(documento)
     if pasta.is_dir():
         shutil.rmtree(pasta)
     pasta_contratante = pasta.parent
@@ -164,7 +197,11 @@ def _escrever_celula(ws: Any, endereco: str, valor: Any, wrap: bool = False) -> 
 
 def _datas_registros_por_mes(registros: dict[str, Any]) -> dict[tuple[int, int], list[str]]:
     por_mes: dict[tuple[int, int], list[str]] = {}
-    for iso in registros:
+    for iso, registro in registros.items():
+        if not isinstance(registro, dict):
+            continue
+        if not registro_de_dia_possui_conteudo(registro):
+            continue
         try:
             d = date.fromisoformat(str(iso).strip()[:10])
         except ValueError:
@@ -216,11 +253,13 @@ def _preencher_rdo_mes(
     map_dia = cfg.get("por_registro_dia") or {}
     cel_obs = str(cfg.get("observacoes_fiscalizacao_dia") or "").strip()
     cel_hor = str(cfg.get("horarios_ponto_detalhe") or "").strip()
+    folhas_mes = mapa_numero_folha_por_mes(registros, ano, mes)
 
     for iso, ws in pares:
         reg = registros.get(iso) or {}
         if not isinstance(reg, dict):
             reg = {}
+        posicao_folha = folhas_mes.get(iso)
 
         for chave_json, endereco in map_cab.items():
             if not endereco:
@@ -242,16 +281,14 @@ def _preencher_rdo_mes(
                 except ValueError:
                     pass
                 continue
-            # if chave_json == "numero":
-            #     num = reg.get("numero")
-            #     if num is not None:
-            #         _escrever_celula(ws, ed, str(num))
-            #     continue
-            # if chave_json == "folha":
-            #     fol = str(reg.get("folha") or "").strip()
-            #     if fol:
-            #         _escrever_celula(ws, ed, fol)
-            #     continue
+            if chave_json == CHAVE_JSON_NUMERO_RELATORIO_MES:
+                if posicao_folha is not None:
+                    _escrever_celula(ws, ed, posicao_folha[0])
+                continue
+            if chave_json == CHAVE_JSON_FOLHA_RELATORIO_MES:
+                if posicao_folha is not None:
+                    _escrever_celula(ws, ed, posicao_folha[2])
+                continue
             if chave_json in ("registro_servico", "registro_extra_escopo", "registro_ociosidade"):
                 txt = str(reg.get(chave_json) or "")
                 _escrever_celula(ws, ed, txt, wrap=True)
@@ -277,7 +314,7 @@ def _preencher_rdo_mes(
         if cel_hor:
             _escrever_celula(ws, cel_hor, _texto_horarios_ponto(reg), wrap=True)
 
-    nome_f = f"RDO_{ano:04d}-{mes:02d}.xlsx"
+    nome_f = _nome_arquivo_relatorio_mes(documento, ano, mes, "RDO")
     destino = pasta_saida / nome_f
     wb.save(destino)
     wb.close()
@@ -390,7 +427,7 @@ def _preencher_ft_mes(
             continue
         _escrever_celula(ws, str(endereco), str(val).strip() if val is not None else "")
 
-    nome_f = f"FT_{ano:04d}-{mes:02d}.xlsx"
+    nome_f = _nome_arquivo_relatorio_mes(documento, ano, mes, "FT")
     destino = pasta_saida / nome_f
     wb.save(destino)
     wb.close()
@@ -423,7 +460,7 @@ def gerar_relatorios_excel(
     if (ano is None) ^ (mes is None):
         raise ValueError("Indique ano e mês em conjunto, ou omita ambos para gerar todos os meses.")
 
-    m = mapa if mapa is not None else carregar_mapa_celulas()
+    m = mapa if mapa is not None else _carregar_mapa_celulas()
     registros = documento.get("registros_diarios") or {}
     if not isinstance(registros, dict) or not registros:
         raise ValueError("Não há registros_diarios no documento.")

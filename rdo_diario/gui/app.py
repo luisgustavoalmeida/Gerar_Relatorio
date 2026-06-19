@@ -45,7 +45,7 @@ from rdo_diario.gui.tema import (
     salvar_geometria_janela,
     salvar_aba_ativa,
     alternar_tema,
-    configurar_aparencia,
+    inicializar_tema,
     configurar_estilo_ttk,
     forcar_redesenho_tema,
     obter_cores_tema,
@@ -189,7 +189,7 @@ class AplicacaoRdo(
         if self._widget_calendario:
             from rdo_diario.gui.calendario import aplicar_cores_tema_calendario
 
-            aplicar_cores_tema_calendario(self._widget_calendario, compacto=True)
+            aplicar_cores_tema_calendario(self._widget_calendario)
             self._atualizar_marcadores_calendario()
         if self._tabview is not None:
             self._tabview.configure(**opcoes_tabview_ctk())
@@ -688,10 +688,6 @@ class AplicacaoRdo(
         """Gera RDO/FT de todos os meses com registos no projeto."""
         self._executar_geracao_excel(titulo_dialogo="Gerar Excel — todos os meses")
 
-    def _gerar_relatorios_excel(self) -> None:
-        """Compatibilidade: gera todos os meses."""
-        self._gerar_relatorios_excel_todos_meses()
-
     def _aplicar_geometria_inicial_janela(self) -> None:
         """Aplica posição/tamanho após montar a interface (evita layout sobrescrever)."""
         self._persistencia_geometria_ativa = False
@@ -758,7 +754,7 @@ def iniciar_aplicacao() -> None:
     """Garante a pasta de dados e abre a janela principal."""
     preparar_icone_processo_windows()
     garantir_pastas_executavel()
-    configurar_aparencia()
+    inicializar_tema()
     PASTA_DADOS_RDO.mkdir(parents=True, exist_ok=True)
     garantir_arquivo_config_regras_existe()
     app = AplicacaoRdo()

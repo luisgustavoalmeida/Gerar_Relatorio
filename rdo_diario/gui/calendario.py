@@ -16,7 +16,7 @@ from rdo_diario.calculo_metricas_horas import (
     calcular_metricas_horas_para_dia,
     formatar_resumo_metricas_texto,
 )
-from rdo_diario.config_horas import conjunto_feriados_iso_para_ano
+from rdo_diario.config_horas import conjunto_feriados_iso_para_ano, nome_feriado_por_data
 from rdo_diario.gui.tema import (
     COR_BORDA,
     COR_FUNDO,
@@ -36,6 +36,7 @@ from rdo_diario.gui.tema import (
 )
 from rdo_diario.horario_util import formatar_minutos_como_texto
 from rdo_diario.schema import (
+    calcular_numero_e_folha_mes,
     estado_informacoes_essenciais_dia,
     nome_dia_semana_portugues,
     registro_de_dia_possui_conteudo,
@@ -250,9 +251,86 @@ def _desativar_tooltips_calendario(cal: Calendar) -> None:
     tw.display_tooltip = lambda: None  # type: ignore[method-assign]
 
 
-def aplicar_cores_tema_calendario(cal: Calendar, *, compacto: bool = True) -> None:
+def _esconder_tooltip_feriado_calendario(cal: Calendar) -> None:
+    """Fecha o balão de feriado, se visível."""
+    tw = getattr(cal, "_tooltip_feriado_janela", None)
+    if tw is None:
+        return
+    try:
+        tw.destroy()
+    except tk.TclError:
+        pass
+    cal._tooltip_feriado_janela = None
+
+
+def _limpar_tooltips_feriados_calendario(cal: Calendar) -> None:
+    """Remove os vínculos de balão de feriado das células do mês visível."""
+    _esconder_tooltip_feriado_calendario(cal)
+    for widget, enter_id, leave_id in getattr(cal, "_feriado_tooltip_binds", ()):
+        try:
+            widget.unbind("<Enter>", enter_id)
+            widget.unbind("<Leave>", leave_id)
+        except tk.TclError:
+            pass
+    cal._feriado_tooltip_binds = []
+
+
+def _aplicar_tooltips_feriados_calendario(cal: Calendar, config: dict[str, Any]) -> None:
+    """Mostra o nome do feriado ao passar o rato sobre o número do dia (vermelho)."""
+    _limpar_tooltips_feriados_calendario(cal)
+    celulas = _grelha_datas_exibidas_calendario(cal)
+    binds: list[tuple[tk.Widget, str, str]] = []
+
+    def _mostrar(widget: tk.Widget, texto: str):
+        def handler(_event: tk.Event) -> None:
+            _esconder_tooltip_feriado_calendario(cal)
+            if not texto:
+                return
+            cores = obter_cores_tema()
+            tw = tk.Toplevel(cal)
+            tw.wm_overrideredirect(True)
+            tw.attributes("-topmost", True)
+            tk.Label(
+                tw,
+                text=texto,
+                font=FONT_AUXILIAR,
+                bg=cores["entrada"],
+                fg=cores["texto"],
+                relief="solid",
+                borderwidth=1,
+                padx=6,
+                pady=3,
+            ).pack()
+            tw.update_idletasks()
+            x = widget.winfo_rootx()
+            y = widget.winfo_rooty() + widget.winfo_height() + 2
+            tw.wm_geometry(f"+{x}+{y}")
+            cal._tooltip_feriado_janela = tw
+
+        return handler
+
+    for i in range(6):
+        for j in range(7):
+            try:
+                label = cal._calendar[i][j]
+            except (IndexError, AttributeError, tk.TclError):
+                continue
+            idx = i * 7 + j
+            if idx >= len(celulas):
+                continue
+            nome = nome_feriado_por_data(config, celulas[idx].isoformat())
+            if not nome:
+                continue
+            enter_id = label.bind("<Enter>", _mostrar(label, nome), add="+")
+            leave_id = label.bind("<Leave>", lambda _e: _esconder_tooltip_feriado_calendario(cal), add="+")
+            binds.append((label, enter_id, leave_id))
+
+    cal._feriado_tooltip_binds = binds
+
+
+def aplicar_cores_tema_calendario(cal: Calendar) -> None:
     """Reaplica a paleta padrão num calendário já criado."""
-    opcoes = opcoes_calendario_tk_embutido(compacto=compacto)
+    opcoes = opcoes_calendario_tk_embutido()
     for chave, valor in opcoes.items():
         if chave == "font":
             continue
@@ -262,7 +340,7 @@ def aplicar_cores_tema_calendario(cal: Calendar, *, compacto: bool = True) -> No
             pass
 
 
-def criar_widget_calendario(pai: tk.Misc, *, compacto: bool = False) -> CalendarRdo:
+def criar_widget_calendario(pai: tk.Misc) -> CalendarRdo:
     """
     Instancia o calendário (subclasse que corrige clique em dias de outros meses).
 
@@ -272,7 +350,7 @@ def criar_widget_calendario(pai: tk.Misc, *, compacto: bool = False) -> Calendar
         "selectmode": "day",
         "date_pattern": "yyyy-mm-dd",
         "showweeknumbers": True,
-        **opcoes_calendario_tk_embutido(compacto=compacto),
+        **opcoes_calendario_tk_embutido(),
     }
     try:
         cal = CalendarRdo(pai, locale="pt_BR", **argumentos)
@@ -439,7 +517,7 @@ class MixinCalendario:
             anchor="w",
         )
         self._rotulo_data_atual.pack(anchor="w", fill="x", pady=(8, 4))
-        self._widget_calendario = criar_widget_calendario(moldura_cal, compacto=True)
+        self._widget_calendario = criar_widget_calendario(moldura_cal)
         self._widget_calendario.pack(side=tk.TOP, pady=(4, 0))
         try:
             cores = obter_cores_tema()
@@ -633,27 +711,6 @@ class MixinCalendario:
             copia.pop(iso, None)
         return copia
 
-    def _datas_com_relatorio_preenchido_no_mes(self, referencia: date) -> list[date]:
-        """
-        Lista ordenada de datas do mesmo ano/mês de `referencia` que têm relatório com conteúdo.
-        """
-        prefixo = f"{referencia.year:04d}-{referencia.month:02d}-"
-        registros = self._registros_diarios_efetivos_para_contagem()
-        datas: list[date] = []
-        for iso, registro in registros.items():
-            if not iso.startswith(prefixo):
-                continue
-            if not isinstance(registro, dict):
-                continue
-            if not registro_de_dia_possui_conteudo(registro):
-                continue
-            try:
-                datas.append(date.fromisoformat(iso))
-            except ValueError:
-                continue
-        datas.sort()
-        return datas
-
     def _calcular_numero_e_folha_mes(self) -> tuple[int | None, int, str]:
         """
         Calcula a posição (1-based) do dia atual entre os relatórios preenchidos do mês,
@@ -663,16 +720,10 @@ class MixinCalendario:
         """
         if not self._documento_atual:
             return None, 0, "0 de 0"
-        ref = self._data_em_edicao
-        datas = self._datas_com_relatorio_preenchido_no_mes(ref)
-        total = len(datas)
-        if total == 0:
-            return None, 0, "0 de 0"
-        try:
-            posicao = datas.index(ref) + 1
-            return posicao, total, f"{posicao} de {total}"
-        except ValueError:
-            return None, total, f"— de {total}"
+        return calcular_numero_e_folha_mes(
+            self._data_em_edicao,
+            self._registros_diarios_efetivos_para_contagem(),
+        )
 
     def _atualizar_rotulo_contagem_relatorios_mes(self) -> None:
         """
@@ -757,3 +808,4 @@ class MixinCalendario:
             pass
         _repor_fonte_padrao_calendario(cal)
         _aplicar_negrito_dia_hoje(cal, hoje)
+        _aplicar_tooltips_feriados_calendario(cal, self._config_regras_horas)

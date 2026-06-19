@@ -17,7 +17,7 @@ _bind_fora_lista_combo: str | None = None
 _raiz_lista_combo: tk.Misc | None = None
 
 
-def fechar_lista_combo_suspenso() -> None:
+def _fechar_lista_combo_suspenso() -> None:
     """Fecha o painel flutuante da lista, se estiver aberto."""
     global _lista_aberta_combo, _popup_lista_combo, _bind_fora_lista_combo, _raiz_lista_combo
 
@@ -59,7 +59,7 @@ def _ligar_fechar_ao_clicar_fora(combo: ctk.CTkComboBox) -> None:
                 atual = atual.master
             except (AttributeError, tk.TclError):
                 break
-        fechar_lista_combo_suspenso()
+        _fechar_lista_combo_suspenso()
 
     try:
         _raiz_lista_combo = raiz
@@ -78,7 +78,7 @@ def _abrir_lista_arredondada(combo: ctk.CTkComboBox) -> None:
     if not valores:
         return
 
-    fechar_lista_combo_suspenso()
+    _fechar_lista_combo_suspenso()
 
     raiz = combo.winfo_toplevel()
     popup = ctk.CTkToplevel(raiz)
@@ -114,7 +114,7 @@ def _abrir_lista_arredondada(combo: ctk.CTkComboBox) -> None:
 
     for valor in valores:
         def _selecionar(v: str = valor) -> None:
-            fechar_lista_combo_suspenso()
+            _fechar_lista_combo_suspenso()
             combo._dropdown_callback(v)
 
         atual = valor == selecionado
@@ -138,7 +138,7 @@ def _abrir_lista_arredondada(combo: ctk.CTkComboBox) -> None:
     y = combo.winfo_rooty() + combo.winfo_height() + 2
     popup.geometry(f"{largura}x{altura}+{x}+{y}")
     popup.deiconify()
-    popup.bind("<Escape>", lambda _event: fechar_lista_combo_suspenso())
+    popup.bind("<Escape>", lambda _event: _fechar_lista_combo_suspenso())
     raiz.after(80, lambda: _ligar_fechar_ao_clicar_fora(combo))
 
 
