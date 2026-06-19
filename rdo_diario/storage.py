@@ -1,5 +1,5 @@
 """
-Leitura e gravação dos ficheiros JSON por cliente e do ficheiro «último cliente».
+Leitura e gravação dos ficheiros JSON por cliente e preferências locais do utilizador.
 """
 
 from __future__ import annotations
@@ -11,7 +11,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from rdo_diario.paths import ARQUIVO_ULTIMO_CLIENTE_JSON, PASTA_DADOS_RDO
+from rdo_diario.paths import ARQUIVO_CONFIG_USUARIO_JSON, PASTA_DADOS_RDO
 from rdo_diario.schema import (
     CAMPOS_JSON_CABECALHO,
     CHAVE_JSON_CONTRATANTE,
@@ -139,35 +139,87 @@ def carregar_ou_criar_cliente(contratante: str, natureza_servico: str) -> tuple[
     return documento, caminho
 
 
+_ARQUIVO_ULTIMO_CLIENTE_LEGADO = PASTA_DADOS_RDO / "_ultimo_cliente.json"
+
+
+def ler_config_usuario() -> dict[str, Any]:
+    """Lê preferências locais em `config_usuario.json` (tema, geometria, último cliente)."""
+    if not ARQUIVO_CONFIG_USUARIO_JSON.is_file():
+        dados: dict[str, Any] = {}
+    else:
+        try:
+            conteudo = json.loads(ARQUIVO_CONFIG_USUARIO_JSON.read_text(encoding="utf-8"))
+            dados = conteudo if isinstance(conteudo, dict) else {}
+        except (json.JSONDecodeError, OSError):
+            dados = {}
+    return _migrar_ultimo_cliente_legado_para_config(dados)
+
+
+def gravar_config_usuario(dados: dict[str, Any]) -> None:
+    """Persiste preferências locais em `config_usuario.json`."""
+    PASTA_DADOS_RDO.mkdir(parents=True, exist_ok=True)
+    try:
+        ARQUIVO_CONFIG_USUARIO_JSON.write_text(
+            json.dumps(dados, indent=2, ensure_ascii=False),
+            encoding="utf-8",
+        )
+    except OSError:
+        pass
+
+
+def _migrar_ultimo_cliente_legado_para_config(dados: dict[str, Any]) -> dict[str, Any]:
+    """Importa `_ultimo_cliente.json` para `config_usuario.json` e remove o ficheiro antigo."""
+    if not _ARQUIVO_ULTIMO_CLIENTE_LEGADO.is_file():
+        return dados
+    try:
+        legado = json.loads(_ARQUIVO_ULTIMO_CLIENTE_LEGADO.read_text(encoding="utf-8"))
+        if isinstance(legado, dict):
+            c = str(legado.get(CHAVE_JSON_CONTRATANTE, "")).strip()
+            n = str(legado.get(CHAVE_JSON_NATUREZA_SERVICO, "")).strip()
+            if c and n:
+                if not str(dados.get(CHAVE_JSON_CONTRATANTE, "")).strip():
+                    dados[CHAVE_JSON_CONTRATANTE] = c
+                if not str(dados.get(CHAVE_JSON_NATUREZA_SERVICO, "")).strip():
+                    dados[CHAVE_JSON_NATUREZA_SERVICO] = n
+                gravar_config_usuario(dados)
+        _ARQUIVO_ULTIMO_CLIENTE_LEGADO.unlink(missing_ok=True)
+    except (json.JSONDecodeError, OSError):
+        pass
+    return dados
+
+
 def salvar_memoria_ultimo_cliente(contratante: str, natureza_servico: str) -> None:
     """
-    Grava em `_ultimo_cliente.json` o par contratante + natureza para reabrir na próxima execução.
+    Grava o par contratante + natureza em `config_usuario.json` para reabrir na próxima execução.
     """
-    PASTA_DADOS_RDO.mkdir(parents=True, exist_ok=True)
-    dados = {
-        CHAVE_JSON_CONTRATANTE: contratante.strip(),
-        CHAVE_JSON_NATUREZA_SERVICO: natureza_servico.strip(),
-    }
-    with ARQUIVO_ULTIMO_CLIENTE_JSON.open("w", encoding="utf-8") as ficheiro:
-        json.dump(dados, ficheiro, ensure_ascii=False, indent=2)
+    dados = ler_config_usuario()
+    dados[CHAVE_JSON_CONTRATANTE] = contratante.strip()
+    dados[CHAVE_JSON_NATUREZA_SERVICO] = natureza_servico.strip()
+    gravar_config_usuario(dados)
 
 
 def ler_memoria_ultimo_cliente() -> tuple[str, str] | None:
     """
     Lê o último cliente gravado; devolve (contratante, natureza) ou None se inexistente/inválido.
     """
-    if not ARQUIVO_ULTIMO_CLIENTE_JSON.is_file():
-        return None
-    try:
-        with ARQUIVO_ULTIMO_CLIENTE_JSON.open(encoding="utf-8") as ficheiro:
-            dados = json.load(ficheiro)
-        c = str(dados.get(CHAVE_JSON_CONTRATANTE, "")).strip()
-        n = str(dados.get(CHAVE_JSON_NATUREZA_SERVICO, "")).strip()
-        if c and n:
-            return c, n
-    except (json.JSONDecodeError, OSError):
-        pass
+    dados = ler_config_usuario()
+    c = str(dados.get(CHAVE_JSON_CONTRATANTE, "")).strip()
+    n = str(dados.get(CHAVE_JSON_NATUREZA_SERVICO, "")).strip()
+    if c and n:
+        return c, n
     return None
+
+
+def _limpar_memoria_ultimo_cliente() -> None:
+    """Remove o último cliente memorizado de `config_usuario.json`."""
+    dados = ler_config_usuario()
+    alterado = False
+    for chave in (CHAVE_JSON_CONTRATANTE, CHAVE_JSON_NATUREZA_SERVICO):
+        if chave in dados:
+            dados.pop(chave, None)
+            alterado = True
+    if alterado:
+        gravar_config_usuario(dados)
 
 
 def excluir_cliente_do_disco(
@@ -177,14 +229,13 @@ def excluir_cliente_do_disco(
     natureza_servico: str,
 ) -> None:
     """
-    Remove o JSON do cliente e apaga `_ultimo_cliente.json` se apontar para o mesmo par chave.
+    Remove o JSON do cliente e limpa a memória do último cliente se for o mesmo par chave.
     """
     if caminho.is_file():
         caminho.unlink()
     ultimo = ler_memoria_ultimo_cliente()
     if ultimo and ultimo[0] == contratante.strip() and ultimo[1] == natureza_servico.strip():
-        if ARQUIVO_ULTIMO_CLIENTE_JSON.is_file():
-            ARQUIVO_ULTIMO_CLIENTE_JSON.unlink()
+        _limpar_memoria_ultimo_cliente()
 
 
 def obter_documento_cliente_inicial() -> tuple[dict[str, Any], Path] | None:

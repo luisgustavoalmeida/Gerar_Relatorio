@@ -32,7 +32,9 @@ Aplicação desktop para registo de atividades diárias em projetos de engenhari
 - **Barra de menus CustomTkinter:** listas suspensas arredondadas (*Arquivo*, *Revisão*, *Horas*, *Exibir*, *Ajuda*)
 - **Abas:** *Cabeçalhos* (13 campos fixos reutilizáveis) e *Relatórios de trabalho* (formulário diário + calendário + métricas)
 - **Tema claro/escuro:** alternância em *Exibir → Alternar tema claro/escuro*; preferência gravada em `dados_rdo/config_usuario.json`; paleta editável em `template/tema_aplicacao.json`
-- **Geometria da janela:** tamanho e posição são gravados automaticamente em `config_usuario.json` ao redimensionar ou mover a janela; na próxima execução, a janela reabre na mesma posição (se ainda couber no ecrã)
+- **Preferências locais unificadas:** `config_usuario.json` memoriza tema, geometria da janela, aba aberta, último cliente (contratante + natureza); na primeira execução após actualização, importa automaticamente `_ultimo_cliente.json` se existir
+- **Geometria da janela:** tamanho e posição gravados automaticamente ao redimensionar ou mover a janela; na próxima execução, a janela reabre na mesma posição (se ainda couber no ecrã)
+- **Aba memorizada:** a última aba seleccionada (*Cabeçalhos* ou *Relatórios de trabalho*) é restaurada ao reabrir a aplicação
 - **Auto-save:** gravação automática cerca de **1,2 s** após parar de digitar
 - **Validação em tempo real:** formatação de horários (`0830` → `08:30`) e indicação visual de dias incompletos ou inválidos
 
@@ -46,17 +48,17 @@ Aplicação desktop para registo de atividades diárias em projetos de engenhari
 
 ![Aba Relatórios de trabalho — tema escuro](Imagens%20Interface/Relat%C3%B3rios_tema_escuro.png)
 
-*Aba **Relatórios de trabalho** — registo diário, horários de ponto, calendário com código de cores e métricas mensais.*
+*Aba **Relatórios de trabalho** — registo diário, horários de ponto, calendário com código de cores e métricas (dia, mês e projeto).*
 
 #### Cores do calendário
 
 | Cor | Significado |
 |-----|-------------|
 | **Azul** | Data selecionada para edição |
-| **Azul claro** | Dia de hoje, sem registro de serviço nem horários preenchidos |
+| **Negrito** | Dia de hoje |
 | **Verde** | Registro de serviço **e** horários de ponto **válidos** (informações essenciais completas) |
 | **Laranja** | Falta registro de serviço, horários incompletos ou horários que não respeitam as regras abaixo |
-| **Sem destaque** | Nenhum registro de serviço nem horário preenchido naquele dia (exceto hoje → azul claro) |
+| **Sem destaque** | Nenhum registro de serviço nem horário preenchido naquele dia |
 | **Vermelho** (número do dia) | Feriado nacional (fundo verde ou laranja se o dia também tiver dados, conforme o estado acima) |
 
 O calendário atualiza enquanto digita (antes do auto-save gravar no disco), refletindo o dia aberto no formulário. Clique no botão **+** no canto do painel do calendário para mostrar ou ocultar a legenda das cores.
@@ -108,7 +110,7 @@ O menu *Horas → Copiar relatório detalhado do mês (métricas)* copia o resum
 - **FT (Folha de Tempo):** resumo mensal, a partir de `template/FT.xlsx`
 - **Mapeamento:** células definidas em `template/mapa_celulas_excel.json`
 - **Saída:** `saida_relatorios/<contratante>/<natureza>/RDO_YYYY-MM.xlsx` e `FT_YYYY-MM.xlsx`
-- Gera **todos os meses** que tenham registos no JSON do cliente (não apenas o mês visível no calendário)
+- **Por mês ou completo:** *Arquivo → Gerar Excel — mês em edição (RDO/FT)* exporta só o mês da data seleccionada no calendário; *Gerar Excel — todos os meses (RDO/FT)* gera **todos os meses** com registos no JSON do cliente
 
 > **Nota:** o repositório inclui `template/RDO.xlsx` e `template/FT.xlsx` para exportação dos relatórios.
 
@@ -196,7 +198,7 @@ O script irá:
    - As métricas de horas são calculadas automaticamente quando os horários são válidos
 
 4. **Gerar relatórios:**
-   - Menu **Arquivo → Gerar Excel (RDO/FT)**
+   - Menu **Arquivo → Gerar Excel — mês em edição (RDO/FT)** para o mês da data seleccionada, ou **Gerar Excel — todos os meses (RDO/FT)** para exportar tudo
    - Os ficheiros são gravados em `saida_relatorios/`
 
 ### Fluxo de trabalho
@@ -205,12 +207,12 @@ O script irá:
 2. **Modelo reutilizável:** *Arquivo → Salvar modelo de cabeçalho* / *Carregar modelo de cabeçalho* (`template/modelo_cabecalho.json`)
 3. **Registo diário:** selecione a data, descreva atividades, registe ponto e deslocamento
 4. **Extra-escopo e ociosidade:** campos dedicados com tempo consumido
-5. **Exportação:** *Arquivo → Gerar Excel (RDO/FT)* para todos os meses com dados
+5. **Exportação:** *Arquivo → Gerar Excel — mês em edição* ou *Gerar Excel — todos os meses*
 
 ### Atalhos e dicas
 
 - **Auto-save:** grava após ~1,2 s de inatividade; *Arquivo → Salvar agora* força gravação imediata
-- **Janela:** redimensione ou mova à vontade — a geometria é memorizada para a próxima sessão
+- **Janela e abas:** redimensione ou mova à vontade — geometria e aba activa são memorizadas para a próxima sessão
 - **Contagem no mês** («No mês: X de Y»): posição cronológica entre dias com qualquer conteúdo; as cores do calendário usam só registro de serviço e validação de ponto
 - **Ortografia:** clique com o botão direito em palavras sublinhadas para correções
 - **Dicionário:** *Revisão → Dicionário pessoal*
@@ -226,7 +228,8 @@ O script irá:
 | Novo cliente | Cria um novo projeto (novo ficheiro em `dados_rdo/`) |
 | Limpar informações do dia em edição | Apaga o registo do dia selecionado |
 | Excluir cliente | Remove o JSON do cliente e a pasta de relatórios Excel associada |
-| Gerar Excel (RDO/FT) | Exporta todos os meses com registos |
+| Gerar Excel — mês em edição (RDO/FT) | Exporta RDO e FT do mês da data seleccionada no calendário |
+| Gerar Excel — todos os meses (RDO/FT) | Exporta todos os meses com registos no cliente |
 | Abrir pasta relatórios | Abre `saida_relatorios/` no explorador |
 | Salvar / Carregar modelo de cabeçalho | Reutiliza cabeçalhos entre clientes |
 | Abrir Templates / Abrir dados (.json) | Abre pastas `template/` e `dados_rdo/` |
@@ -243,7 +246,7 @@ O script irá:
 
 | Item | Função |
 |------|--------|
-| Editar regras de horas (.json) | Editor integrado de `config_regras_horas.json` |
+| Editar regras de horas e feriados | Editor integrado de `config_regras_horas.json` |
 | Sincronizar feriados nacionais | Importa feriados BR (biblioteca `holidays`) |
 | Copiar relatório detalhado do mês (métricas) | Copia texto de métricas do mês para a área de transferência |
 | Abrir pasta do arquivo de regras | Abre a pasta de `config_regras_horas.json` |
@@ -252,7 +255,7 @@ O script irá:
 
 | Item | Função |
 |------|--------|
-| Alternar tema claro/escuro | Troca a aparência da interface (preferência gravada em `dados_rdo/config_usuario.json`; a geometria da janela também é memorizada nesse ficheiro) |
+| Alternar tema claro/escuro | Troca a aparência da interface (tema, geometria, aba e último cliente gravados em `dados_rdo/config_usuario.json`) |
 
 ### Ajuda
 
@@ -304,8 +307,7 @@ Gerar_Relatorio/
 │       └── icone_janela.py          # Ícone da janela e barra de tarefas
 │
 ├── dados_rdo/                       # Um JSON por cliente
-│   ├── _ultimo_cliente.json         # Último cliente aberto (local)
-│   ├── config_usuario.json          # Preferências locais (tema, geometria da janela)
+│   ├── config_usuario.json          # Preferências locais (tema, geometria, aba, último cliente)
 │   └── [Contratante_-_Natureza].json
 │
 ├── template/
@@ -334,13 +336,26 @@ Ficheiro: `template/config_regras_horas.json` (versão **2** do formato de confi
 - **feriados.por_ano:** datas sincronizadas (menu *Horas → Sincronizar feriados nacionais*)
 - **adicional_noturno:** horário de início/fim, hora reduzida CLT opcional (`incluir_hora_reduzida_clt`)
 
-Edite pelo menu *Horas → Editar regras de horas (.json)* ou diretamente no ficheiro.
+Edite pelo menu *Horas → Editar regras de horas e feriados* ou diretamente no ficheiro.
+
+### Preferências locais (`config_usuario.json`)
+
+Ficheiro em `dados_rdo/config_usuario.json` (não versionado; específico de cada instalação):
+
+| Chave | Conteúdo |
+|-------|----------|
+| `tema_aparencia` | `"dark"` ou `"light"` |
+| `geometria_janela` | Tamanho e posição da janela (`LARGURAxALTURA±X±Y`) |
+| `aba_ativa` | `"Cabeçalhos"` ou `"Relatórios de trabalho"` |
+| `contratante` / `natureza_servico` | Último cliente aberto |
+
+Se existir o ficheiro legado `_ultimo_cliente.json`, os dados são importados automaticamente na primeira leitura e o ficheiro antigo é removido.
 
 ### Tema e aparência da interface
 
 - Menu *Exibir → Alternar tema claro/escuro* (preferência em `dados_rdo/config_usuario.json`, chave `tema_aparencia`)
 - Cores e estilos editáveis em `template/tema_aplicacao.json` (sem recompilar o executável)
-- Tamanho e posição da janela principal gravados automaticamente em `config_usuario.json` (chave `geometria_janela`); tamanho mínimo predefinido: 1075×900 px
+- Tamanho, posição e aba activa gravados automaticamente; tamanho mínimo predefinido: 1075×900 px
 
 ### Dicionário ortográfico
 
@@ -360,8 +375,8 @@ Lógica em `rdo_diario/schema.py` (`estado_informacoes_essenciais_dia`, `horario
 
 - **Completo (verde):** texto em *Registro de serviço* + ponto válido (entrada e saída, ordem cronológica)
 - **Parcial (laranja):** só serviço, só horários, horários inválidos ou só deslocamento preenchido
-- **Hoje sem dados (azul claro):** dia atual sem registro de serviço nem horários
-- **Vazio:** sem registro de serviço e sem nenhum horário preenchido (dias que não são hoje)
+- **Hoje (negrito):** dia actual destacado em negrito no calendário
+- **Vazio:** sem registro de serviço e sem nenhum horário preenchido
 
 ### Formato dos dados (JSON)
 

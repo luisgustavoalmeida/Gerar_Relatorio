@@ -402,20 +402,27 @@ def gerar_relatorios_excel(
     caminho_json: Path | None = None,
     mapa: dict[str, Any] | None = None,
     pasta_saida_base: Path | None = None,
+    *,
+    ano: int | None = None,
+    mes: int | None = None,
 ) -> list[Path]:
     """
-    Gera todos os pares RDO/FT por mês com base nos registos diários do documento.
+    Gera pares RDO/FT por mês com base nos registos diários do documento.
 
     Args:
         documento: conteúdo do JSON (cabecalho_fixo, registros_diarios, chave).
         caminho_json: opcional, apenas para mensagens de contexto.
         mapa: mapa de células (se None, lê `template/mapa_celulas_excel.json`).
         pasta_saida_base: substitui a pasta base `saida_relatorios` (útil para testes).
+        ano, mes: se ambos forem indicados, gera apenas esse mês.
 
     Returns:
         Lista de ficheiros Excel criados ou sobrescritos.
     """
     _ = caminho_json
+    if (ano is None) ^ (mes is None):
+        raise ValueError("Indique ano e mês em conjunto, ou omita ambos para gerar todos os meses.")
+
     m = mapa if mapa is not None else carregar_mapa_celulas()
     registros = documento.get("registros_diarios") or {}
     if not isinstance(registros, dict) or not registros:
@@ -427,9 +434,15 @@ def gerar_relatorios_excel(
     if not por_mes:
         raise ValueError("Nenhuma data ISO válida em registros_diarios.")
 
+    if ano is not None and mes is not None:
+        chave_mes = (ano, mes)
+        if chave_mes not in por_mes:
+            raise ValueError(f"Não há registros no mês {mes:02d}/{ano}.")
+        por_mes = {chave_mes: por_mes[chave_mes]}
+
     gerados: list[Path] = []
-    for (ano, mes), datas_iso in sorted(por_mes.items()):
-        gerados.append(_preencher_rdo_mes(documento, m, ano, mes, datas_iso, pasta_cliente))
-        gerados.append(_preencher_ft_mes(documento, m, ano, mes, datas_iso, pasta_cliente))
+    for (a, m_mes), datas_iso in sorted(por_mes.items()):
+        gerados.append(_preencher_rdo_mes(documento, m, a, m_mes, datas_iso, pasta_cliente))
+        gerados.append(_preencher_ft_mes(documento, m, a, m_mes, datas_iso, pasta_cliente))
 
     return gerados

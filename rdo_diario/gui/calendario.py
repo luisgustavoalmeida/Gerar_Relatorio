@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import tkinter as tk
 from datetime import date
+from tkinter.font import Font
 from typing import TYPE_CHECKING, Any
 
 import customtkinter as ctk
@@ -59,7 +60,6 @@ TAG_CAL_VM_OM_FDS_PAR = "cal_vm_om_fds_par"
 
 _COR_CALENDARIO_COMPLETO = "#7ccd7c"
 _COR_CALENDARIO_PARCIAL = "#f5d0b0"
-TAG_DIA_HOJE = "dia_hoje"
 
 _TAGS_DESTAQUE_VERMELHO: tuple[str, ...] = (
     TAG_CAL_VM_DU,
@@ -79,7 +79,7 @@ _TAGS_DESTAQUE_VERMELHO: tuple[str, ...] = (
 _TEXTO_DICA_CALENDARIO = (
     "Selecione uma data para visualizar / editar.\n"
     "Azul = data em edição.\n"
-    "Azul claro = hoje (sem registo);\n"
+    "Negrito = dia de hoje.\n"
     "Verde = registro de serviço e horários válidos.\n"
     "Laranja = incompleto ou horários inválidos.\n"
     "Vermelho = feriado nacional."
@@ -282,65 +282,57 @@ def criar_widget_calendario(pai: tk.Misc, *, compacto: bool = False) -> Calendar
     return cal
 
 
-def _cor_fundo_marcador_calendario(cal: Calendar, tag_fundo: str | None) -> str:
-    """Fundo da célula conforme estado (verde/laranja/hoje), sem misturar com feriado."""
-    if tag_fundo == TAG_DIA_HOJE:
-        return obter_cores_tema()["calendario_hoje_fundo"]
-    if tag_fundo:
-        try:
-            return str(cal.tag_cget(tag_fundo, "background"))
-        except (ValueError, tk.TclError):
-            pass
-    return obter_cores_tema()["calendario_hoje_fundo"]
-
-
-def _cor_texto_marcador_calendario(
-    cal: Calendar,
-    d: date,
-    ano_visivel: int,
-    mes_visivel: int,
-    *,
-    e_feriado: bool,
-) -> str:
-    """Texto vermelho em feriados; caso contrário, cor padrão do tipo de dia."""
-    if e_feriado:
-        return obter_cores_tema()["erro"]
-    fds = d.weekday() >= 5
-    no_mes_visivel = d.month == mes_visivel and d.year == ano_visivel
-    if not no_mes_visivel:
-        if fds:
-            return str(cal.cget("othermonthweforeground"))
-        return str(cal.cget("othermonthforeground"))
-    if fds:
-        return str(cal.cget("weekendforeground"))
-    return str(cal.cget("normalforeground"))
-
-
 def _tag_fundo_para_estado(
     estado: str,
     *,
-    e_hoje: bool,
     tag_completo: str,
     tag_parcial: str,
 ) -> str | None:
-    """Tag de fundo (verde/laranja/hoje) independente de ser feriado."""
+    """Tag de fundo (verde/laranja) independente de ser feriado."""
     if estado == "completo":
         return tag_completo
     if estado == "parcial":
         return tag_parcial
-    if e_hoje:
-        return TAG_DIA_HOJE
     return None
 
 
-def _configurar_tag_dia_hoje(cal: Calendar) -> None:
-    """Tag do dia atual: fundo destacado; texto igual ao restante do mês."""
-    cores = obter_cores_tema()
-    cal.tag_config(
-        TAG_DIA_HOJE,
-        background=cores["calendario_hoje_fundo"],
-        foreground=str(cal.cget("normalforeground")),
+def _fonte_negrito_calendario(cal: Calendar) -> Font:
+    """Fonte em negrito com a mesma família e tamanho do calendário."""
+    base = cal._font.actual()
+    return Font(
+        cal,
+        family=base["family"],
+        size=base["size"],
+        weight="bold",
     )
+
+
+def _repor_fonte_padrao_calendario(cal: Calendar) -> None:
+    """Repor a fonte normal em todas as células (evita negrito «herdado»)."""
+    fonte = cal._font
+    try:
+        for linha in cal._calendar:
+            for rotulo in linha:
+                rotulo.configure(font=fonte)
+    except (tk.TclError, AttributeError):
+        pass
+
+
+def _aplicar_negrito_dia_hoje(cal: Calendar, hoje: date) -> None:
+    """Destaca o dia atual em negrito, sem alterar cor de fundo nem do número."""
+    try:
+        celulas = _grelha_datas_exibidas_calendario(cal)
+        fonte_negrito = _fonte_negrito_calendario(cal)
+        for indice, d in enumerate(celulas):
+            if d != hoje:
+                continue
+            linha, coluna = divmod(indice, 7)
+            rotulo = cal._calendar[linha][coluna]
+            if str(rotulo.cget("text") or "").strip():
+                rotulo.configure(font=fonte_negrito)
+            break
+    except (tk.TclError, AttributeError, IndexError):
+        pass
 
 
 def _configurar_tags_destaque_vermelho(cal: Calendar) -> None:
@@ -698,7 +690,7 @@ class MixinCalendario:
     def _pintar_dias_com_registro_no_calendario(self, cal: Calendar) -> None:
         """
         Marca feriados (vermelho), dias completos (verde), parciais (laranja),
-        destaca o dia atual e mantém a seleção azul do dia em edição por cima.
+        destaca o dia atual em negrito e mantém a seleção azul do dia em edição por cima.
 
         Chama ``_display_calendar`` no fim para o estilo de seleção não ficar tapado pelos eventos.
         """
@@ -707,7 +699,6 @@ class MixinCalendario:
             self.TAG_EVENTO_DIA_PREENCHIDO,
             self.TAG_EVENTO_DIA_PARCIAL,
             self.TAG_DIA_RELATORIO_EM_EDICAO,
-            TAG_DIA_HOJE,
             *_TAGS_DESTAQUE_VERMELHO,
         )
         for tag in tags_limpar:
@@ -718,7 +709,6 @@ class MixinCalendario:
 
         try:
             _configurar_tags_destaque_vermelho(cal)
-            _configurar_tag_dia_hoje(cal)
         except tk.TclError:
             pass
 
@@ -745,37 +735,25 @@ class MixinCalendario:
             iso = d.isoformat()
             estado = estados_por_data.get(iso, "vazio")
             e_feriado = iso in feriados_iso
-            e_hoje = d == hoje
             tag_fundo = _tag_fundo_para_estado(
                 estado if self._documento_atual else "vazio",
-                e_hoje=e_hoje,
                 tag_completo=self.TAG_EVENTO_DIA_PREENCHIDO,
                 tag_parcial=self.TAG_EVENTO_DIA_PARCIAL,
             )
 
-            if e_hoje:
-                try:
-                    cal.tag_config(
-                        TAG_DIA_HOJE,
-                        background=_cor_fundo_marcador_calendario(cal, tag_fundo),
-                        foreground=_cor_texto_marcador_calendario(
-                            cal, d, ano_vis, mes_vis, e_feriado=e_feriado
-                        ),
-                    )
-                    cal.calevent_create(d, "", TAG_DIA_HOJE)
-                except tk.TclError:
-                    pass
+            if tag_fundo:
+                cal.calevent_create(d, "", tag_fundo)
             elif e_feriado:
                 tag_vm = _tag_destaque_vermelho_para_data(
                     d, ano_vis, mes_vis, estado, feriados_iso
                 )
                 if tag_vm:
                     cal.calevent_create(d, "", tag_vm)
-            elif tag_fundo:
-                cal.calevent_create(d, "", tag_fundo)
         _limpar_foreground_direto_calendario(cal)
         _configurar_selecao_feriado(cal, self._data_em_edicao, feriados_iso)
         try:
             cal._display_calendar()
         except (tk.TclError, AttributeError):
             pass
+        _repor_fonte_padrao_calendario(cal)
+        _aplicar_negrito_dia_hoje(cal, hoje)

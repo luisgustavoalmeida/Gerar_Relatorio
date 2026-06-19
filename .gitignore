@@ -24,6 +24,5 @@ dist/
 build/
 dados/
 saida/
-dados_rdo/_ultimo_cliente.json
 dados_rdo/config_usuario.json
 gerar_relatorio.spec

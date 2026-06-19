@@ -16,10 +16,6 @@ from rdo_diario.config_horas import (
     garantir_arquivo_config_regras_existe,
 )
 from rdo_diario.dicionario_ortografia_usuario import conjunto_para_filtragem
-from rdo_diario.gerar_excel_relatorios import (
-    gerar_relatorios_excel,
-    remover_saida_relatorios_excel_cliente,
-)
 from rdo_diario.gui.calendario import MixinCalendario
 from rdo_diario.gui.formulario_dia import MixinFormularioDia
 from rdo_diario.gui.menu import MixinMenu
@@ -43,9 +39,11 @@ from rdo_diario.gui.tema import (
     RAIO_BORDA,
     capturar_geometria_janela_para_salvar,
     carregar_geometria_janela_salva,
+    carregar_aba_ativa_salva,
     aplicar_geometria_janela_tela,
     resolver_geometria_janela_inicial,
     salvar_geometria_janela,
+    salvar_aba_ativa,
     alternar_tema,
     configurar_aparencia,
     configurar_estilo_ttk,
@@ -129,6 +127,7 @@ class AplicacaoRdo(
         self._id_agendamento_salvar_geometria: str | None = None
         self._persistencia_geometria_ativa = False
         self._ultima_geometria_salva: str | None = carregar_geometria_janela_salva()
+        self._ultima_aba_salva: str | None = carregar_aba_ativa_salva()
 
         self._montar_barra_menu()
         self._montar_barra_cliente()
@@ -234,12 +233,22 @@ class AplicacaoRdo(
 
     def _montar_corpo_janela(self) -> None:
         """Abas «Dados fixos» e «Relatórios», com calendário na segunda."""
-        self._tabview = ctk.CTkTabview(self, **opcoes_tabview_ctk())
+        self._tabview = ctk.CTkTabview(
+            self,
+            command=self._ao_trocar_aba_principal,
+            **opcoes_tabview_ctk(),
+        )
         self._tabview.pack(fill="both", expand=True, padx=8, pady=(0, 8))
 
         self._tabview.add("Cabeçalhos")
         self._tabview.add("Relatórios de trabalho")
         configurar_abas_tabview(self._tabview)
+        aba_salva = carregar_aba_ativa_salva()
+        if aba_salva:
+            self._tabview.set(aba_salva)
+        aba_atual = self._tabview.get()
+        if aba_atual:
+            self._ultima_aba_salva = aba_atual
         aba_cabecalho = self._tabview.tab("Cabeçalhos")
         aba_registros = self._tabview.tab("Relatórios de trabalho")
 
@@ -438,6 +447,8 @@ class AplicacaoRdo(
             self._id_agendamento_salvar = None
 
         try:
+            from rdo_diario.gerar_excel_relatorios import remover_saida_relatorios_excel_cliente
+
             remover_saida_relatorios_excel_cliente(documento_excluido)
             excluir_cliente_do_disco(
                 caminho_excluido,
@@ -623,33 +634,63 @@ class AplicacaoRdo(
 
         self._agendar_salvamento_automatico()
 
-    def _gerar_relatorios_excel(self) -> None:
-        """Gera ou atualiza os ficheiros RDO e FT por mês na pasta `saida_relatorios`."""
+    def _executar_geracao_excel(
+        self,
+        *,
+        ano: int | None = None,
+        mes: int | None = None,
+        titulo_dialogo: str = "Gerar Excel",
+    ) -> None:
+        """Gera ou atualiza ficheiros RDO e FT na pasta `saida_relatorios`."""
         if not self._documento_atual or not self._caminho_arquivo_atual:
             messagebox.showwarning(
-                "Gerar Excel",
+                titulo_dialogo,
                 "Não há documento carregado. Selecione ou crie um cliente antes de gerar os relatórios.",
             )
             return
         self._persistir_dia_atual_no_documento()
         self._copiar_cabecalho_formulario_para_documento()
         try:
+            from rdo_diario.gerar_excel_relatorios import gerar_relatorios_excel
+
             self._salvar_documento_agora(silencioso=True)
-            caminhos = gerar_relatorios_excel(self._documento_atual, self._caminho_arquivo_atual)
+            caminhos = gerar_relatorios_excel(
+                self._documento_atual,
+                self._caminho_arquivo_atual,
+                ano=ano,
+                mes=mes,
+            )
         except ValueError as e:
-            messagebox.showwarning("Gerar Excel", str(e))
+            messagebox.showwarning(titulo_dialogo, str(e))
             return
         except OSError as e:
-            messagebox.showerror("Gerar Excel", f"Erro ao gravar ficheiros:\n{e}")
+            messagebox.showerror(titulo_dialogo, f"Erro ao gravar ficheiros:\n{e}")
             return
         except Exception as e:
-            messagebox.showerror("Gerar Excel", f"Não foi possível gerar os relatórios:\n{e}")
+            messagebox.showerror(titulo_dialogo, f"Não foi possível gerar os relatórios:\n{e}")
             return
         linhas = "\n".join(str(p) for p in caminhos)
         messagebox.showinfo(
-            "Gerar Excel",
+            titulo_dialogo,
             f"Foram criados ou atualizados {len(caminhos)} ficheiro(s):\n\n{linhas}",
         )
+
+    def _gerar_relatorios_excel_mes_em_edicao(self) -> None:
+        """Gera RDO/FT apenas do mês da data selecionada no calendário."""
+        ref = self._data_em_edicao
+        self._executar_geracao_excel(
+            ano=ref.year,
+            mes=ref.month,
+            titulo_dialogo=f"Gerar Excel — {ref.month:02d}/{ref.year}",
+        )
+
+    def _gerar_relatorios_excel_todos_meses(self) -> None:
+        """Gera RDO/FT de todos os meses com registos no projeto."""
+        self._executar_geracao_excel(titulo_dialogo="Gerar Excel — todos os meses")
+
+    def _gerar_relatorios_excel(self) -> None:
+        """Compatibilidade: gera todos os meses."""
+        self._gerar_relatorios_excel_todos_meses()
 
     def _aplicar_geometria_inicial_janela(self) -> None:
         """Aplica posição/tamanho após montar a interface (evita layout sobrescrever)."""
@@ -673,6 +714,16 @@ class AplicacaoRdo(
         if geometria_atual:
             self._ultima_geometria_salva = geometria_atual
         self._persistencia_geometria_ativa = True
+
+    def _ao_trocar_aba_principal(self) -> None:
+        """Grava a aba selecionada para reabrir na próxima execução."""
+        if self._tabview is None:
+            return
+        aba = self._tabview.get()
+        if not aba or aba == self._ultima_aba_salva:
+            return
+        salvar_aba_ativa(aba)
+        self._ultima_aba_salva = aba
 
     def _agendar_salvamento_geometria_janela(self, event: tk.Event) -> None:
         """Grava tamanho e posição após mover ou redimensionar a janela."""

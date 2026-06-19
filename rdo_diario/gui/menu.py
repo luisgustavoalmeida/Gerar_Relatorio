@@ -80,7 +80,14 @@ class MixinMenu:
             ),
             EntradaMenuBarra("Excluir cliente", self._excluir_cliente_atual),
             EntradaMenuBarra.sep(),
-            EntradaMenuBarra("Gerar Excel (RDO/FT)", self._gerar_relatorios_excel),
+            EntradaMenuBarra(
+                "Gerar Excel — mês em edição (RDO/FT)",
+                self._gerar_relatorios_excel_mes_em_edicao,
+            ),
+            EntradaMenuBarra(
+                "Gerar Excel — todos os meses (RDO/FT)",
+                self._gerar_relatorios_excel_todos_meses,
+            ),
             EntradaMenuBarra("Abrir pasta relatórios", self._abrir_pasta_relatorios),
             EntradaMenuBarra.sep(),
             EntradaMenuBarra("Salvar modelo de cabeçalho", self._salvar_modelo_cabecalho),
@@ -105,7 +112,7 @@ class MixinMenu:
 
     def _itens_menu_horas(self) -> list[EntradaMenuBarra]:
         return [
-            EntradaMenuBarra("Editar regras de horas (.json)", self._abrir_editor_regras_horas),
+            EntradaMenuBarra("Editar regras de horas e feriados", self._abrir_editor_regras_horas),
             EntradaMenuBarra(
                 "Sincronizar feriados nacionais",
                 self._dialogo_sincronizar_feriados_brasil,

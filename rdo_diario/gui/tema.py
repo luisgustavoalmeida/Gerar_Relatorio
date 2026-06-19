@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 import re
 import tkinter as tk
 from tkinter import ttk
@@ -10,7 +9,8 @@ from typing import Any, Literal
 
 import customtkinter as ctk
 
-from rdo_diario.paths import ARQUIVO_CONFIG_USUARIO_JSON, ARQUIVO_TEMA_APLICACAO_JSON
+from rdo_diario.paths import ARQUIVO_TEMA_APLICACAO_JSON
+from rdo_diario.storage import gravar_config_usuario, ler_config_usuario
 
 ModoAparencia = Literal["dark", "light"]
 CorTema = tuple[str, str]  # (claro, escuro)
@@ -18,6 +18,8 @@ CorTema = tuple[str, str]  # (claro, escuro)
 NOME_ESTILO_TTK = "Rdo"
 CHAVE_TEMA = "tema_aparencia"
 CHAVE_GEOMETRIA_JANELA = "geometria_janela"
+CHAVE_ABA_ATIVA = "aba_ativa"
+_ABAS_PRINCIPAIS_VALIDAS = frozenset({"Cabeçalhos", "Relatórios de trabalho"})
 _MIN_INTERSECAO_VISIVEL_LARGURA = 120
 _MIN_INTERSECAO_VISIVEL_ALTURA = 80
 MODO_ATUAL: ModoAparencia = "dark"
@@ -45,7 +47,6 @@ COR_CALENDARIO_FDS_FUNDO = _par("#dce4f5", "#343652")
 COR_CALENDARIO_FDS_TEXTO = _par("#4a5a8a", "#a8b4e0")
 COR_CALENDARIO_FDS_OM_FUNDO = _par("#cfd8eb", "#2e3048")
 COR_CALENDARIO_FDS_OM_TEXTO = _par("#6b7a9a", "#7878a0")
-COR_CALENDARIO_HOJE_FUNDO = _par("#7eb3f5", "#5a74c4")
 
 # Dimensões
 LARGURA_JANELA = 1075
@@ -88,7 +89,7 @@ def resolver_cor(par: CorTema) -> str:
 def carregar_tema_salvo() -> ModoAparencia:
     """Lê o tema salvo em config_usuario.json; padrão: escuro."""
     try:
-        modo = _ler_config_usuario().get(CHAVE_TEMA, "dark")
+        modo = ler_config_usuario().get(CHAVE_TEMA, "dark")
         if modo in ("dark", "light"):
             return modo  # type: ignore[return-value]
     except Exception:
@@ -98,32 +99,9 @@ def carregar_tema_salvo() -> ModoAparencia:
 
 def salvar_tema(modo: ModoAparencia) -> None:
     """Persiste a preferência de tema."""
-    dados = _ler_config_usuario()
+    dados = ler_config_usuario()
     dados[CHAVE_TEMA] = modo
-    _gravar_config_usuario(dados)
-
-
-def _ler_config_usuario() -> dict[str, Any]:
-    arquivo = ARQUIVO_CONFIG_USUARIO_JSON
-    if not arquivo.is_file():
-        return {}
-    try:
-        dados = json.loads(arquivo.read_text(encoding="utf-8"))
-        return dados if isinstance(dados, dict) else {}
-    except Exception:
-        return {}
-
-
-def _gravar_config_usuario(dados: dict[str, Any]) -> None:
-    arquivo = ARQUIVO_CONFIG_USUARIO_JSON
-    try:
-        arquivo.parent.mkdir(parents=True, exist_ok=True)
-        arquivo.write_text(
-            json.dumps(dados, indent=2, ensure_ascii=False),
-            encoding="utf-8",
-        )
-    except Exception:
-        pass
+    gravar_config_usuario(dados)
 
 
 def _parse_coordenada_geometria(texto: str) -> int:
@@ -284,7 +262,7 @@ def resolver_geometria_janela_inicial(
 
 def carregar_geometria_janela_salva() -> str | None:
     """Lê a última geometria da janela principal em config_usuario.json."""
-    geometria = _ler_config_usuario().get(CHAVE_GEOMETRIA_JANELA)
+    geometria = ler_config_usuario().get(CHAVE_GEOMETRIA_JANELA)
     if not isinstance(geometria, str) or not geometria.strip():
         return None
     if parse_geometria_janela(geometria) is None:
@@ -296,9 +274,26 @@ def salvar_geometria_janela(geometria: str) -> None:
     """Persiste a geometria da janela principal."""
     if parse_geometria_janela(geometria) is None:
         return
-    dados = _ler_config_usuario()
+    dados = ler_config_usuario()
     dados[CHAVE_GEOMETRIA_JANELA] = geometria
-    _gravar_config_usuario(dados)
+    gravar_config_usuario(dados)
+
+
+def carregar_aba_ativa_salva() -> str | None:
+    """Lê a última aba principal selecionada em config_usuario.json."""
+    aba = ler_config_usuario().get(CHAVE_ABA_ATIVA)
+    if isinstance(aba, str) and aba in _ABAS_PRINCIPAIS_VALIDAS:
+        return aba
+    return None
+
+
+def salvar_aba_ativa(aba: str) -> None:
+    """Persiste a aba principal selecionada (Cabeçalhos ou Relatórios de trabalho)."""
+    if aba not in _ABAS_PRINCIPAIS_VALIDAS:
+        return
+    dados = ler_config_usuario()
+    dados[CHAVE_ABA_ATIVA] = aba
+    gravar_config_usuario(dados)
 
 
 def _medir_deslocamento_geometry_para_tela(janela: tk.Misc) -> tuple[int, int]:
@@ -409,7 +404,6 @@ def obter_cores_tema() -> dict[str, str]:
         "calendario_fds_texto": resolver_cor(COR_CALENDARIO_FDS_TEXTO),
         "calendario_fds_om_fundo": resolver_cor(COR_CALENDARIO_FDS_OM_FUNDO),
         "calendario_fds_om_texto": resolver_cor(COR_CALENDARIO_FDS_OM_TEXTO),
-        "calendario_hoje_fundo": resolver_cor(COR_CALENDARIO_HOJE_FUNDO),
     }
 
 

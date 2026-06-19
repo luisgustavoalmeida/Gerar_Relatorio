@@ -79,6 +79,9 @@ def garantir_pastas_executavel() -> None:
         if nome != "template":
             destino.mkdir(parents=True, exist_ok=True)
             continue
+        # Template já presente: evita varrer o bundle em cada arranque (onefile).
+        if (destino / "RDO.xlsx").is_file():
+            continue
         for ficheiro in origem.rglob("*"):
             if not ficheiro.is_file():
                 continue
@@ -95,10 +98,7 @@ RAIZ_PROJETO: Path = _raiz_projeto()
 # Pasta onde ficam os JSON por cliente
 PASTA_DADOS_RDO: Path = RAIZ_PROJETO / "dados_rdo"
 
-# Ficheiro que memoriza o último cliente editado (contratante + natureza)
-ARQUIVO_ULTIMO_CLIENTE_JSON: Path = PASTA_DADOS_RDO / "_ultimo_cliente.json"
-
-# Preferências da interface (tema claro/escuro, etc.)
+# Preferências locais (tema, geometria da janela, último cliente aberto)
 ARQUIVO_CONFIG_USUARIO_JSON: Path = PASTA_DADOS_RDO / "config_usuario.json"
 
 # Palavras e siglas aceites pelo utilizador (filtro local sobre o LanguageTool)
