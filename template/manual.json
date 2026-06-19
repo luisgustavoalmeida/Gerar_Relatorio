@@ -26,7 +26,7 @@
       "lista": [
         "Cada cliente corresponde a um arquivo JSON em dados_rdo/ (chave: contratante + natureza do serviço).",
         "O nome do arquivo é derivado de contratante e natureza (caracteres inválidos removidos, espaços como _).",
-        "O último cliente aberto é memorizado em dados_rdo/_ultimo_cliente.json.",
+        "O último cliente aberto é memorizado em dados_rdo/config_usuario.json.",
         "Troque de cliente no combobox superior; o dia em edição é salvo antes da troca.",
         "Arquivo → Salvar agora: grava imediatamente no disco (o título da janela mostra a hora do salvamento).",
         "Auto-save: após cerca de 1,2 s sem digitar, o documento é salvo automaticamente.",

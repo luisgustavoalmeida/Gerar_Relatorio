@@ -5,7 +5,7 @@
     "nome": "Gerar Relatório",
     "nome_completo": "Gerar Relatório Diário",
     "versao": "1.0.4",
-    "data_versao": "2026-05-29",
+    "data_versao": "2026-06-18",
     "versao_formato_dados": 1,
     "descricao": "Aplicação desktop para registo de atividades diárias, com controlo de horários de ponto, cálculo automático de métricas de horas (normais, extras, noturno) e exportação para planilhas Excel (RDO e Folha de Tempo).",
     "data_lancamento": "2026-04-01",
@@ -32,18 +32,19 @@
     "chave_pix": "CPF 069.524.336-51"
   },
   "funcionalidades": [
-    "Calendário mensal com código de cores (completo, parcial, feriado, dia em edição)",
+    "Calendário mensal com código de cores (completo, parcial, feriado, dia em edição; hoje em negrito)",
     "Cabeçalho fixo reutilizável por cliente (contratante + natureza do serviço)",
     "Registro diário: serviço, extra-escopo, ociosidade e tempos associados",
     "Ponto eletrônico e deslocamento com validação e formatação automática",
-    "Métricas de horas do dia e totais do mês",
+    "Métricas de horas do dia, do mês e totais do projeto",
     "Verificação ortográfica (LanguageTool) e dicionário pessoal",
     "Sincronização de feriados nacionais do Brasil",
-    "Exportação Excel (RDO e FT) a partir de modelos em template/",
+    "Exportação Excel (RDO e FT) por mês em edição ou todos os meses",
+    "Tema claro/escuro, geometria da janela e aba activa memorizados em config_usuario.json",
     "Auto-save e menu Arquivo (salvar, limpar dia, modelos de cabeçalho)"
   ],
   "historico_versoes": [
-    { "versao": "1.0.4", "data": "2026-06-18", "notas": "Métricas acumuladas do projeto no painel; memorização de tamanho e posição da janela; legenda expansível e cores refinadas no calendário." },
+    { "versao": "1.0.4", "data": "2026-06-18", "notas": "Métricas do projeto no painel; exportação Excel por mês ou todos os meses; preferências unificadas em config_usuario.json (tema, geometria, aba, último cliente); legenda expansível no calendário e dia de hoje em negrito." },
     { "versao": "1.0.3", "data": "2026-06-01", "notas": "Tema claro/escuro (CustomTkinter) com paleta editável; nova barra de menus, ícone da janela e melhorias gerais na interface; simplificação da compilação .exe." },
     { "versao": "1.0.2", "data": "2026-05-28", "notas": "Menu Ajuda (Manual e Sobre); melhorias na interface como validação de informações." },
     { "versao": "1.0.1", "data": "2026-05-19", "notas": "Implementada a opção de salvar e recarregar um modelo de cabeçalho." },
@@ -56,21 +57,22 @@
     "Microsoft Excel ou compatível para abrir os relatórios gerados (.xlsx)"
   ],
   "tecnologias": [
-    { "nome": "Python / Tkinter", "uso": "Interface gráfica principal" },
+    { "nome": "Python 3.12+ / CustomTkinter", "uso": "Interface gráfica principal (tema claro/escuro)" },
     { "nome": "tkcalendar", "uso": "Calendário mensal" },
     { "nome": "openpyxl", "uso": "Exportação RDO e Folha de Tempo" },
     { "nome": "holidays", "uso": "Feriados nacionais do Brasil" },
-    { "nome": "LanguageTool", "uso": "Ortografia e gramática (serviço online)" }
+    { "nome": "LanguageTool", "uso": "Ortografia e gramática (serviço online)" },
+    { "nome": "PyInstaller / Pillow", "uso": "Compilação .exe e ícone multi-tamanho" }
   ],
   "pastas_principais": [
-    "dados_rdo/ — um ficheiro JSON por cliente (contratante + natureza)",
+    "dados_rdo/ — um ficheiro JSON por cliente; config_usuario.json com preferências locais",
     "template/ — modelos Excel, regras de horas, manual e este ficheiro sobre",
     "saida_relatorios/ — relatórios Excel gerados (criada automaticamente)"
   ],
   "suporte": [
     "Manual de utilização: menu Ajuda → Manual",
     "Problemas de instalação: consulte README.md (secção Solução de problemas)",
-    "Regras de horas: menu Horas → Editar regras de horas (JSON)",
+    "Regras de horas: menu Horas → Editar regras de horas e feriados",
     "Contacto do desenvolvedor: ver secção Criador acima"
   ]
 }
