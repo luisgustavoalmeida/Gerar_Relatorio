@@ -1,132 +1,179 @@
 {
   "titulo": "Manual de utilização",
-  "subtitulo": "Gerar Relatório — Relatório Diário",
+  "subtitulo": "Gerar Relatório — Relatório Diário de Obra (RDO)",
   "secoes": [
     {
       "titulo": "1. Início rápido",
       "paragrafos": [
-        "Com a aplicaçãoa compilada execute o arquivo 'Gerar_Relatorio.exe' para iniciar a aplicação.",
-        "Na primeira execução, crie um cliente em Arquivo → Novo cliente (contratante + natureza do serviço).",
+        "Com a aplicação compilada, execute Gerar_Relatorio.exe (ou python main.py em desenvolvimento).",
+        "Na primeira execução, se não existir nenhum projeto, a aplicação mostra uma mensagem orientando a criar um em Arquivo → Novo projeto (contratante + natureza do serviço).",
         "Configure os dados fixos na aba Cabeçalhos.",
-        "Na aba Relatórios de trabalho, selecione a data no calendário e preencha o registro do dia."
+        "Na aba Relatórios de trabalho, selecione a data no calendário e preencha o registro do dia.",
+        "As pastas template/, dados_rdo/ e saida_relatorios/ são criadas automaticamente ao lado do .exe na primeira execução (modo compilado)."
       ]
     },
     {
       "titulo": "2. Interface principal",
       "lista": [
-        "Barra superior: combobox Cliente (contratante + natureza) para trocar de projeto.",
-        "Aba Cabeçalhos: informações fixas que alimentam as planilhas RDO e FT (Folha de Tempo).",
-        "Aba Relatórios de trabalho: formulário do dia à esquerda e calendário com métricas à direita.",
-        "Ao trocar de data no calendário, o dia anterior é salvo automaticamente antes de carregar o novo.",
-        "Ao fechar a janela, o documento em edição é salvo em silêncio."
+        "Barra de menus: Arquivo, Revisão, Horas, Exibir e Ajuda (listas suspensas arredondadas).",
+        "Barra superior: combobox Cliente (contratante + natureza) para trocar de projeto vigente.",
+        "Aba Cabeçalhos: 13 campos fixos que alimentam as planilhas RDO e FT (Folha de Tempo).",
+        "Aba Relatórios de trabalho: formulário do dia à esquerda; calendário, legenda e métricas à direita.",
+        "Exibir → Alternar tema claro/escuro: troca a aparência da interface (CustomTkinter).",
+        "Preferências locais em template/config_usuario.json: tema, geometria da janela, aba aberta e último projeto.",
+        "Paleta de cores editável em template/tema_aplicacao.json (sem recompilar).",
+        "Geometria da janela (tamanho e posição) é memorizada ao redimensionar ou mover a janela.",
+        "A última aba seleccionada (Cabeçalhos ou Relatórios de trabalho) é restaurada ao reabrir.",
+        "Auto-save: cerca de 1,2 s após parar de digitar, o documento é gravado automaticamente.",
+        "Ao trocar de data no calendário ou de projeto no combobox, o dia em edição é salvo antes.",
+        "Ao fechar a janela, o documento em edição é salvo em silêncio.",
+        "Validação em tempo real: horários (0830 → 08:30) e cores do calendário reflectem o formulário antes do auto-save."
       ]
     },
     {
-      "titulo": "3. Clientes e gravação",
-      "lista": [
-        "Cada cliente corresponde a um arquivo JSON em dados_rdo/ (chave: contratante + natureza do serviço).",
-        "O nome do arquivo é derivado de contratante e natureza (caracteres inválidos removidos, espaços como _).",
-        "O último cliente aberto é memorizado em dados_rdo/config_usuario.json.",
-        "Troque de cliente no combobox superior; o dia em edição é salvo antes da troca.",
-        "Arquivo → Salvar agora: grava imediatamente no disco (o título da janela mostra a hora do salvamento).",
-        "Auto-save: após cerca de 1,2 s sem digitar, o documento é salvo automaticamente.",
-        "Arquivo → Limpar informações do dia em edição: apaga textos, horários, durações e o registro JSON desse dia (com confirmação).",
-        "Arquivo → Excluir cliente: remove permanentemente o JSON do cliente, todos os registos diários e a pasta de relatórios Excel em saida_relatorios/ (com confirmação; não pode ser desfeito). Se existir outro cliente, ele é aberto em seguida.",
-        "Arquivo → Salvar modelo de cabeçalho / Carregar modelo de cabeçalho: reutiliza dados de cabeçalho entre projetos (arquivo template/modelo_cabecalho.json)."
-      ]
-    },
-    {
-      "titulo": "4. Cabeçalhos",
+      "titulo": "3. Gestão de projetos",
       "paragrafos": [
-        "Os campos da aba Cabeçalhos são gravados no JSON do cliente (objeto cabecalho_fixo) e copiados para as planilhas Excel na exportação."
+        "Cada projeto corresponde a um ficheiro JSON em dados_rdo/. A chave única é contratante + natureza do serviço; o nome do ficheiro é derivado desses valores (caracteres inválidos removidos, espaços como _)."
       ],
       "lista": [
-        "Empreendimento, Contratante, Natureza do serviço",
+        "Arquivo → Novo projeto: cria um JSON vazio; valida se a chave já existe noutro ficheiro antes de criar.",
+        "Arquivo → Editar chave do projeto (contratante + natureza): altera a chave do projeto aberto; renomeia o JSON, actualiza cabecalho_fixo.contratante e cabecalho_fixo.natureza_servico e refresca o combobox. Impede chaves duplicadas.",
+        "Arquivo → Arquivar projeto: move o JSON seleccionado para dados_rdo/rdo_arquivados/; deixa de aparecer no combobox (projectos vigentes). Os relatórios Excel em saida_relatorios/ mantêm-se.",
+        "Arquivo → Desarquivar projeto: restaura um JSON de rdo_arquivados/ para dados_rdo/, volta à lista vigente e abre o projeto restaurado.",
+        "Arquivo → Excluir projeto: remove permanentemente o JSON, todos os registos diários e a pasta de relatórios Excel do projeto em saida_relatorios/ (com confirmação; irreversível). Se existir outro projeto vigente, ele é aberto em seguida.",
+        "Troque de projeto no combobox superior; o dia em edição é salvo antes da troca.",
+        "O último projeto aberto é memorizado em template/config_usuario.json (migração automática desde dados_rdo/config_usuario.json em actualizações antigas)."
+      ]
+    },
+    {
+      "titulo": "4. Gravação e modelos de cabeçalho",
+      "lista": [
+        "Arquivo → Salvar agora: grava imediatamente no disco (o título da janela mostra a hora do salvamento).",
+        "Arquivo → Limpar informações do dia em edição: apaga textos, horários, durações e o registro JSON desse dia (com confirmação).",
+        "Arquivo → Salvar modelo de cabeçalho: grava os campos actuais da aba Cabeçalhos em template/modelo_cabecalho.json.",
+        "Arquivo → Carregar modelo de cabeçalho: copia template/modelo_cabecalho.json para o cabecalho_fixo do projeto aberto (com confirmação)."
+      ]
+    },
+    {
+      "titulo": "5. Cabeçalhos (aba Cabeçalhos)",
+      "paragrafos": [
+        "Os campos são gravados no JSON do projeto (objeto cabecalho_fixo) e copiados para as planilhas Excel na exportação."
+      ],
+      "lista": [
+        "Natureza do serviço, Empreendimento, Contratante",
+        "Endereço, Cidade, Estado",
         "Início contratual, Término contratual",
         "Contratada, Nome funcionário, Telefone",
-        "Fiscalização, Nome fiscal",
-        "Endereço, Cidade, Estado"
+        "Fiscalização, Nome fiscal"
       ]
     },
     {
-      "titulo": "5. Calendário — cores e estados",
+      "titulo": "6. Calendário — cores, legenda e feriados",
       "tabela": [
-        { "rotulo": "Verde", "texto": "Registro de serviço preenchido e horários de ponto válidos (entrada e saída corretas)." },
+        { "rotulo": "Azul", "texto": "Data seleccionada para edição." },
+        { "rotulo": "Negrito", "texto": "Dia de hoje." },
+        { "rotulo": "Verde", "texto": "Registro de serviço preenchido e horários de ponto válidos (entrada e saída correctas)." },
         { "rotulo": "Laranja", "texto": "Falta registro de serviço, horários incompletos ou ordem cronológica inválida." },
-        { "rotulo": "Azul", "texto": "Data selecionada para edição." },
         { "rotulo": "Sem destaque", "texto": "Nenhum registro de serviço nem horário naquele dia." },
-        { "rotulo": "Vermelho (número)", "texto": "Feriado nacional configurado em template/config_regras_horas.json; mantém verde ou laranja se houver dados." }
+        { "rotulo": "Vermelho (número)", "texto": "Feriado nacional em template/config_regras_horas.json; mantém verde ou laranja se o dia também tiver dados." }
       ],
       "paragrafos": [
-        "O calendário atualiza as cores enquanto você digita, antes do auto-save gravar no disco, refletindo o dia aberto no formulário.",
-        "A legenda acima do calendário resume o significado de cada cor (verde, laranja, azul, vermelho).",
-        "No mês: X de Y (ao lado da data selecionada) indica a posição cronológica do dia entre os dias com qualquer conteúdo no mês; as cores usam apenas registro de serviço + validação de ponto.",
-        "Cada registro diário guarda também os metadados numero e folha (posição e total no mês) para uso nas planilhas."
+        "O calendário actualiza as cores enquanto digita, reflectindo o dia aberto no formulário (antes do auto-save).",
+        "Clique no botão + no painel do calendário para mostrar ou ocultar a legenda das cores.",
+        "Passe o rato sobre um dia de feriado (número vermelho) para ver o nome do feriado num balão.",
+        "No mês: X de Y (ao lado da data seleccionada) indica a posição cronológica do dia entre os relatórios preenchidos no mês; as cores do calendário usam registro de serviço + validação de ponto.",
+        "Cada registro diário guarda metadados numero e folha (posição e total no mês) para exportação Excel."
       ]
     },
     {
-      "titulo": "6. Registro diário",
+      "titulo": "7. Registro diário",
       "lista": [
-        "Registro serviço: descrição das atividades (campo principal).",
-        "Registro extra-escopo e Tempo consumido nesta atividade (h:mm): atividades fora do escopo contratual.",
-        "Registro ociosidade e Tempo consumido nesta atividade (h:mm): períodos de inatividade.",
-        "Tempo de serviço (tempo_serviço) é calculado automaticamente: horas trabalhadas − extra-escopo − ociosidade.",
-        "Metadados automáticos por dia: data, data_dia (DD/MM/AAAA), dia_semana e metricas_horas."
+        "Registro serviço: descrição das actividades (campo principal).",
+        "Registro extra-escopo e Tempo consumido nesta actividade (h:mm): actividades fora do escopo contratual.",
+        "Registro ociosidade e Tempo consumido nesta actividade (h:mm): períodos de inactividade.",
+        "Tempo de serviço (tempo_serviço): calculado automaticamente — horas trabalhadas − extra-escopo − ociosidade.",
+        "Metadados automáticos por dia: data, data_dia (DD/MM/AAAA), dia_semana, metricas_horas, numero e folha."
       ]
     },
     {
-      "titulo": "7. Horários de ponto e deslocamento",
+      "titulo": "8. Horários de ponto e deslocamento",
       "lista": [
         "Ponto — Entrada e Saída são obrigatórias para o dia ficar verde no calendário.",
         "Sem almoço: deixe Saída almoço e Entrada almoço vazios; a entrada deve ser anterior à saída.",
         "Com almoço: preencha os quatro horários em ordem cronológica estrita (entrada < saída almoço < entrada almoço < saída).",
-        "Deslocamento (Ida / Volta): registrado no relatório e no Excel, mas não substitui entrada/saída para o estado verde.",
+        "Deslocamento (Ida / Volta): registado no relatório e no Excel, mas não substitui entrada/saída para o estado verde.",
         "Digite horários como 0830 — o sistema formata para 08:30. Durações usam formato h:mm (ex.: 0130 → 1:30).",
-        "Ao alterar os horários de ponto, o painel de métricas abaixo do calendário é atualizado na hora."
+        "Ao alterar horários de ponto, o painel de métricas abaixo do calendário é actualizado na hora."
       ]
     },
     {
-      "titulo": "8. Métricas de horas",
+      "titulo": "9. Métricas de horas",
       "paragrafos": [
-        "Com horários válidos, o painel Métricas de horas diárias e mensais (abaixo do calendário) mostra horas trabalhadas, normais, extras 50%, extras 100%, adicional noturno e totais do mês visível."
+        "Com horários válidos, o painel Métricas (abaixo do calendário) mostra três blocos:"
       ],
       "lista": [
-        "Horas → Editar regras de horas (.json): editor integrado para jornada por dia da semana, extras, adicional noturno e feriados (template/config_regras_horas.json). Use Guardar e fechar para aplicar; métricas e cores do calendário são recalculadas.",
-        "Horas → Sincronizar feriados nacionais: atualiza feriados do Brasil via biblioteca holidays (ano de referência e também o ano anterior e o seguinte).",
-        "Horas → Copiar relatório detalhado do mês (métricas): texto completo do mês da data selecionada para a área de transferência.",
-        "Horas → Abrir pasta do arquivo de regras: abre a pasta template/ no explorador."
+        "Métricas do dia: horas trabalhadas, normais, extra 50%, extra 100% e adicional noturno do dia em edição.",
+        "Métricas do mês: totais do mês visível no calendário (dias com cálculo válido).",
+        "Métricas do projeto: totais acumulados de todos os meses com registos válidos (período e número de meses com dados).",
+        "Classificação conforme template/config_regras_horas.json: jornada por dia da semana, extras 50%/100%, adicional noturno (22:00–06:00, configurável; hora reduzida CLT opcional) e tratamento de domingos/feriados."
       ]
     },
     {
-      "titulo": "9. Revisão ortográfica",
+      "titulo": "10. Menu Horas",
       "lista": [
-        "Usa LanguageTool (português do Brasil); requer internet. O texto é enviado ao serviço público gratuito.",
-        "Verificação automática após cerca de 2,8 s sem digitar (evita exceder o limite de uso por IP).",
-        "Erros aparecem em vermelho e sublinhados nos três campos de texto do relatório.",
-        "Botão direito (ou Ctrl+clique) no trecho marcado: sugestões de correção e opção de adicionar ao dicionário pessoal.",
-        "Revisão → Dicionário pessoal: palavras e siglas que não devem ser marcadas (arquivo template/_dicionario_ortografia.json).",
-        "Revisão → Verificar ortografia e gramática agora: verificação imediata em todos os campos de texto.",
-        "Revisão → Sobre a verificação ortográfica: detalhes sobre privacidade, limites e funcionamento."
+        "Editar regras de horas e feriados: editor integrado de template/config_regras_horas.json (jornada, extras, noturno, feriados). Use Guardar e fechar; métricas e calendário são recalculados.",
+        "Sincronizar feriados nacionais: actualiza feriados do Brasil via biblioteca holidays (ano anterior, corrente e seguinte).",
+        "Copiar relatório detalhado do mês (métricas): texto completo do mês da data seleccionada para a área de transferência.",
+        "Abrir pasta do arquivo de regras: abre a pasta template/ no explorador de ficheiros."
       ]
     },
     {
-      "titulo": "10. Exportação Excel",
+      "titulo": "11. Menu Revisão (ortografia)",
       "lista": [
-        "Arquivo → Gerar Excel (RDO/FT): gera ou atualiza planilhas RDO e FT para todos os meses que tenham registos no JSON do cliente (não apenas o mês visível no calendário). O dia em edição e o cabeçalho são salvos antes da exportação.",
-        "Arquivos gravados em saida_relatorios/<contratante>/<natureza>/ (RDO_AAAA-MM.xlsx e FT_AAAA-MM.xlsx).",
-        "Modelos em template/RDO.xlsx e template/FT.xlsx; mapeamento de células em template/mapa_celulas_excel.json.",
-        "É necessário ter template/FT.xlsx na pasta template/ para gerar a Folha de Tempo.",
-        "Arquivo → Abrir pasta relatórios: abre saida_relatorios/ no explorador.",
-        "Arquivo → Abrir Templates: abre template/ (modelos Excel, regras, manual e dicionário).",
-        "Arquivo → Abrir dados (.json): abre dados_rdo/ (JSON por cliente)."
+        "LanguageTool (português do Brasil) via internet; texto enviado ao serviço público gratuito.",
+        "Verificação automática após cerca de 2,8 s sem digitar (evita exceder limite de uso por IP).",
+        "Erros aparecem sublinhados em vermelho nos três campos de texto do relatório.",
+        "Botão direito (ou Ctrl+clique) no trecho marcado: sugestões e opção de adicionar ao dicionário pessoal.",
+        "Revisão → Dicionário pessoal: janela para adicionar, remover ou consultar palavras e siglas ignoradas (template/_dicionario_ortografia.json).",
+        "Verificar ortografia e gramática agora: verificação imediata em todos os campos de texto do dia.",
+        "Sobre a verificação ortográfica: privacidade, limites e funcionamento do LanguageTool."
       ]
     },
     {
-      "titulo": "11. Ajuda e personalização",
+      "titulo": "12. Menu Exibir",
+      "lista": [
+        "Alternar tema claro/escuro: muda cores da interface; preferência gravada em template/config_usuario.json."
+      ]
+    },
+    {
+      "titulo": "13. Exportação Excel (menu Arquivo)",
+      "lista": [
+        "Gerar Excel — mês em edição (RDO/FT): exporta RDO e FT apenas do mês da data seleccionada no calendário.",
+        "Gerar Excel — todos os meses (RDO/FT): exporta todos os meses que tenham registos no JSON do projeto.",
+        "Antes da exportação, o dia em edição e o cabeçalho são salvos automaticamente.",
+        "RDO: uma folha por dia com registo, a partir de template/RDO.xlsx.",
+        "FT (Folha de Tempo): resumo mensal, a partir de template/FT.xlsx (necessário ter template/FT.xlsx).",
+        "Mapeamento de células em template/mapa_celulas_excel.json (inclui cabeçalho fixo, campos diários, numero, folha e horários).",
+        "Saída em saida_relatorios/<contratante>/<natureza>/ com nomes como 2026-05_RDO_<natureza>_<funcionário>.xlsx e equivalente FT_....",
+        "Abrir pasta relatórios: abre saida_relatorios/ no explorador.",
+        "Abrir Templates: abre template/ (modelos Excel, regras, manual, dicionário, config_usuario.json).",
+        "Abrir dados (.json): abre dados_rdo/ (JSON por projeto; arquivados em dados_rdo/rdo_arquivados/)."
+      ]
+    },
+    {
+      "titulo": "14. Pastas principais",
+      "lista": [
+        "dados_rdo/ — um JSON por projeto vigente; subpasta rdo_arquivados/ para projectos arquivados.",
+        "template/ — modelos Excel (RDO.xlsx, FT.xlsx), config_regras_horas.json, mapa_celulas_excel.json, modelo_cabecalho.json, config_usuario.json, manual.json, sobre.json, tema_aplicacao.json e _dicionario_ortografia.json.",
+        "saida_relatorios/ — relatórios Excel gerados (criada automaticamente)."
+      ]
+    },
+    {
+      "titulo": "15. Ajuda e personalização",
       "lista": [
         "Ajuda → Manual: este documento (editável em template/manual.json).",
-        "Ajuda → Sobre: informações da aplicação, versão e contactos (template/sobre.json).",
-        "Alterações nos JSON de ajuda aparecem ao reabrir o diálogo correspondente, sem recompilar."
+        "Ajuda → Sobre: versão, autor, repositório, histórico e contactos (template/sobre.json).",
+        "Alterações nos JSON de ajuda, regras ou tema aparecem ao reabrir a aplicação ou o diálogo correspondente, sem recompilar o .exe."
       ]
     }
   ]
