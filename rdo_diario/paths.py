@@ -98,8 +98,14 @@ RAIZ_PROJETO: Path = _raiz_projeto()
 # Pasta onde ficam os JSON por cliente
 PASTA_DADOS_RDO: Path = RAIZ_PROJETO / "dados_rdo"
 
+# Projetos arquivados (fora da lista de clientes vigentes)
+PASTA_RDO_ARQUIVADOS: Path = PASTA_DADOS_RDO / "rdo_arquivados"
+
+# Modelos Excel, regras de horas e ficheiros de ajuda
+PASTA_TEMPLATE: Path = _resolver_pasta("template")
+
 # Preferências locais (tema, geometria da janela, último cliente aberto)
-ARQUIVO_CONFIG_USUARIO_JSON: Path = PASTA_DADOS_RDO / "config_usuario.json"
+ARQUIVO_CONFIG_USUARIO_JSON: Path = PASTA_TEMPLATE / "config_usuario.json"
 
 # Palavras e siglas aceites pelo utilizador (filtro local sobre o LanguageTool)
 ARQUIVO_DICIONARIO_ORTOGRAFIA_JSON: Path = _resolver_pasta("template") / "_dicionario_ortografia.json"
@@ -116,9 +122,6 @@ ARQUIVO_MODELO_CABECALHO_JSON: Path = _resolver_pasta("template") / "modelo_cabe
 # Conteúdos do menu Ajuda (editáveis sem recompilar)
 ARQUIVO_MANUAL_AJUDA_JSON: Path = _resolver_pasta("template") / "manual.json"
 ARQUIVO_SOBRE_AJUDA_JSON: Path = _resolver_pasta("template") / "sobre.json"
-
-# Modelos Excel, regras de horas e ficheiros de ajuda
-PASTA_TEMPLATE: Path = _resolver_pasta("template")
 
 # Paleta CustomTkinter da aplicação
 ARQUIVO_TEMA_APLICACAO_JSON: Path = PASTA_TEMPLATE / "tema_aplicacao.json"

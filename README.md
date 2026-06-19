@@ -4,7 +4,7 @@
 [![Versão](https://img.shields.io/badge/Versão-1.0.4-informational.svg)](template/sobre.json)
 [![Windows](https://img.shields.io/badge/Platform-Windows-blue.svg)](https://www.microsoft.com/windows)
 
-Aplicação desktop para registo de atividades diárias em projetos de engenharia e serviços no Brasil. Permite o registo detalhado de atividades, controlo de horários de ponto, cálculo automático de métricas de horas (normais, extras, noturno) e exportação para planilhas Excel (RDO e Folha de Tempo).
+Aplicação desktop para registo de atividades diárias em projetos de engenharia e serviços em geral. Permite o registo detalhado de atividades, controle de horários de ponto, cálculo automático de métricas de horas (normais, extras, noturno) e exportação para planilhas Excel (RDO e Folha de Tempo).
 
 **Versão atual:** 1.0.4 · **Formato dos dados (JSON):** 1 · **Plataforma:** Windows 10 ou superior
 
@@ -28,11 +28,11 @@ Aplicação desktop para registo de atividades diárias em projetos de engenhari
 
 ### Interface gráfica
 
-- **Seleção de cliente:** combobox no topo da janela (contratante + natureza do serviço); cada cliente tem um ficheiro JSON em `dados_rdo/`
+- **Seleção de projeto:** combobox no topo da janela (contratante + natureza do serviço); cada projeto tem um ficheiro JSON em `dados_rdo/`
 - **Barra de menus CustomTkinter:** listas suspensas arredondadas (*Arquivo*, *Revisão*, *Horas*, *Exibir*, *Ajuda*)
 - **Abas:** *Cabeçalhos* (13 campos fixos reutilizáveis) e *Relatórios de trabalho* (formulário diário + calendário + métricas)
-- **Tema claro/escuro:** alternância em *Exibir → Alternar tema claro/escuro*; preferência gravada em `dados_rdo/config_usuario.json`; paleta editável em `template/tema_aplicacao.json`
-- **Preferências locais unificadas:** `config_usuario.json` memoriza tema, geometria da janela, aba aberta, último cliente (contratante + natureza); na primeira execução após actualização, importa automaticamente `_ultimo_cliente.json` se existir
+- **Tema claro/escuro:** alternância em *Exibir → Alternar tema claro/escuro*; preferência gravada em `template/config_usuario.json`; paleta editável em `template/tema_aplicacao.json`
+- **Preferências locais unificadas:** `template/config_usuario.json` memoriza tema, geometria da janela, aba aberta e último projeto (contratante + natureza); na primeira execução após actualização, importa automaticamente `_ultimo_cliente.json` ou `dados_rdo/config_usuario.json` se existirem
 - **Geometria da janela:** tamanho e posição gravados automaticamente ao redimensionar ou mover a janela; na próxima execução, a janela reabre na mesma posição (se ainda couber no ecrã)
 - **Aba memorizada:** a última aba seleccionada (*Cabeçalhos* ou *Relatórios de trabalho*) é restaurada ao reabrir a aplicação
 - **Auto-save:** gravação automática cerca de **1,2 s** após parar de digitar
@@ -111,7 +111,15 @@ O menu *Horas → Copiar relatório detalhado do mês (métricas)* copia o resum
 - **FT (Folha de Tempo):** resumo mensal, a partir de `template/FT.xlsx`
 - **Mapeamento:** células definidas em `template/mapa_celulas_excel.json` (inclui `numero` e `folha` por dia no RDO)
 - **Saída:** `saida_relatorios/<contratante>/<natureza>/` com ficheiros nomeados por mês, tipo, natureza do serviço e funcionário — por exemplo `2026-05_RDO_Supervisorio_UHE_Rondon_Luis_Gustavo_de_Almeida.xlsx` e o equivalente `FT_...`
-- **Por mês ou completo:** *Arquivo → Gerar Excel — mês em edição (RDO/FT)* exporta só o mês da data seleccionada no calendário; *Gerar Excel — todos os meses (RDO/FT)* gera **todos os meses** com dias que tenham conteúdo no JSON do cliente (texto, horários ou tempos)
+- **Por mês ou completo:** *Arquivo → Gerar Excel — mês em edição (RDO/FT)* exporta só o mês da data seleccionada no calendário; *Gerar Excel — todos os meses (RDO/FT)* gera **todos os meses** com dias que tenham conteúdo no JSON do projeto (texto, horários ou tempos)
+
+### Gestão de projetos
+
+- **Novo projeto:** *Arquivo → Novo projeto* cria um JSON em `dados_rdo/` (contratante + natureza)
+- **Editar chave:** *Arquivo → Editar chave do projeto* altera contratante e/ou natureza; renomeia o ficheiro JSON e actualiza o cabeçalho fixo (com validação de chave duplicada)
+- **Arquivar:** *Arquivo → Arquivar projeto* move o JSON para `dados_rdo/rdo_arquivados/` (sai da lista do combobox; os relatórios Excel em `saida_relatorios/` mantêm-se)
+- **Desarquivar:** *Arquivo → Desarquivar projeto* restaura um JSON de `rdo_arquivados/` para `dados_rdo/`
+- **Excluir:** *Arquivo → Excluir projeto* remove o JSON e a pasta de relatórios Excel associada (irreversível)
 
 > **Nota:** o repositório inclui `template/RDO.xlsx` e `template/FT.xlsx` para exportação dos relatórios.
 
@@ -188,7 +196,7 @@ O script irá:
 1. **Execute a aplicação** (`executar.bat` ou `python main.py`).
 
 2. **Primeiro uso:**
-   - Menu **Arquivo → Novo cliente** (ou diálogo automático ao abrir)
+   - Menu **Arquivo → Novo projeto** (ou diálogo automático ao abrir)
    - Preencha contratante e natureza do serviço
    - Configure os cabeçalhos fixos na aba **Cabeçalhos**
 
@@ -217,6 +225,7 @@ O script irá:
 - **Contagem no mês** («No mês: X de Y»): posição cronológica do dia entre os dias com qualquer conteúdo no mês (alinhada a `numero` e `folha` no JSON e no Excel); as cores do calendário usam só registro de serviço e validação de ponto
 - **Ortografia:** clique com o botão direito em palavras sublinhadas para correções
 - **Dicionário:** *Revisão → Dicionário pessoal*
+- **Projetos:** troque no combobox superior; use *Arquivar* / *Desarquivar* para projectos concluídos; *Editar chave* se contratante ou natureza mudarem
 - **Ajuda integrada:** *Ajuda → Manual* e *Ajuda → Sobre* (conteúdo editável em `template/manual.json` e `template/sobre.json`, sem recompilar)
 
 ## Menus da aplicação
@@ -225,14 +234,17 @@ O script irá:
 
 | Item | Função |
 |------|--------|
-| Salvar agora | Grava o JSON do cliente imediatamente |
-| Novo cliente | Cria um novo projeto (novo ficheiro em `dados_rdo/`) |
-| Limpar informações do dia em edição | Apaga o registo do dia selecionado |
-| Excluir cliente | Remove o JSON do cliente e a pasta de relatórios Excel associada |
+| Salvar agora | Grava o JSON do projeto imediatamente |
+| Novo projeto | Cria um novo projecto (novo ficheiro em `dados_rdo/`) |
+| Editar chave do projeto (contratante + natureza) | Altera a chave e renomeia o JSON; actualiza cabeçalho fixo |
+| Limpar informações do dia em edição | Apaga o registo do dia seleccionado |
+| Excluir projeto | Remove o JSON do projeto e a pasta de relatórios Excel associada |
+| Arquivar projeto | Move o JSON para `dados_rdo/rdo_arquivados/` (fora da lista vigente) |
+| Desarquivar projeto | Restaura um JSON de `rdo_arquivados/` para `dados_rdo/` |
 | Gerar Excel — mês em edição (RDO/FT) | Exporta RDO e FT do mês da data seleccionada no calendário |
-| Gerar Excel — todos os meses (RDO/FT) | Exporta todos os meses com registos no cliente |
+| Gerar Excel — todos os meses (RDO/FT) | Exporta todos os meses com registos no projeto |
 | Abrir pasta relatórios | Abre `saida_relatorios/` no explorador |
-| Salvar / Carregar modelo de cabeçalho | Reutiliza cabeçalhos entre clientes |
+| Salvar / Carregar modelo de cabeçalho | Reutiliza cabeçalhos entre projetos |
 | Abrir Templates / Abrir dados (.json) | Abre pastas `template/` e `dados_rdo/` |
 
 ### Revisão
@@ -256,7 +268,7 @@ O script irá:
 
 | Item | Função |
 |------|--------|
-| Alternar tema claro/escuro | Troca a aparência da interface (tema, geometria, aba e último cliente gravados em `dados_rdo/config_usuario.json`) |
+| Alternar tema claro/escuro | Troca a aparência da interface (tema, geometria, aba e último projeto gravados em `template/config_usuario.json`) |
 
 ### Ajuda
 
@@ -288,7 +300,7 @@ Gerar_Relatorio/
 ├── rdo_diario/                      # Pacote principal
 │   ├── paths.py                     # Caminhos raiz, template, dados, saída
 │   ├── schema.py                    # Estrutura JSON, validação do calendário
-│   ├── storage.py                   # Leitura/gravação atómica por cliente
+│   ├── storage.py                   # Leitura/gravação atómica por projeto
 │   ├── config_horas.py              # Regras de horas e feriados
 │   ├── calculo_metricas_horas.py    # Normais, extras 50/100%, noturno
 │   ├── horario_util.py              # Normalização HH:MM, jornada líquida
@@ -307,11 +319,12 @@ Gerar_Relatorio/
 │       ├── combo_suspenso.py        # Combobox aprimorado (CustomTkinter)
 │       └── icone_janela.py          # Ícone da janela e barra de tarefas
 │
-├── dados_rdo/                       # Um JSON por cliente
-│   ├── config_usuario.json          # Preferências locais (tema, geometria, aba, último cliente)
+├── dados_rdo/                       # Um JSON por projeto vigente
+│   ├── rdo_arquivados/              # Projetos arquivados (fora do combobox)
 │   └── [Contratante_-_Natureza].json
 │
 ├── template/
+│   ├── config_usuario.json          # Preferências locais (tema, geometria, aba, último projeto; não versionado)
 │   ├── RDO.xlsx                     # Modelo RDO
 │   ├── FT.xlsx                      # Modelo Folha de Tempo
 │   ├── mapa_celulas_excel.json      # Mapeamento JSON → células Excel
@@ -341,20 +354,20 @@ Edite pelo menu *Horas → Editar regras de horas e feriados* ou diretamente no 
 
 ### Preferências locais (`config_usuario.json`)
 
-Ficheiro em `dados_rdo/config_usuario.json` (não versionado; específico de cada instalação):
+Ficheiro em `template/config_usuario.json` (não versionado; específico de cada instalação):
 
 | Chave | Conteúdo |
 |-------|----------|
 | `tema_aparencia` | `"dark"` ou `"light"` |
 | `geometria_janela` | Tamanho e posição da janela (`LARGURAxALTURA±X±Y`) |
 | `aba_ativa` | `"Cabeçalhos"` ou `"Relatórios de trabalho"` |
-| `contratante` / `natureza_servico` | Último cliente aberto |
+| `contratante` / `natureza_servico` | Último projeto aberto |
 
-Se existir o ficheiro legado `_ultimo_cliente.json`, os dados são importados automaticamente na primeira leitura e o ficheiro antigo é removido.
+Na primeira leitura após actualização, o ficheiro é importado automaticamente se existir em `dados_rdo/config_usuario.json` ou `_ultimo_cliente.json` (ficheiros legados removidos após migração).
 
 ### Tema e aparência da interface
 
-- Menu *Exibir → Alternar tema claro/escuro* (preferência em `dados_rdo/config_usuario.json`, chave `tema_aparencia`)
+- Menu *Exibir → Alternar tema claro/escuro* (preferência em `template/config_usuario.json`, chave `tema_aparencia`)
 - Cores e estilos editáveis em `template/tema_aplicacao.json` (sem recompilar o executável)
 - Tamanho, posição e aba activa gravados automaticamente; tamanho mínimo predefinido: 1075×900 px
 
@@ -381,7 +394,7 @@ Lógica em `rdo_diario/schema.py` (`estado_informacoes_essenciais_dia`, `horario
 
 ### Formato dos dados (JSON)
 
-Versão do formato: **1** (`schema.VERSAO_ARQUIVO`). Um ficheiro por cliente em `dados_rdo/`:
+Versão do formato: **1** (`schema.VERSAO_ARQUIVO`). Um ficheiro por projeto em `dados_rdo/` (projectos arquivados em `dados_rdo/rdo_arquivados/`):
 
 ```json
 {
@@ -500,7 +513,7 @@ python main.py > debug.log 2>&1
 Para recomeçar do zero:
 
 1. Feche a aplicação
-2. Apague o conteúdo de `dados_rdo/` (ou ficheiros individuais de cliente)
+2. Apague os JSON de projeto em `dados_rdo/` e, se quiser, em `dados_rdo/rdo_arquivados/` (opcional: `template/config_usuario.json` para repor preferências)
 3. Reinicie a aplicação
 
 ## Contribuição

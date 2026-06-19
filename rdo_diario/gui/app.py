@@ -71,10 +71,15 @@ from rdo_diario.schema import (
     ROTULOS_CABECALHO,
 )
 from rdo_diario.storage import (
+    arquivar_projeto,
+    atualizar_chave_cliente,
     carregar_documento_json,
     carregar_ou_criar_cliente,
+    desarquivar_projeto,
+    encontrar_cliente_por_chave,
     excluir_cliente_do_disco,
     listar_clientes_salvos,
+    listar_projetos_arquivados,
     obter_documento_cliente_inicial,
     salvar_documento_json,
     salvar_memoria_ultimo_cliente,
@@ -200,7 +205,7 @@ class AplicacaoRdo(
         forcar_redesenho_tema(self)
 
     def _montar_barra_cliente(self) -> None:
-        """Barra superior: seleção de cliente (contratante + natureza)."""
+        """Barra superior: seleção de projeto (contratante + natureza)."""
         self._barra_cliente = ctk.CTkFrame(
             self,
             fg_color=COR_FUNDO_SECUNDARIO,
@@ -211,7 +216,7 @@ class AplicacaoRdo(
         conteudo.pack(fill="x", padx=8, pady=8)
         self._rotulo_barra_cliente = ctk.CTkLabel(
             conteudo,
-            text="Cliente (contratante + natureza):",
+            text="Projeto (contratante + natureza):",
             font=FONT_INTERFACE,
         )
         self._rotulo_barra_cliente.pack(side="left", padx=(0, 6))
@@ -371,29 +376,113 @@ class AplicacaoRdo(
 
     def _abrir_dialogo_novo_cliente(self) -> None:
         """Diálogo modal para criar contratante + natureza e abrir o ficheiro novo."""
+        self._abrir_dialogo_chave_cliente(editar=False)
+
+    def _abrir_dialogo_editar_chave_cliente(self) -> None:
+        """Diálogo para alterar a chave do projeto aberto (contratante + natureza)."""
+        self._abrir_dialogo_chave_cliente(editar=True)
+
+    def _abrir_dialogo_chave_cliente(self, *, editar: bool) -> None:
+        """Formulário partilhado para criar ou editar a chave contratante + natureza."""
+        if editar:
+            if not self._documento_atual or not self._caminho_arquivo_atual:
+                messagebox.showwarning(
+                    "Editar chave",
+                    "Não há cliente aberto.\n\nSelecione ou crie um cliente primeiro.",
+                    parent=self,
+                )
+                return
+            chave = self._documento_atual.get("chave") or {}
+            valor_c_inicial = str(chave.get(CHAVE_JSON_CONTRATANTE, "")).strip()
+            valor_n_inicial = str(chave.get(CHAVE_JSON_NATUREZA_SERVICO, "")).strip()
+            ignorar_caminho = self._caminho_arquivo_atual
+            titulo_janela = "Editar chave do cliente"
+            texto_botao = "Guardar"
+        else:
+            valor_c_inicial = ""
+            valor_n_inicial = ""
+            ignorar_caminho = None
+            titulo_janela = "Novo cliente"
+            texto_botao = "Criar e abrir"
+
         topo = ctk.CTkToplevel(self)
-        topo.title("Novo cliente")
+        topo.title(titulo_janela)
         topo.transient(self)
         topo.grab_set()
-        topo.geometry("520x200")
-        ctk.CTkLabel(topo, text="Contratante (chave):").grid(row=0, column=0, sticky="w", padx=12, pady=8)
+        topo.geometry("520x240" if editar else "520x200")
+
+        linha = 0
+        if editar:
+            ctk.CTkLabel(
+                topo,
+                text="A chave identifica o ficheiro JSON e a lista «Projeto (contratante + natureza)».",
+                wraplength=480,
+                justify="left",
+                text_color=COR_TEXTO_SECUNDARIO,
+            ).grid(row=linha, column=0, columnspan=2, sticky="w", padx=12, pady=(12, 4))
+            linha += 1
+
+        ctk.CTkLabel(topo, text="Contratante (chave):").grid(
+            row=linha, column=0, sticky="w", padx=12, pady=8
+        )
         entrada_contratante = ctk.CTkEntry(topo, width=320)
-        entrada_contratante.grid(row=0, column=1, padx=12, pady=8)
+        entrada_contratante.grid(row=linha, column=1, padx=12, pady=8)
+        if valor_c_inicial:
+            entrada_contratante.insert(0, valor_c_inicial)
+        linha += 1
+
         ctk.CTkLabel(topo, text="Natureza do serviço (chave):").grid(
-            row=1, column=0, sticky="w", padx=12, pady=8
+            row=linha, column=0, sticky="w", padx=12, pady=8
         )
         entrada_natureza = ctk.CTkEntry(topo, width=320)
-        entrada_natureza.grid(row=1, column=1, padx=12, pady=8)
+        entrada_natureza.grid(row=linha, column=1, padx=12, pady=8)
+        if valor_n_inicial:
+            entrada_natureza.insert(0, valor_n_inicial)
+        linha += 1
 
         def confirmar() -> None:
             c = entrada_contratante.get().strip()
             n = entrada_natureza.get().strip()
             if not c or not n:
-                messagebox.showwarning("Validação", "Preencha contratante e natureza do serviço.", parent=topo)
+                messagebox.showwarning(
+                    "Validação",
+                    "Preencha contratante e natureza do serviço.",
+                    parent=topo,
+                )
                 return
+
+            if editar and c == valor_c_inicial and n == valor_n_inicial:
+                topo.destroy()
+                return
+
+            duplicado = encontrar_cliente_por_chave(c, n, ignorar_caminho=ignorar_caminho)
+            if duplicado is not None:
+                messagebox.showwarning(
+                    "Chave já utilizada",
+                    "Já existe um cliente com contratante e natureza do serviço iguais:\n\n"
+                    f"{c} — {n}\n\n"
+                    f"Ficheiro: {duplicado.name}",
+                    parent=topo,
+                )
+                return
+
             self._persistir_dia_atual_no_documento()
-            self._salvar_documento_agora()
-            documento, caminho = carregar_ou_criar_cliente(c, n)
+            if editar:
+                self._copiar_cabecalho_formulario_para_documento()
+                try:
+                    documento, caminho = atualizar_chave_cliente(
+                        self._documento_atual,
+                        self._caminho_arquivo_atual,
+                        c,
+                        n,
+                    )
+                except (OSError, ValueError) as erro:
+                    messagebox.showerror("Editar chave", str(erro), parent=topo)
+                    return
+            else:
+                self._salvar_documento_agora()
+                documento, caminho = carregar_ou_criar_cliente(c, n)
+
             self._documento_atual = documento
             self._caminho_arquivo_atual = caminho
             salvar_memoria_ultimo_cliente(c, n)
@@ -406,59 +495,55 @@ class AplicacaoRdo(
             self._atualizar_marcadores_calendario()
             topo.destroy()
 
-        ctk.CTkButton(topo, text="Criar e abrir", command=confirmar).grid(
-            row=2, column=0, columnspan=2, pady=16
+        ctk.CTkButton(topo, text=texto_botao, command=confirmar).grid(
+            row=linha, column=0, columnspan=2, pady=16
         )
 
-    def _excluir_cliente_atual(self) -> None:
-        """Remove o cliente aberto: JSON, relatórios Excel e atualiza a interface."""
-        if not self._documento_atual or not self._caminho_arquivo_atual:
-            messagebox.showwarning(
-                "Excluir cliente",
-                "Não há cliente aberto para excluir.\n\n"
-                "Selecione um cliente na lista ou crie um novo.",
-                parent=self,
-            )
-            return
+    @staticmethod
+    def _rotulo_projeto(contratante: str, natureza: str, caminho: Path) -> str:
+        if contratante and natureza:
+            return f"{contratante} — {natureza}"
+        return contratante or natureza or caminho.name
 
-        chave = self._documento_atual.get("chave") or {}
-        contratante = str(chave.get(CHAVE_JSON_CONTRATANTE, "")).strip()
-        natureza = str(chave.get(CHAVE_JSON_NATUREZA_SERVICO, "")).strip()
-        rotulo = f"{contratante} — {natureza}" if contratante and natureza else (
-            contratante or natureza or self._caminho_arquivo_atual.name
-        )
+    def _criar_dialogo_selecionar_projeto(
+        self,
+        *,
+        titulo: str,
+        dica: str,
+        itens: list[tuple[str, str, Path]],
+    ) -> tuple[ctk.CTkToplevel, ctk.CTkComboBox, dict[str, Path]]:
+        topo = ctk.CTkToplevel(self)
+        topo.title(titulo)
+        topo.transient(self)
+        topo.grab_set()
+        topo.geometry("560x200")
 
-        if not messagebox.askyesno(
-            "Excluir cliente",
-            f"Excluir permanentemente o cliente:\n\n{rotulo}\n\n"
-            "Serão removidos o ficheiro JSON com todos os registos diários "
-            "e os relatórios Excel gerados (RDO/FT).\n\n"
-            "Esta ação não pode ser desfeita.",
-            parent=self,
-            icon="warning",
-        ):
-            return
+        ctk.CTkLabel(
+            topo,
+            text=dica,
+            wraplength=520,
+            justify="left",
+            text_color=COR_TEXTO_SECUNDARIO,
+        ).grid(row=0, column=0, columnspan=2, sticky="w", padx=12, pady=(12, 8))
 
-        documento_excluido = self._documento_atual
-        caminho_excluido = self._caminho_arquivo_atual
+        ctk.CTkLabel(topo, text="Projecto:").grid(row=1, column=0, sticky="w", padx=12, pady=8)
+        mapa_rotulos: dict[str, Path] = {}
+        rotulos: list[str] = []
+        for contratante, natureza, caminho in itens:
+            rotulo = self._rotulo_projeto(contratante, natureza, caminho)
+            rotulos.append(rotulo)
+            mapa_rotulos[rotulo] = caminho
 
-        if self._id_agendamento_salvar:
-            self.after_cancel(self._id_agendamento_salvar)
-            self._id_agendamento_salvar = None
+        combo = ctk.CTkComboBox(topo, values=rotulos, **opcoes_combo_ctk(largura=400))
+        combo.grid(row=1, column=1, padx=12, pady=8)
+        configurar_combo_ctk_aprimorado(combo)
+        if rotulos:
+            combo.set(rotulos[0])
 
-        try:
-            from rdo_diario.gerar_excel_relatorios import remover_saida_relatorios_excel_cliente
+        return topo, combo, mapa_rotulos
 
-            remover_saida_relatorios_excel_cliente(documento_excluido)
-            excluir_cliente_do_disco(
-                caminho_excluido,
-                contratante=contratante,
-                natureza_servico=natureza,
-            )
-        except OSError as erro:
-            messagebox.showerror("Excluir cliente", str(erro), parent=self)
-            return
-
+    def _ativar_proximo_cliente_ou_limpar(self) -> None:
+        """Após excluir ou arquivar o projeto aberto: abre outro vigente ou limpa a interface."""
         self._documento_atual = None
         self._caminho_arquivo_atual = None
         self._atualizar_lista_combo_clientes()
@@ -490,11 +575,205 @@ class AplicacaoRdo(
         if self._widget_calendario:
             self._widget_calendario.selection_set(self._data_em_edicao)
         self._atualizar_marcadores_calendario()
+
+    def _abrir_dialogo_arquivar_projeto(self) -> None:
+        """Move um projecto vigente para dados_rdo/rdo_arquivados/."""
+        itens = listar_clientes_salvos()
+        if not itens:
+            messagebox.showinfo(
+                "Arquivar projeto",
+                "Não há projectos vigentes para arquivar.",
+                parent=self,
+            )
+            return
+
+        topo, combo, mapa = self._criar_dialogo_selecionar_projeto(
+            titulo="Arquivar projeto",
+            dica=(
+                "O ficheiro JSON será movido para dados_rdo/rdo_arquivados/ "
+                "e deixará de aparecer na lista «Projeto (contratante + natureza)». "
+                "Os relatórios Excel gerados mantêm-se em saida_relatorios/."
+            ),
+            itens=itens,
+        )
+
+        def confirmar() -> None:
+            caminho = mapa.get(combo.get().strip())
+            if caminho is None:
+                return
+            contratante = ""
+            natureza = ""
+            for c, n, p in itens:
+                if p.resolve() == caminho.resolve():
+                    contratante, natureza = c, n
+                    break
+            rotulo = self._rotulo_projeto(contratante, natureza, caminho)
+            if not messagebox.askyesno(
+                "Arquivar projeto",
+                f"Arquivar o projecto:\n\n{rotulo}\n\n"
+                "Poderá restaurá-lo depois em Arquivo → Desarquivar projeto.",
+                parent=topo,
+                icon="question",
+            ):
+                return
+
+            era_aberto = (
+                self._caminho_arquivo_atual is not None
+                and self._caminho_arquivo_atual.resolve() == caminho.resolve()
+            )
+            if era_aberto:
+                self._persistir_dia_atual_no_documento()
+                self._salvar_documento_agora(silencioso=True)
+
+            try:
+                arquivar_projeto(caminho, contratante=contratante, natureza_servico=natureza)
+            except OSError as erro:
+                messagebox.showerror("Arquivar projeto", str(erro), parent=topo)
+                return
+
+            if era_aberto:
+                self._ativar_proximo_cliente_ou_limpar()
+            else:
+                self._atualizar_lista_combo_clientes()
+
+            messagebox.showinfo(
+                "Arquivar projeto",
+                f"Projecto arquivado:\n\n{rotulo}",
+                parent=self,
+            )
+            topo.destroy()
+
+        ctk.CTkButton(topo, text="Arquivar", command=confirmar).grid(
+            row=2, column=0, columnspan=2, pady=16
+        )
+
+    def _abrir_dialogo_desarquivar_projeto(self) -> None:
+        """Restaura um projecto de dados_rdo/rdo_arquivados/ para dados_rdo/."""
+        itens = listar_projetos_arquivados()
+        if not itens:
+            messagebox.showinfo(
+                "Desarquivar projeto",
+                "Não há projectos arquivados em dados_rdo/rdo_arquivados/.",
+                parent=self,
+            )
+            return
+
+        topo, combo, mapa = self._criar_dialogo_selecionar_projeto(
+            titulo="Desarquivar projeto",
+            dica=(
+                "O ficheiro JSON voltará para dados_rdo/ e passará a aparecer "
+                "na lista de clientes vigentes."
+            ),
+            itens=itens,
+        )
+
+        def confirmar() -> None:
+            caminho = mapa.get(combo.get().strip())
+            if caminho is None:
+                return
+            contratante = ""
+            natureza = ""
+            for c, n, p in itens:
+                if p.resolve() == caminho.resolve():
+                    contratante, natureza = c, n
+                    break
+            rotulo = self._rotulo_projeto(contratante, natureza, caminho)
+            if not messagebox.askyesno(
+                "Desarquivar projeto",
+                f"Desarquivar o projecto:\n\n{rotulo}",
+                parent=topo,
+                icon="question",
+            ):
+                return
+
+            try:
+                destino = desarquivar_projeto(caminho)
+            except OSError as erro:
+                messagebox.showerror("Desarquivar projeto", str(erro), parent=topo)
+                return
+
+            documento = carregar_documento_json(destino)
+            self._documento_atual = documento
+            self._caminho_arquivo_atual = destino
+            chave = documento.get("chave") or {}
+            salvar_memoria_ultimo_cliente(
+                str(chave.get(CHAVE_JSON_CONTRATANTE, "")),
+                str(chave.get(CHAVE_JSON_NATUREZA_SERVICO, "")),
+            )
+            self._atualizar_lista_combo_clientes()
+            self._marcar_combo_cliente_atual(documento)
+            self._carregar_cabecalho_no_formulario()
+            self._carregar_registro_dia_no_formulario(self._data_em_edicao)
+            if self._widget_calendario:
+                self._widget_calendario.selection_set(self._data_em_edicao)
+            self._atualizar_marcadores_calendario()
+
+            messagebox.showinfo(
+                "Desarquivar projeto",
+                f"Projecto restaurado e aberto:\n\n{rotulo}",
+                parent=self,
+            )
+            topo.destroy()
+
+        ctk.CTkButton(topo, text="Desarquivar e abrir", command=confirmar).grid(
+            row=2, column=0, columnspan=2, pady=16
+        )
+
+    def _excluir_cliente_atual(self) -> None:
+        """Remove o projeto aberto: JSON, relatórios Excel e atualiza a interface."""
+        if not self._documento_atual or not self._caminho_arquivo_atual:
+            messagebox.showwarning(
+                "Excluir projeto",
+                "Não há projeto aberto para excluir.\n\n" 
+                "Selecione um projeto na lista ou crie um novo.",
+                parent=self,
+            )
+            return
+
+        chave = self._documento_atual.get("chave") or {}
+        contratante = str(chave.get(CHAVE_JSON_CONTRATANTE, "")).strip()
+        natureza = str(chave.get(CHAVE_JSON_NATUREZA_SERVICO, "")).strip()
+        rotulo = f"{contratante} — {natureza}" if contratante and natureza else (
+            contratante or natureza or self._caminho_arquivo_atual.name
+        )
+
+        if not messagebox.askyesno(
+            "Excluir projeto",
+            f"Excluir permanentemente o projeto:\n\n{rotulo}\n\n"
+            "Serão removidos o ficheiro JSON com todos os registos diários "
+            "e os relatórios Excel gerados (RDO/FT).\n\n"
+            "Esta ação não pode ser desfeita.",
+            parent=self,
+            icon="warning",
+        ):
+            return
+
+        documento_excluido = self._documento_atual
+        caminho_excluido = self._caminho_arquivo_atual
+
+        if self._id_agendamento_salvar:
+            self.after_cancel(self._id_agendamento_salvar)
+            self._id_agendamento_salvar = None
+
+        try:
+            from rdo_diario.gerar_excel_relatorios import remover_saida_relatorios_excel_cliente
+
+            remover_saida_relatorios_excel_cliente(documento_excluido)
+            excluir_cliente_do_disco(
+                caminho_excluido,
+                contratante=contratante,
+                natureza_servico=natureza,
+            )
+        except OSError as erro:
+            messagebox.showerror("Excluir projeto", str(erro), parent=self)
+            return
+
+        self._ativar_proximo_cliente_ou_limpar()
         self.title("Relatório de atividades diárias")
 
         messagebox.showinfo(
-            "Excluir cliente",
-            f"O cliente «{rotulo}» foi excluído.",
+            "Excluir projeto",
+            f"O projeto «{rotulo}» foi excluído.",
             parent=self,
         )
 

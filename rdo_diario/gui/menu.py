@@ -73,12 +73,18 @@ class MixinMenu:
     def _itens_menu_arquivo(self) -> list[EntradaMenuBarra]:
         return [
             EntradaMenuBarra("Salvar agora", self._salvar_documento_agora),
-            EntradaMenuBarra("Novo cliente", self._abrir_dialogo_novo_cliente),
+            EntradaMenuBarra("Novo projeto", self._abrir_dialogo_novo_cliente),
+            EntradaMenuBarra(
+                "Editar chave do projeto (contratante + natureza)",
+                self._abrir_dialogo_editar_chave_cliente,
+            ),
             EntradaMenuBarra(
                 "Limpar informações do dia em edição",
                 self._limpar_informacoes_dia_em_edicao,
             ),
-            EntradaMenuBarra("Excluir cliente", self._excluir_cliente_atual),
+            EntradaMenuBarra("Excluir projeto", self._excluir_cliente_atual),
+            EntradaMenuBarra("Arquivar projeto", self._abrir_dialogo_arquivar_projeto),
+            EntradaMenuBarra("Desarquivar projeto", self._abrir_dialogo_desarquivar_projeto),
             EntradaMenuBarra.sep(),
             EntradaMenuBarra(
                 "Gerar Excel — mês em edição (RDO/FT)",
@@ -296,7 +302,7 @@ class MixinMenu:
     def _copiar_relatorio_metricas_mes(self: AplicacaoRdo) -> None:
         """Gera texto com todas as linhas do mês da data selecionada e copia para a área de transferência."""
         if not self._documento_atual:
-            messagebox.showinfo("Relatório", "Abra um cliente primeiro.", parent=self)
+            messagebox.showinfo("Relatório", "Abra um projeto primeiro.", parent=self)
             return
         regs = self._registros_diarios_efetivos_para_contagem()
         a, m = self._data_em_edicao.year, self._data_em_edicao.month
@@ -344,7 +350,7 @@ class MixinMenu:
         self._abrir_pasta_no_explorador(PASTA_TEMPLATE, criar_se_ausente=False)
 
     def _abrir_pasta_dados_json(self) -> None:
-        """Abre `dados_rdo/` (JSON por cliente)."""
+        """Abre `dados_rdo/` (JSON por projeto)."""
         self._abrir_pasta_no_explorador(PASTA_DADOS_RDO)
 
     def _abrir_pasta_config_regras_horas(self) -> None:

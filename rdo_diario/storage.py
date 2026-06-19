@@ -6,11 +6,12 @@ from __future__ import annotations
 
 import json
 import re
+import shutil
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from rdo_diario.paths import ARQUIVO_CONFIG_USUARIO_JSON, PASTA_DADOS_RDO
+from rdo_diario.paths import ARQUIVO_CONFIG_USUARIO_JSON, PASTA_DADOS_RDO, PASTA_RDO_ARQUIVADOS
 from rdo_diario.schema import (
     CAMPOS_JSON_CABECALHO,
     CHAVE_JSON_CONTRATANTE,
@@ -57,20 +58,26 @@ def caminho_arquivo_por_cliente(contratante: str, natureza_servico: str) -> Path
     return PASTA_DADOS_RDO / f"{nome_arquivo}.json"
 
 
-def listar_clientes_salvos() -> list[tuple[str, str, Path]]:
-    """
-    Lista todos os clientes com ficheiro JSON válido (contratante, natureza, caminho).
-    Ignora ficheiros cujo nome começa por «_».
-    """
-    if not PASTA_DADOS_RDO.is_dir():
+_FICHEIROS_JSON_IGNORAR_LISTAGEM = frozenset(
+    {
+        ARQUIVO_CONFIG_USUARIO_JSON.name,
+    }
+)
+
+
+def _listar_projetos_json_na_pasta(pasta: Path) -> list[tuple[str, str, Path]]:
+    """Lista projectos (JSON com objeto ``chave``) numa pasta plana."""
+    if not pasta.is_dir():
         return []
     resultado: list[tuple[str, str, Path]] = []
-    for caminho in sorted(PASTA_DADOS_RDO.glob("*.json")):
-        if caminho.name.startswith("_"):
+    for caminho in sorted(pasta.glob("*.json")):
+        if caminho.name.startswith("_") or caminho.name in _FICHEIROS_JSON_IGNORAR_LISTAGEM:
             continue
         try:
             documento = carregar_documento_json(caminho)
         except (json.JSONDecodeError, OSError):
+            continue
+        if not isinstance(documento.get("chave"), dict):
             continue
         chave = documento.get("chave") or {}
         c = str(chave.get(CHAVE_JSON_CONTRATANTE, "")).strip()
@@ -78,6 +85,131 @@ def listar_clientes_salvos() -> list[tuple[str, str, Path]]:
         if c or n:
             resultado.append((c, n, caminho))
     return resultado
+
+
+def listar_clientes_salvos() -> list[tuple[str, str, Path]]:
+    """
+    Lista clientes vigentes com ficheiro JSON válido (contratante, natureza, caminho).
+    Exclui projectos em ``rdo_arquivados/`` e ficheiros de configuração.
+    """
+    return _listar_projetos_json_na_pasta(PASTA_DADOS_RDO)
+
+
+def listar_projetos_arquivados() -> list[tuple[str, str, Path]]:
+    """Lista projectos guardados em ``dados_rdo/rdo_arquivados/``."""
+    return _listar_projetos_json_na_pasta(PASTA_RDO_ARQUIVADOS)
+
+
+def arquivar_projeto(
+    caminho: Path,
+    *,
+    contratante: str,
+    natureza_servico: str,
+) -> Path:
+    """Move o JSON do projecto para ``rdo_arquivados/``."""
+    if not caminho.is_file():
+        raise FileNotFoundError(f"Ficheiro não encontrado: {caminho}")
+    if caminho.parent.resolve() != PASTA_DADOS_RDO.resolve():
+        raise ValueError("Só é possível arquivar projectos em dados_rdo/.")
+
+    PASTA_RDO_ARQUIVADOS.mkdir(parents=True, exist_ok=True)
+    destino = PASTA_RDO_ARQUIVADOS / caminho.name
+    if destino.exists():
+        raise FileExistsError(f"Já existe um arquivo com o nome «{destino.name}» em rdo_arquivados/.")
+
+    shutil.move(str(caminho), str(destino))
+
+    ultimo = ler_memoria_ultimo_cliente()
+    if ultimo and ultimo[0] == contratante.strip() and ultimo[1] == natureza_servico.strip():
+        _limpar_memoria_ultimo_cliente()
+
+    return destino
+
+
+def desarquivar_projeto(caminho: Path) -> Path:
+    """Move o JSON de ``rdo_arquivados/`` de volta para ``dados_rdo/``."""
+    if not caminho.is_file():
+        raise FileNotFoundError(f"Ficheiro não encontrado: {caminho}")
+    if caminho.parent.resolve() != PASTA_RDO_ARQUIVADOS.resolve():
+        raise ValueError("Só é possível desarquivar projectos de rdo_arquivados/.")
+
+    documento = carregar_documento_json(caminho)
+    chave = documento.get("chave") or {}
+    c = str(chave.get(CHAVE_JSON_CONTRATANTE, "")).strip()
+    n = str(chave.get(CHAVE_JSON_NATUREZA_SERVICO, "")).strip()
+    if c and n:
+        existente = encontrar_cliente_por_chave(c, n)
+        if existente is not None:
+            raise FileExistsError(
+                f"Já existe um projecto vigente com a chave «{c} — {n}» ({existente.name})."
+            )
+
+    PASTA_DADOS_RDO.mkdir(parents=True, exist_ok=True)
+    destino = PASTA_DADOS_RDO / caminho.name
+    if destino.exists():
+        raise FileExistsError(f"Já existe um ficheiro «{destino.name}» em dados_rdo/.")
+
+    shutil.move(str(caminho), str(destino))
+    return destino
+
+
+def encontrar_cliente_por_chave(
+    contratante: str,
+    natureza_servico: str,
+    *,
+    ignorar_caminho: Path | None = None,
+) -> Path | None:
+    """
+    Devolve o caminho do JSON se já existir cliente com o mesmo par chave.
+
+    ``ignorar_caminho`` exclui o ficheiro actual (útil ao renomear o cliente aberto).
+    """
+    c = contratante.strip()
+    n = natureza_servico.strip()
+    if not c or not n:
+        return None
+    ignorar = ignorar_caminho.resolve() if ignorar_caminho else None
+    for c2, n2, caminho in listar_clientes_salvos():
+        if c2 == c and n2 == n:
+            if ignorar is not None and caminho.resolve() == ignorar:
+                continue
+            return caminho
+    caminho_por_nome = caminho_arquivo_por_cliente(c, n)
+    if caminho_por_nome.is_file():
+        if ignorar is None or caminho_por_nome.resolve() != ignorar:
+            return caminho_por_nome
+    return None
+
+
+def atualizar_chave_cliente(
+    documento: dict[str, Any],
+    caminho_atual: Path,
+    novo_contratante: str,
+    nova_natureza: str,
+) -> tuple[dict[str, Any], Path]:
+    """
+    Atualiza ``chave`` e os campos homónimos em ``cabecalho_fixo``; renomeia o JSON se necessário.
+    """
+    c = novo_contratante.strip()
+    n = nova_natureza.strip()
+    if not c or not n:
+        raise ValueError("Contratante e natureza do serviço são obrigatórios.")
+
+    novo_caminho = caminho_arquivo_por_cliente(c, n)
+    documento["chave"] = {
+        CHAVE_JSON_CONTRATANTE: c,
+        CHAVE_JSON_NATUREZA_SERVICO: n,
+    }
+    cabecalho = documento.setdefault("cabecalho_fixo", {})
+    cabecalho["contratante"] = c
+    cabecalho["natureza_servico"] = n
+
+    salvar_documento_json(novo_caminho, documento)
+
+    if caminho_atual.resolve() != novo_caminho.resolve() and caminho_atual.is_file():
+        caminho_atual.unlink()
+
+    return documento, novo_caminho
 
 
 def _garantir_estrutura_cabecalho(documento: dict[str, Any]) -> None:
@@ -139,10 +271,33 @@ def carregar_ou_criar_cliente(contratante: str, natureza_servico: str) -> tuple[
 
 
 _ARQUIVO_ULTIMO_CLIENTE_LEGADO = PASTA_DADOS_RDO / "_ultimo_cliente.json"
+_ARQUIVO_CONFIG_USUARIO_LEGADO = PASTA_DADOS_RDO / "config_usuario.json"
+
+
+def _migrar_config_usuario_legado_para_template() -> None:
+    """Move ``config_usuario.json`` de ``dados_rdo/`` para ``template/`` (actualização)."""
+    if not _ARQUIVO_CONFIG_USUARIO_LEGADO.is_file():
+        return
+    ARQUIVO_CONFIG_USUARIO_JSON.parent.mkdir(parents=True, exist_ok=True)
+    if ARQUIVO_CONFIG_USUARIO_JSON.is_file():
+        try:
+            _ARQUIVO_CONFIG_USUARIO_LEGADO.unlink(missing_ok=True)
+        except OSError:
+            pass
+        return
+    try:
+        shutil.move(str(_ARQUIVO_CONFIG_USUARIO_LEGADO), str(ARQUIVO_CONFIG_USUARIO_JSON))
+    except OSError:
+        try:
+            shutil.copy2(_ARQUIVO_CONFIG_USUARIO_LEGADO, ARQUIVO_CONFIG_USUARIO_JSON)
+            _ARQUIVO_CONFIG_USUARIO_LEGADO.unlink(missing_ok=True)
+        except OSError:
+            pass
 
 
 def ler_config_usuario() -> dict[str, Any]:
-    """Lê preferências locais em `config_usuario.json` (tema, geometria, último cliente)."""
+    """Lê preferências locais em ``template/config_usuario.json`` (tema, geometria, último cliente)."""
+    _migrar_config_usuario_legado_para_template()
     if not ARQUIVO_CONFIG_USUARIO_JSON.is_file():
         dados: dict[str, Any] = {}
     else:
@@ -155,8 +310,8 @@ def ler_config_usuario() -> dict[str, Any]:
 
 
 def gravar_config_usuario(dados: dict[str, Any]) -> None:
-    """Persiste preferências locais em `config_usuario.json`."""
-    PASTA_DADOS_RDO.mkdir(parents=True, exist_ok=True)
+    """Persiste preferências locais em ``template/config_usuario.json``."""
+    ARQUIVO_CONFIG_USUARIO_JSON.parent.mkdir(parents=True, exist_ok=True)
     try:
         ARQUIVO_CONFIG_USUARIO_JSON.write_text(
             json.dumps(dados, indent=2, ensure_ascii=False),
