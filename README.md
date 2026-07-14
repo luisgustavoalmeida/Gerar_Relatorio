@@ -147,13 +147,13 @@ O menu *Horas → Copiar relatório detalhado do mês (métricas)* copia o resum
 Para usar a aplicação **sem instalar Python**:
 
 1. Abra a página de [Releases](https://github.com/luisgustavoalmeida/Gerar_Relatorio/releases/latest).
-2. Baixe o ficheiro **`Gerar_Relatorio_1.0.4.zip`** (ou o zip da versão mais recente).
+2. Em **Assets**, baixe o ficheiro **`Gerar_Relatorio_*.zip`** (ex.: `Gerar_Relatorio_1.0.4.zip`).
 3. Extraia o zip para uma pasta de sua preferência (ex.: `Documentos\Gerar_Relatorio`).
 4. Execute **`Gerar_Relatorio.exe`**.
 
-Na primeira execução são criadas, ao lado do `.exe`, as pastas `template/`, `dados_rdo/` e `saida_relatorios/`. Mantenha-as na mesma pasta do executável. Resumo em `LEIA-ME-PRIMEIRO.txt` (se incluído no pacote).
+Na primeira execução são criadas, ao lado do `.exe`, as pastas `template/`, `dados_rdo/` e `saida_relatorios/`. Mantenha-as na mesma pasta do executável.
 
-> Os binários **não** ficam no repositório Git (`dist/` está no `.gitignore`). Cada versão publicada tem o [zip anexado na Release](https://github.com/luisgustavoalmeida/Gerar_Relatorio/releases).
+> Os binários **não** ficam no repositório Git (`dist/` está no `.gitignore`). Cada versão publicada tem o [zip anexado na Release](https://github.com/luisgustavoalmeida/Gerar_Relatorio/releases/latest).
 
 ### Instalação a partir do código-fonte (desenvolvimento)
 
@@ -486,18 +486,18 @@ O script cria o `.venv` (se necessário), instala dependências de `requirements
 ```
 dist/
 ├── Gerar_Relatorio.exe
-└── Gerar_Relatorio_1.0.4.zip   # pacote para distribuir (opcional)
+└── Gerar_Relatorio_<versão>.zip   # pacote para a GitHub Release (só o .exe dentro)
 ```
 
-Na **primeira execução**, ao lado do `.exe` são criadas automaticamente as pastas `template/`, `dados_rdo/` e `saida_relatorios/` (copiadas do bundle interno). Mantenha-as na mesma pasta do executável. Resumo em `LEIA-ME-PRIMEIRO.txt`.
+Na **primeira execução**, ao lado do `.exe` são criadas automaticamente as pastas `template/`, `dados_rdo/` e `saida_relatorios/` (copiadas do bundle interno). Mantenha-as na mesma pasta do executável.
 
 ### Publicar uma versão (GitHub Release)
 
 Não faça commit de `dist/` no Git. Para disponibilizar o executável a outras pessoas:
 
 1. Faça push do código da versão para `main`.
-2. Em GitHub → **Releases** → **Create a new release**.
-3. Crie a tag `v1.0.4` (ou a versão correspondente), anexe o ficheiro `dist/Gerar_Relatorio_*.zip` e publique.
+2. Em GitHub → **Releases** → **Create a new release** (ou edite a release existente).
+3. Use a tag `vX.Y.Z` (ex.: `v1.0.4`), anexe apenas `dist/Gerar_Relatorio_*.zip` e publique como **Latest release**.
 4. O download fica em: https://github.com/luisgustavoalmeida/Gerar_Relatorio/releases/latest
 
 ## Solução de problemas
