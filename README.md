@@ -3,10 +3,13 @@
 [![Python](https://img.shields.io/badge/Python-3.12+-blue.svg)](https://www.python.org/)
 [![Versão](https://img.shields.io/badge/Versão-1.0.4-informational.svg)](template/sobre.json)
 [![Windows](https://img.shields.io/badge/Platform-Windows-blue.svg)](https://www.microsoft.com/windows)
+[![Download](https://img.shields.io/github/v/release/luisgustavoalmeida/Gerar_Relatorio?label=Download)](https://github.com/luisgustavoalmeida/Gerar_Relatorio/releases/latest)
 
 Aplicação desktop para registo de atividades diárias em projetos de engenharia e serviços em geral. Permite o registo detalhado de atividades, controle de horários de ponto, cálculo automático de métricas de horas (normais, extras, noturno) e exportação para planilhas Excel (RDO e Folha de Tempo).
 
 **Versão atual:** 1.0.4 · **Formato dos dados (JSON):** 1 · **Plataforma:** Windows 10 ou superior
+
+**Utilizadores finais (Windows):** baixe o executável em [Releases](https://github.com/luisgustavoalmeida/Gerar_Relatorio/releases/latest) — não é necessário instalar Python.
 
 ## Sumário
 
@@ -139,7 +142,22 @@ O menu *Horas → Copiar relatório detalhado do mês (métricas)* copia o resum
 
 ## Instalação
 
-### Instalação automática (recomendado)
+### Executável Windows (recomendado)
+
+Para usar a aplicação **sem instalar Python**:
+
+1. Abra a página de [Releases](https://github.com/luisgustavoalmeida/Gerar_Relatorio/releases/latest).
+2. Baixe o ficheiro **`Gerar_Relatorio_1.0.4.zip`** (ou o zip da versão mais recente).
+3. Extraia o zip para uma pasta de sua preferência (ex.: `Documentos\Gerar_Relatorio`).
+4. Execute **`Gerar_Relatorio.exe`**.
+
+Na primeira execução são criadas, ao lado do `.exe`, as pastas `template/`, `dados_rdo/` e `saida_relatorios/`. Mantenha-as na mesma pasta do executável. Resumo em `LEIA-ME-PRIMEIRO.txt` (se incluído no pacote).
+
+> Os binários **não** ficam no repositório Git (`dist/` está no `.gitignore`). Cada versão publicada tem o [zip anexado na Release](https://github.com/luisgustavoalmeida/Gerar_Relatorio/releases).
+
+### Instalação a partir do código-fonte (desenvolvimento)
+
+#### Automática
 
 1. **Clone o repositório:**
    ```bash
@@ -158,7 +176,7 @@ O script irá:
 - Instalar as dependências de `requirements.txt`
 - Iniciar a aplicação
 
-### Instalação manual
+#### Manual
 
 1. **Verifique o Python:**
    ```bash
@@ -181,7 +199,7 @@ O script irá:
    python main.py
    ```
 
-### Atalhos de execução (Windows)
+#### Atalhos de execução (Windows)
 
 | Script | Descrição |
 |--------|-----------|
@@ -467,10 +485,20 @@ O script cria o `.venv` (se necessário), instala dependências de `requirements
 
 ```
 dist/
-└── Gerar_Relatorio.exe
+├── Gerar_Relatorio.exe
+└── Gerar_Relatorio_1.0.4.zip   # pacote para distribuir (opcional)
 ```
 
 Na **primeira execução**, ao lado do `.exe` são criadas automaticamente as pastas `template/`, `dados_rdo/` e `saida_relatorios/` (copiadas do bundle interno). Mantenha-as na mesma pasta do executável. Resumo em `LEIA-ME-PRIMEIRO.txt`.
+
+### Publicar uma versão (GitHub Release)
+
+Não faça commit de `dist/` no Git. Para disponibilizar o executável a outras pessoas:
+
+1. Faça push do código da versão para `main`.
+2. Em GitHub → **Releases** → **Create a new release**.
+3. Crie a tag `v1.0.4` (ou a versão correspondente), anexe o ficheiro `dist/Gerar_Relatorio_*.zip` e publique.
+4. O download fica em: https://github.com/luisgustavoalmeida/Gerar_Relatorio/releases/latest
 
 ## Solução de problemas
 
