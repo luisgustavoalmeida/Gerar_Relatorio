@@ -48,6 +48,7 @@ COR_CALENDARIO_FDS_OM_TEXTO = _par("#6b7a9a", "#7878a0")
 # Dimensões
 LARGURA_JANELA = 1075
 ALTURA_JANELA = 900
+ALTURA_JANELA_MINIMA = 700
 RAIO_BORDA = 10
 
 # Tipografia — nomes indicam o papel na interface (Segoe UI)
@@ -473,16 +474,7 @@ def _redesenhar_widget(widget: tk.Misc) -> None:
             except Exception:
                 pass
 
-        if isinstance(widget, ctk.CTkTextbox):
-            try:
-                widget.configure(
-                    border_color=COR_BORDA,
-                    fg_color=COR_FUNDO_CARD,
-                    text_color=COR_TEXTO,
-                )
-            except Exception:
-                pass
-        elif isinstance(widget, ctk.CTkEntry):
+        if isinstance(widget, ctk.CTkTextbox) or isinstance(widget, ctk.CTkEntry):
             try:
                 widget.configure(
                     border_color=COR_BORDA,
@@ -808,10 +800,35 @@ def opcoes_tabview_ctk() -> dict[str, Any]:
 
 
 def configurar_abas_tabview(tabview: ctk.CTkTabview) -> None:
-    """Aplica fonte e alinhamento à esquerda nos botões das abas."""
+    """Aplica fonte, alinhamento e margens internas compactas às abas."""
     tabview._segmented_button.configure(font=FONT_ABA)
     for botao in tabview._segmented_button._buttons_dict.values():
         botao.configure(anchor="w")
+    apertar_margens_internas_tabview(tabview)
+
+
+def apertar_margens_internas_tabview(
+    tabview: ctk.CTkTabview,
+    *,
+    padx: int = 4,
+    pady_topo: int = 2,
+    pady_base: int = 0,
+) -> None:
+    """Reduz o padx/pady interno que o CTkTabview copia do ``corner_radius``."""
+    nome = getattr(tabview, "_current_name", None)
+    if not nome:
+        return
+    aba = tabview._tab_dict.get(nome)
+    if aba is None:
+        return
+    try:
+        escala = tabview._apply_widget_scaling
+        aba.grid_configure(
+            padx=escala(padx),
+            pady=(escala(pady_topo), escala(pady_base)),
+        )
+    except Exception:
+        pass
 
 
 def opcoes_combo_ctk(*, largura: int | None = None) -> dict[str, Any]:
@@ -854,8 +871,19 @@ def resolver_entrada_ctk(
     return None
 
 
-def criar_painel_ctk_com_titulo(pai: ctk.CTkBaseClass, titulo: str) -> tuple[ctk.CTkFrame, ctk.CTkFrame]:
-    """Moldura arredondada com título — grupos visuais CustomTkinter."""
+def criar_painel_ctk_com_titulo(
+    pai: ctk.CTkBaseClass,
+    titulo: str,
+    *,
+    compacto: bool = False,
+) -> tuple[ctk.CTkFrame, ctk.CTkFrame, ctk.CTkFrame]:
+    """Moldura arredondada com título — devolve (externo, cabeçalho, conteúdo).
+
+    O título fica à esquerda do cabeçalho; dá para acrescentar widgets na mesma linha.
+    """
+    pad_x = 8 if compacto else 12
+    pad_cabecalho = (4, 2) if compacto else (10, 4)
+    pad_conteudo = (0, 8) if compacto else (0, 12)
     externo = ctk.CTkFrame(
         pai,
         fg_color=COR_FUNDO,
@@ -864,12 +892,14 @@ def criar_painel_ctk_com_titulo(pai: ctk.CTkBaseClass, titulo: str) -> tuple[ctk
         border_color=COR_BORDA,
     )
     registrar_painel_tema(pai, externo)
-    ctk.CTkLabel(externo, text=titulo, font=FONT_PAINEL_TITULO, anchor="w").pack(
-        fill="x", padx=12, pady=(10, 4)
+    cabecalho = ctk.CTkFrame(externo, fg_color="transparent")
+    cabecalho.pack(fill="x", padx=pad_x, pady=pad_cabecalho)
+    ctk.CTkLabel(cabecalho, text=titulo, font=FONT_PAINEL_TITULO, anchor="w").pack(
+        side="left"
     )
     conteudo = ctk.CTkFrame(externo, fg_color="transparent")
-    conteudo.pack(fill="both", expand=True, padx=12, pady=(0, 12))
-    return externo, conteudo
+    conteudo.pack(fill="both", expand=True, padx=pad_x, pady=pad_conteudo)
+    return externo, cabecalho, conteudo
 
 
 def opcoes_texto_tk_embutido() -> dict[str, Any]:

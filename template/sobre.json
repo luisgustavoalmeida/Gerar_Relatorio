@@ -1,101 +1,109 @@
-{
-  "titulo": "Sobre o programa",
-  "subtitulo": "Gerar Relatório — Relatório Diário de Obra (RDO)",
-  "aplicacao": {
-    "nome": "Gerar Relatório",
-    "nome_completo": "Gerar Relatório Diário de Obra (RDO)",
-    "versao": "1.0.4",
-    "data_versao": "2026-06-18",
-    "versao_formato_dados": 1,
-    "descricao": "Aplicação desktop para registo de atividades diárias em projetos de engenharia e serviços. Inclui cabeçalho fixo reutilizável, calendário com código de cores, controlo de horários de ponto, cálculo automático de métricas de horas (normais, extras, noturno), verificação ortográfica e exportação para planilhas Excel (RDO e Folha de Tempo).",
-    "data_lancamento": "2026-04-01",
-    "ultima_atualizacao": "2026-06-18",
-    "plataforma": "Windows 10 ou superior",
-    "python_minimo": "3.12 ou superior"
-  },
-  "criador": {
-    "nome": "Luís Gustavo de Almeida",
-    "papel": "Engenheiro Eletricista, Engenheiro de Software",
-    "organizacao": "Megawatt Sistemas",
-    "email_profissional": "luis.gustavo@megawatt.net.br",
-    "email_pessoal": "lga.gustavo.a@gmail.com",
-    "linkedin": "https://www.linkedin.com/in/luís-gustavo-de-almeida",
-    "discord": "luisgustavoalmeida"
-  },
-  "repositorio": {
-    "nome": "Gerar_Relatorio",
-    "url": "https://github.com/luisgustavoalmeida/Gerar_Relatorio",
-    "documentacao": "README.md na raiz do projeto"
-  },
-  "doacao": {
-    "mensagem": "Este programa é gratuito. Se quiser apoiar o desenvolvimento, pode enviar uma doação voluntária via PIX.",
-    "chave_pix": "CPF 069.524.336-51"
-  },
-  "funcionalidades": [
-    "Gestão de projetos: novo, editar chave (contratante + natureza), arquivar/desarquivar (dados_rdo/rdo_arquivados/), excluir e troca no combobox superior",
-    "Calendário mensal com código de cores (verde/laranja conforme registro e ponto; feriado em vermelho; dia em edição azul; hoje em negrito; legenda expansível com +)",
-    "Tooltip com o nome do feriado ao passar o rato sobre dias marcados em vermelho",
-    "Numeração automática no mês (numero, folha e rótulo «No mês: X de Y») exportada para o Excel",
-    "Cabeçalho fixo reutilizável por projeto (13 campos) com salvar/carregar modelo em template/modelo_cabecalho.json",
-    "Registro diário: serviço, extra-escopo, ociosidade, tempo de serviço calculado e horários de ponto/deslocamento",
-    "Métricas de horas do dia, do mês e totais acumulados do projeto (config_regras_horas.json)",
-    "Verificação ortográfica e gramatical (LanguageTool, pt-BR) com dicionário pessoal editável",
-    "Sincronização de feriados nacionais do Brasil (biblioteca holidays)",
-    "Exportação Excel RDO e FT por mês em edição ou por todos os meses com registos",
-    "Tema claro/escuro (Exibir), paleta em tema_aplicacao.json e preferências em template/config_usuario.json",
-    "Auto-save (~1,2 s), validação de horários em tempo real e menus Arquivo, Revisão, Horas, Exibir e Ajuda"
-  ],
-  "historico_versoes": [
-    {
-      "versao": "1.0.4",
-      "data": "2026-06-18",
-      "notas": "Métricas do projeto; exportação Excel por mês ou todos os meses; editar chave do projeto; arquivar/desarquivar em rdo_arquivados/; preferências em template/config_usuario.json; tooltip de feriados no calendário; legenda expansível e dia de hoje em negrito; manual e sobre actualizados."
-    },
-    {
-      "versao": "1.0.3",
-      "data": "2026-06-01",
-      "notas": "Tema claro/escuro (CustomTkinter) com paleta editável; nova barra de menus, ícone da janela e melhorias gerais na interface; simplificação da compilação .exe."
-    },
-    {
-      "versao": "1.0.2",
-      "data": "2026-05-28",
-      "notas": "Menu Ajuda (Manual e Sobre); melhorias na interface como validação de informações."
-    },
-    {
-      "versao": "1.0.1",
-      "data": "2026-05-19",
-      "notas": "Implementada a opção de salvar e recarregar um modelo de cabeçalho."
-    },
-    {
-      "versao": "1.0.0",
-      "data": "2026-04-01",
-      "notas": "Versão inicial com registo diário, métricas e exportação Excel."
-    }
-  ],
-  "requisitos": [
-    "Windows 10 ou superior",
-    "Python 3.12+ (ambiente virtual .venv ou executável compilado com PyInstaller)",
-    "Conexão à internet para verificação ortográfica (LanguageTool)",
-    "Microsoft Excel ou compatível para abrir os relatórios gerados (.xlsx)"
-  ],
-  "tecnologias": [
-    { "nome": "Python 3.12+ / CustomTkinter", "uso": "Interface gráfica principal (tema claro/escuro)" },
-    { "nome": "tkcalendar", "uso": "Calendário mensal com seleção de data" },
-    { "nome": "openpyxl", "uso": "Exportação RDO e Folha de Tempo (.xlsx)" },
-    { "nome": "holidays", "uso": "Feriados nacionais do Brasil" },
-    { "nome": "LanguageTool", "uso": "Ortografia e gramática (serviço online, pt-BR)" },
-    { "nome": "PyInstaller / Pillow", "uso": "Compilação .exe e ícone multi-tamanho" }
-  ],
-  "pastas_principais": [
-    "dados_rdo/ — um ficheiro JSON por projeto vigente; subpasta rdo_arquivados/ para projectos arquivados",
-    "template/ — modelos Excel (RDO.xlsx, FT.xlsx), config_regras_horas.json, mapa_celulas_excel.json, config_usuario.json, manual.json, sobre.json, tema_aplicacao.json e dicionário ortográfico",
-    "saida_relatorios/ — relatórios Excel gerados por contratante/natureza (criada automaticamente)"
-  ],
-  "suporte": [
-    "Manual de utilização: menu Ajuda → Manual (template/manual.json)",
-    "Informações desta janela: menu Ajuda → Sobre (template/sobre.json)",
-    "Problemas de instalação: consulte README.md (secção Solução de problemas)",
-    "Regras de horas e feriados: menu Horas → Editar regras de horas e feriados",
-    "Contacto do desenvolvedor: ver secção Criador acima"
-  ]
-}
+{
+  "titulo": "Sobre o programa",
+  "subtitulo": "Gerar Relatório — Relatório Diário de Obra (RDO)",
+  "aplicacao": {
+    "nome": "Gerar Relatório",
+    "nome_completo": "Gerar Relatório Diário de Obra (RDO)",
+    "versao": "1.0.5",
+    "data_versao": "2026-08-12",
+    "versao_formato_dados": 1,
+    "descricao": "Aplicação desktop para registo de atividades diárias em projetos de engenharia e serviços. Inclui cabeçalho fixo reutilizável, calendário com código de cores, controlo de horários de ponto (incluindo turnos que atravessam meia-noite), deslocamento opcional nas horas, cálculo automático de métricas, verificação ortográfica e exportação para planilhas Excel (RDO e Folha de Tempo).",
+    "data_lancamento": "2026-04-01",
+    "ultima_atualizacao": "2026-08-12",
+    "plataforma": "Windows 10 ou superior",
+    "python_minimo": "3.12 ou superior"
+  },
+  "criador": {
+    "nome": "Luís Gustavo de Almeida",
+    "papel": "Engenheiro Eletricista, Engenheiro de Software",
+    "organizacao": "Megawatt Sistemas",
+    "email_profissional": "luis.gustavo@megawatt.net.br",
+    "email_pessoal": "lga.gustavo.a@gmail.com",
+    "linkedin": "https://www.linkedin.com/in/luís-gustavo-de-almeida",
+    "discord": "luisgustavoalmeida"
+  },
+  "repositorio": {
+    "nome": "Gerar_Relatorio",
+    "url": "https://github.com/luisgustavoalmeida/Gerar_Relatorio",
+    "documentacao": "README.md na raiz do projeto"
+  },
+  "doacao": {
+    "mensagem": "Este programa é gratuito. Se quiser apoiar o desenvolvimento, pode enviar uma doação voluntária via PIX.",
+    "chave_pix": "CPF 069.524.336-51"
+  },
+  "funcionalidades": [
+    "Gestão de projetos: novo, editar chave (contratante + natureza), arquivar/desarquivar (dados_rdo/rdo_arquivados/), excluir e troca no combobox superior",
+    "Calendário mensal com código de cores (verde/laranja conforme registro e ponto; feriado em vermelho; dia em edição azul; hoje em negrito; legenda expansível com +)",
+    "Tooltip com o nome do feriado ao passar o rato sobre dias marcados em vermelho",
+    "Numeração automática no mês (numero, folha e rótulo «No mês: X de Y») exportada para o Excel",
+    "Cabeçalho fixo reutilizável por projeto (13 campos) com salvar/carregar modelo em template/modelo_cabecalho.json",
+    "Registro diário: serviço, extra-escopo, ociosidade, tempo de serviço calculado e horários de ponto/deslocamento",
+    "Campos de texto adaptáveis: registro de serviço cresce com a janela; extra-escopo e ociosidade expandem ao receber foco",
+    "Turnos que atravessam meia-noite (ex.: 22:00→06:00) com horas e adicional noturno nos dois lados da meia-noite",
+    "Deslocamento (Ida/Volta) como duração; caixa «Incluir Deslocamento» para somar nas métricas e antecipar/atrasar ponto na Folha de Tempo",
+    "Métricas de horas do dia, do mês e totais acumulados do projeto (inclui linha de deslocamento; painel rolável)",
+    "Verificação ortográfica e gramatical (LanguageTool, pt-BR) com dicionário pessoal editável",
+    "Sincronização de feriados nacionais do Brasil (biblioteca holidays)",
+    "Exportação Excel RDO e FT por mês em edição ou por todos os meses com registos (métricas FT recalculadas na exportação)",
+    "Tema claro/escuro (Exibir), paleta em tema_aplicacao.json e preferências em template/config_usuario.json",
+    "Auto-save (~1,2 s), validação de horários em tempo real e menus Arquivo, Revisão, Horas, Exibir e Ajuda"
+  ],
+  "historico_versoes": [
+    {
+      "versao": "1.0.5",
+      "data": "2026-08-12",
+      "notas": "Turnos com virada de meia-noite; deslocamento como duração com caixa «Incluir Deslocamento» (métricas e FT); linha de deslocamento no painel de métricas; campos de texto expansíveis; métricas roláveis e altura mínima 700 px; FT recalcula métricas na exportação; manual, sobre e README actualizados."
+    },
+    {
+      "versao": "1.0.4",
+      "data": "2026-06-18",
+      "notas": "Métricas do projeto; exportação Excel por mês ou todos os meses; editar chave do projeto; arquivar/desarquivar em rdo_arquivados/; preferências em template/config_usuario.json; tooltip de feriados no calendário; legenda expansível e dia de hoje em negrito; manual e sobre actualizados."
+    },
+    {
+      "versao": "1.0.3",
+      "data": "2026-06-01",
+      "notas": "Tema claro/escuro (CustomTkinter) com paleta editável; nova barra de menus, ícone da janela e melhorias gerais na interface; simplificação da compilação .exe."
+    },
+    {
+      "versao": "1.0.2",
+      "data": "2026-05-28",
+      "notas": "Menu Ajuda (Manual e Sobre); melhorias na interface como validação de informações."
+    },
+    {
+      "versao": "1.0.1",
+      "data": "2026-05-19",
+      "notas": "Implementada a opção de salvar e recarregar um modelo de cabeçalho."
+    },
+    {
+      "versao": "1.0.0",
+      "data": "2026-04-01",
+      "notas": "Versão inicial com registo diário, métricas e exportação Excel."
+    }
+  ],
+  "requisitos": [
+    "Windows 10 ou superior",
+    "Python 3.12+ (ambiente virtual .venv ou executável compilado com PyInstaller)",
+    "Conexão à internet para verificação ortográfica (LanguageTool)",
+    "Microsoft Excel ou compatível para abrir os relatórios gerados (.xlsx)"
+  ],
+  "tecnologias": [
+    { "nome": "Python 3.12+ / CustomTkinter", "uso": "Interface gráfica principal (tema claro/escuro)" },
+    { "nome": "tkcalendar", "uso": "Calendário mensal com seleção de data" },
+    { "nome": "openpyxl", "uso": "Exportação RDO e Folha de Tempo (.xlsx)" },
+    { "nome": "holidays", "uso": "Feriados nacionais do Brasil" },
+    { "nome": "LanguageTool", "uso": "Ortografia e gramática (serviço online, pt-BR)" },
+    { "nome": "PyInstaller / Pillow", "uso": "Compilação .exe e ícone multi-tamanho" }
+  ],
+  "pastas_principais": [
+    "dados_rdo/ — um ficheiro JSON por projeto vigente; subpasta rdo_arquivados/ para projectos arquivados",
+    "template/ — modelos Excel (RDO.xlsx, FT.xlsx), config_regras_horas.json, mapa_celulas_excel.json, config_usuario.json, manual.json, sobre.json, tema_aplicacao.json e dicionário ortográfico",
+    "saida_relatorios/ — relatórios Excel gerados por contratante/natureza (criada automaticamente)"
+  ],
+  "suporte": [
+    "Manual de utilização: menu Ajuda → Manual (template/manual.json)",
+    "Informações desta janela: menu Ajuda → Sobre (template/sobre.json)",
+    "Problemas de instalação: consulte README.md (secção Solução de problemas)",
+    "Regras de horas e feriados: menu Horas → Editar regras de horas e feriados",
+    "Contacto do desenvolvedor: ver secção Criador acima"
+  ]
+}

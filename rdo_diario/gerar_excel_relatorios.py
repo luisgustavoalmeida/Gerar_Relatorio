@@ -17,6 +17,9 @@ from typing import Any
 from openpyxl import load_workbook
 from openpyxl.styles import Alignment
 
+from rdo_diario.calculo_metricas_horas import calcular_metricas_horas_para_dia
+from rdo_diario.config_horas import carregar_config_regras_horas
+from rdo_diario.horario_util import horarios_ponto_com_deslocamento_para_ft
 from rdo_diario.paths import (
     ARQUIVO_MAPA_CELULAS_EXCEL_JSON,
     PASTA_SAIDA_RELATORIOS_EXCEL,
@@ -26,6 +29,7 @@ from rdo_diario.schema import (
     CHAVE_JSON_FOLHA_RELATORIO_MES,
     CHAVE_JSON_NUMERO_RELATORIO_MES,
     extrair_horarios_do_registro_dia,
+    incluir_deslocamento_nas_horas,
     mapa_numero_folha_por_mes,
     registro_de_dia_possui_conteudo,
 )
@@ -345,6 +349,7 @@ def _preencher_ft_mes(
     lin_ini = int(cfg.get("primeira_linha_dia") or 10)
     lin_fim = int(cfg.get("ultima_linha_dia") or 40)
     cel_mes = str(cfg.get("data_mes_referencia_celula") or "A8")
+    config_horas = carregar_config_regras_horas()
 
     primeiro = date(ano, mes, 1)
     ws[cel_mes].value = datetime(primeiro.year, primeiro.month, primeiro.day)
@@ -373,6 +378,25 @@ def _preencher_ft_mes(
         if not isinstance(reg, dict):
             continue
         hor = extrair_horarios_do_registro_dia(reg)
+        incluir_desloc = incluir_deslocamento_nas_horas(reg)
+        if incluir_desloc:
+            hor_ft = horarios_ponto_com_deslocamento_para_ft(
+                str(hor.get("ponto_entrada") or ""),
+                str(hor.get("ponto_saida_almoco") or ""),
+                str(hor.get("ponto_entrada_almoco") or ""),
+                str(hor.get("ponto_saida") or ""),
+                str(hor.get("deslocamento_ida") or ""),
+                str(hor.get("deslocamento_volta") or ""),
+            )
+        else:
+            hor_ft = {
+                "ponto_entrada": str(hor.get("ponto_entrada") or ""),
+                "ponto_saida_almoco": str(hor.get("ponto_saida_almoco") or ""),
+                "ponto_entrada_almoco": str(hor.get("ponto_entrada_almoco") or ""),
+                "ponto_saida": str(hor.get("ponto_saida") or ""),
+            }
+        # Sempre recalcula na exportação (evita métricas JSON desatualizadas).
+        metricas_ft = calcular_metricas_horas_para_dia(d, reg, config_horas)
 
         e, f, g, h = (
             col_of("ponto_entrada"),
@@ -387,26 +411,33 @@ def _preencher_ft_mes(
             (h, "ponto_saida"),
         ):
             if letra:
-                t = _hhmm_para_time(str(hor.get(chave) or ""))
-                ws[f"{letra}{linha}"].value = t if t is not None else str(hor.get(chave) or "").strip()
+                bruto = str(hor_ft.get(chave) or "").strip()
+                if not bruto:
+                    ws[f"{letra}{linha}"].value = None
+                    continue
+                t = _hhmm_para_time(bruto)
+                ws[f"{letra}{linha}"].value = t if t is not None else bruto
 
-        for map_key in (
-            "metricas_horas.normais_hhmm",
-            "metricas_horas.extra_50_hhmm",
-            "metricas_horas.extra_100_hhmm",
-            "metricas_horas.adicional_noturno_hhmm",
+        for map_key, chave_metrica in (
+            ("metricas_horas.normais_hhmm", "normais_hhmm"),
+            ("metricas_horas.extra_50_hhmm", "extra_50_hhmm"),
+            ("metricas_horas.extra_100_hhmm", "extra_100_hhmm"),
+            ("metricas_horas.adicional_noturno_hhmm", "adicional_noturno_hhmm"),
         ):
             letra = col_of(map_key)
             if not letra:
                 continue
-            txt = _valor_metrica_aninhada(reg, map_key)
-            td = _hhmm_para_timedelta(str(txt or ""))
-            ws[f"{letra}{linha}"].value = td if td is not None else str(txt or "").strip()
+            if metricas_ft.get("calculo_valido"):
+                txt = metricas_ft.get(chave_metrica)
+                td = _hhmm_para_timedelta(str(txt or ""))
+                ws[f"{letra}{linha}"].value = td if td is not None else None
+            else:
+                ws[f"{letra}{linha}"].value = None
 
         ocol = col_of("registro_servico")
         if ocol:
             texto_concatenado = _concatenar_registros_primeira_linha(reg)
-            ws[f"{ocol}{linha}"].value = texto_concatenado
+            ws[f"{ocol}{linha}"].value = texto_concatenado or None
             c = ws[f"{ocol}{linha}"]
             al = c.alignment.copy() if c.alignment else Alignment()
             c.alignment = Alignment(
@@ -415,7 +446,7 @@ def _preencher_ft_mes(
 
         wcol = col_of("tipo_dia_feriado_coluna_w")
         if wcol:
-            tipo = str((_valor_metrica_aninhada(reg, "metricas_horas.tipo_dia") or "")).strip().lower()
+            tipo = str(metricas_ft.get("tipo_dia") or "").strip().lower()
             if tipo == "feriado":
                 ws[f"{wcol}{linha}"].value = "FERIADO"
 

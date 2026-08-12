@@ -19,10 +19,12 @@
         "Barra superior: combobox Cliente (contratante + natureza) para trocar de projeto vigente.",
         "Aba Cabeçalhos: 13 campos fixos que alimentam as planilhas RDO e FT (Folha de Tempo).",
         "Aba Relatórios de trabalho: formulário do dia à esquerda; calendário, legenda e métricas à direita.",
+        "Campos de texto: Registro de serviço cresce com a janela; extra-escopo e ociosidade expandem ao receber foco e recolhem ao sair.",
+        "Painel Métricas (abaixo do calendário) é rolável — útil com altura mínima da janela.",
         "Exibir → Alternar tema claro/escuro: troca a aparência da interface (CustomTkinter).",
         "Preferências locais em template/config_usuario.json: tema, geometria da janela, aba aberta e último projeto.",
         "Paleta de cores editável em template/tema_aplicacao.json (sem recompilar).",
-        "Geometria da janela (tamanho e posição) é memorizada ao redimensionar ou mover a janela.",
+        "Geometria da janela (tamanho e posição) é memorizada ao redimensionar ou mover a janela; tamanho mínimo 1075×700 (abertura padrão 1075×900).",
         "A última aba seleccionada (Cabeçalhos ou Relatórios de trabalho) é restaurada ao reabrir.",
         "Auto-save: cerca de 1,2 s após parar de digitar, o documento é gravado automaticamente.",
         "Ao trocar de data no calendário ou de projeto no combobox, o dia em edição é salvo antes.",
@@ -99,11 +101,12 @@
       "titulo": "8. Horários de ponto e deslocamento",
       "lista": [
         "Ponto — Entrada e Saída são obrigatórias para o dia ficar verde no calendário.",
-        "Sem almoço: deixe Saída almoço e Entrada almoço vazios; a entrada deve ser anterior à saída.",
-        "Com almoço: preencha os quatro horários em ordem cronológica estrita (entrada < saída almoço < entrada almoço < saída).",
-        "Deslocamento (Ida / Volta): registado no relatório e no Excel, mas não substitui entrada/saída para o estado verde.",
+        "Sem almoço: deixe Saída almoço e Entrada almoço vazios. Se a Saída for menor que a Entrada (ex.: 22:00→06:00), o sistema assume término no dia seguinte e conta as horas e o noturno nos dois lados da meia-noite.",
+        "Com almoço: as quatro batidas seguem ordem cronológica; cada batida pode virar a meia-noite uma vez (ex.: 18:00 / 21:00 / 22:00 / 05:00).",
+        "Deslocamento (Ida / Volta): duração do percurso (ex.: 0:30). Nas métricas aparece à parte das horas trabalhadas.",
+        "Caixa «Incluir Deslocamento»: se marcada, a Folha de Tempo antecipa a Entrada pela Ida, atrasa a Saída pela Volta (o relógio pode passar de 23:59 para 00:xx) e inclui esse tempo nas horas da planilha e nas métricas; se desmarcada, o deslocamento não entra no cálculo de trabalhadas (comportamento anterior).",
         "Digite horários como 0830 — o sistema formata para 08:30. Durações usam formato h:mm (ex.: 0130 → 1:30).",
-        "Ao alterar horários de ponto, o painel de métricas abaixo do calendário é actualizado na hora."
+        "Ao alterar horários de ponto ou deslocamento, o painel de métricas abaixo do calendário é actualizado na hora."
       ]
     },
     {
@@ -112,9 +115,10 @@
         "Com horários válidos, o painel Métricas (abaixo do calendário) mostra três blocos:"
       ],
       "lista": [
-        "Métricas do dia: horas trabalhadas, normais, extra 50%, extra 100% e adicional noturno do dia em edição.",
-        "Métricas do mês: totais do mês visível no calendário (dias com cálculo válido).",
+        "Métricas do dia: horas trabalhadas, normais, extra 50%, extra 100%, adicional noturno e deslocamento do dia em edição.",
+        "Métricas do mês: totais do mês visível no calendário (dias com cálculo válido; deslocamento também soma quando preenchido).",
         "Métricas do projeto: totais acumulados de todos os meses com registos válidos (período e número de meses com dados).",
+        "Horas trabalhadas, normais, extras e noturno incluem o deslocamento quando a caixa «Incluir Deslocamento» está marcada; o tópico Deslocamento continua a mostrar a duração da Ida+Volta em separado.",
         "Classificação conforme template/config_regras_horas.json: jornada por dia da semana, extras 50%/100%, adicional noturno (22:00–06:00, configurável; hora reduzida CLT opcional) e tratamento de domingos/feriados."
       ]
     },
@@ -152,7 +156,7 @@
         "Gerar Excel — todos os meses (RDO/FT): exporta todos os meses que tenham registos no JSON do projeto.",
         "Antes da exportação, o dia em edição e o cabeçalho são salvos automaticamente.",
         "RDO: uma folha por dia com registo, a partir de template/RDO.xlsx.",
-        "FT (Folha de Tempo): resumo mensal, a partir de template/FT.xlsx (necessário ter template/FT.xlsx).",
+        "FT (Folha de Tempo): resumo mensal, a partir de template/FT.xlsx (necessário ter template/FT.xlsx). As métricas são recalculadas na exportação; com «Incluir Deslocamento» activo, Entrada/Saída na planilha reflectem Ida/Volta.",
         "Mapeamento de células em template/mapa_celulas_excel.json (inclui cabeçalho fixo, campos diários, numero, folha e horários).",
         "Saída em saida_relatorios/<contratante>/<natureza>/ com nomes como 2026-05_RDO_<natureza>_<funcionário>.xlsx e equivalente FT_....",
         "Abrir pasta relatórios: abre saida_relatorios/ no explorador.",

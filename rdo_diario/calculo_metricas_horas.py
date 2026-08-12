@@ -15,14 +15,21 @@ from rdo_diario.config_horas import (
     garantir_config_reglas_completa,
 )
 from rdo_diario.horario_util import (
-    calcular_minutos_jornada_liquida,
-    interpretar_hora_minuto,
+    aplicar_deslocamento_aos_intervalos,
+    intervalos_jornada_minutos_absolutos,
+    minutos_deslocamento_ida_volta,
     minutos_para_hhmm,
+    segmentos_locais_para_noturno,
 )
-from rdo_diario.schema import extrair_horarios_do_registro_dia
+from rdo_diario.schema import (
+    incluir_deslocamento_nas_horas,
+    extrair_horarios_do_registro_dia,
+)
 
 
 def _minutos_desde_meia_noite(texto_hhmm: str) -> int | None:
+    from rdo_diario.horario_util import interpretar_hora_minuto
+
     p = interpretar_hora_minuto(texto_hhmm)
     if p is None:
         return None
@@ -46,8 +53,8 @@ def _minutos_noturnos_no_intervalo(
     """
     Devolve (minutos_físicos_no_período_noturno, minutos_equivalente_hora_reduzida).
 
-    Período noturno legal típico: 22h–5h (atravessa meia-noite). Para batidas só no mesmo dia,
-    considera dois trechos no mesmo dia civil: [0, 5h) e [22h, 24h).
+    Período noturno legal típico: 22h–5h (atravessa meia-noite). Trechos de trabalho
+    chegam já partidos em 0..1440 (fim=1440 = 24:00), inclusive após virada de dia.
     """
     if not cfg_noturno.get("ativo", True):
         return 0, 0.0
@@ -77,42 +84,8 @@ def _minutos_noturnos_no_intervalo(
     duracao_hora_noturna_min = mh + sh / 60.0
     if duracao_hora_noturna_min <= 0:
         return min_fis, float(min_fis)
-    # 52m30s de relógio = 1h de trabalho noturno → minutos pagos = físicos × (60 / duração_hora)
     equiv = min_fis * (60.0 / duracao_hora_noturna_min)
     return min_fis, float(equiv)
-
-
-def _segmentos_trabalho_dia(
-    entrada: str,
-    saida_almoco: str,
-    entrada_almoco: str,
-    saida: str,
-) -> list[tuple[int, int]]:
-    """
-    Lista de intervalos [início, fim) em minutos desde 00:00 do mesmo dia.
-    Só considera o mesmo dia civil (sem turno que atravesse meia-noite).
-    """
-    pe = interpretar_hora_minuto(entrada)
-    pf = interpretar_hora_minuto(saida)
-    if pe is None or pf is None:
-        return []
-    m_pe = pe[0] * 60 + pe[1]
-    m_pf = pf[0] * 60 + pf[1]
-    ps = interpretar_hora_minuto(saida_almoco)
-    pa = interpretar_hora_minuto(entrada_almoco)
-    tem_almoco = ps is not None and pa is not None
-    if tem_almoco:
-        m_ps = ps[0] * 60 + ps[1]
-        m_pa = pa[0] * 60 + pa[1]
-        if m_ps < m_pe or m_pf < m_pa:
-            return []
-        return [(m_pe, m_ps), (m_pa, m_pf)]
-    if (saida_almoco or "").strip() or (entrada_almoco or "").strip():
-        return []
-    if m_pf < m_pe:
-        return []
-    return [(m_pe, m_pf)]
-
 
 # date.weekday(): 0 = segunda … 6 = domingo
 _CHAVE_REGRAS_POR_WEEKDAY: dict[int, str] = {
@@ -146,7 +119,13 @@ def calcular_metricas_horas_para_dia(
     """
     Calcula métricas para um registro diário (horários em `registro`).
 
-    Chaves devolvidas alinhadas com `CHAVE_JSON_METRICAS_HORAS` / subcampos em schema.
+    Suporta jornada que termina no dia seguinte (ex.: 22:00→06:00), preservando
+    trabalhadas e adicional noturno nos dois lados da meia-noite.
+
+    Se ``incluir_deslocamento_nas_horas_ft`` estiver ativo:
+    - Ida antecipa o início e Volta atrasa o fim (também no noturno);
+    - Trabalhadas / normais / extras incluem essas durações;
+    - O tópico Deslocamento reporta Ida+Volta em separado.
     """
     cfg = garantir_config_reglas_completa(config)
     tipo = _classificar_tipo_dia(dia, cfg)
@@ -167,9 +146,13 @@ def calcular_metricas_horas_para_dia(
     s1 = str(horarios.get("ponto_saida_almoco", "") or "").strip()
     e2 = str(horarios.get("ponto_entrada_almoco", "") or "").strip()
     s2 = str(horarios.get("ponto_saida", "") or "").strip()
+    ida = str(horarios.get("deslocamento_ida", "") or "").strip()
+    volta = str(horarios.get("deslocamento_volta", "") or "").strip()
+    min_desloc = minutos_deslocamento_ida_volta(ida, volta)
+    incluir_desloc = incluir_deslocamento_nas_horas(registro)
 
-    minutos_trabalhados = calcular_minutos_jornada_liquida(e1, s1, e2, s2)
-    if minutos_trabalhados is None:
+    intervalos = intervalos_jornada_minutos_absolutos(e1, s1, e2, s2)
+    if not intervalos:
         return {
             "tipo_dia": tipo,
             "rotulo_tipo_dia": rotulo,
@@ -179,15 +162,24 @@ def calcular_metricas_horas_para_dia(
             "minutos_extra_100": 0,
             "minutos_adicional_noturno": 0,
             "minutos_adicional_noturno_equivalente": 0.0,
+            "minutos_deslocamento": min_desloc,
             "trabalhadas_hhmm": "0:00",
             "normais_hhmm": "0:00",
             "extra_50_hhmm": "0:00",
             "extra_100_hhmm": "0:00",
             "adicional_noturno_hhmm": "0:00",
             "adicional_noturno_equivalente_hhmm": "0:00",
+            "deslocamento_hhmm": minutos_para_hhmm(min_desloc),
             "calculo_valido": False,
             "mensagem": "Preencha os horários.",
         }
+
+    if incluir_desloc and min_desloc > 0:
+        intervalos_calc = aplicar_deslocamento_aos_intervalos(intervalos, ida, volta)
+    else:
+        intervalos_calc = intervalos
+
+    minutos_trabalhados = sum(b - a for a, b in intervalos_calc)
 
     jornada_n = int(regras.get("minutos_jornada_normal", 480))
     limite_50 = regras.get("minutos_extra_50_apos_normal")
@@ -215,7 +207,7 @@ def calcular_metricas_horas_para_dia(
             min_e50 = excedente
 
     cfg_noturno = (regras.get("adicional_noturno") or {}) if isinstance(regras.get("adicional_noturno"), dict) else {}
-    segmentos = _segmentos_trabalho_dia(e1, s1, e2, s2)
+    segmentos = segmentos_locais_para_noturno(intervalos_calc)
     min_not_fis = 0
     min_not_equiv = 0.0
     for a, b in segmentos:
@@ -233,12 +225,14 @@ def calcular_metricas_horas_para_dia(
         "minutos_extra_100": min_e100,
         "minutos_adicional_noturno": min_not_fis,
         "minutos_adicional_noturno_equivalente": equiv_arred,
+        "minutos_deslocamento": min_desloc,
         "trabalhadas_hhmm": minutos_para_hhmm(minutos_trabalhados),
         "normais_hhmm": minutos_para_hhmm(min_normais),
         "extra_50_hhmm": minutos_para_hhmm(min_e50),
         "extra_100_hhmm": minutos_para_hhmm(min_e100),
         "adicional_noturno_hhmm": minutos_para_hhmm(min_not_fis),
         "adicional_noturno_equivalente_hhmm": minutos_para_hhmm(equiv_arred),
+        "deslocamento_hhmm": minutos_para_hhmm(min_desloc),
         "calculo_valido": True,
         "mensagem": "",
     }
@@ -250,6 +244,7 @@ _CHAVES_METRICAS_AGREGADAS = (
     "minutos_extra_50",
     "minutos_extra_100",
     "minutos_adicional_noturno",
+    "minutos_deslocamento",
 )
 
 
@@ -278,7 +273,12 @@ def _somar_metricas_registros(
         except ValueError:
             continue
         m = calcular_metricas_horas_para_dia(d, reg, config)
+        min_desloc_dia = int(m.get("minutos_deslocamento") or 0)
         if not m.get("calculo_valido"):
+            # Deslocamento conta nas métricas mesmo sem jornada de ponto válida.
+            if min_desloc_dia > 0:
+                totais["minutos_deslocamento"] += min_desloc_dia
+                meses.add((d.year, d.month))
             continue
         dias_com_ponto += 1
         meses.add((d.year, d.month))
@@ -369,7 +369,8 @@ def gerar_relatorio_metricas_mes_texto(
             f"50% {formatar_minutos_como_texto(int(m.get('minutos_extra_50') or 0))}, "
             f"100% {formatar_minutos_como_texto(int(m.get('minutos_extra_100') or 0))}, "
             f"not. {formatar_minutos_como_texto(int(m.get('minutos_adicional_noturno') or 0))} "
-            f"(equiv. {float(m.get('minutos_adicional_noturno_equivalente') or 0):.1f} min)"
+            f"(equiv. {float(m.get('minutos_adicional_noturno_equivalente') or 0):.1f} min), "
+            f"desloc. {formatar_minutos_como_texto(int(m.get('minutos_deslocamento') or 0))}"
         )
     linhas.append("")
     linhas.append("Totais do mês:")
@@ -391,5 +392,6 @@ def formatar_resumo_metricas_texto(metricas: dict[str, Any]) -> str:
         f"Extra 50%: {fmt('minutos_extra_50')}",
         f"Extra 100%: {fmt('minutos_extra_100')}",
         f"Noturno: {fmt('minutos_adicional_noturno')}",
+        f"Deslocamento: {fmt('minutos_deslocamento')}",
     ]
     return "\n".join(linhas)

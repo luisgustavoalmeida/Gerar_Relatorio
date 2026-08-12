@@ -65,6 +65,159 @@ def _para_minutos_desde_meia_noite(hora_minuto: tuple[int, int]) -> int:
     return hora_minuto[0] * 60 + hora_minuto[1]
 
 
+_MINUTOS_DIA = 24 * 60
+# Limite de segurança: jornada contínua absurda (ex.: batidas iguais mal interpretadas).
+_MAX_MINUTOS_JORNADA = 36 * 60
+
+
+def minutos_relogio_para_hhmm(minutos_desde_meia_noite: int) -> str:
+    """Converte minutos (qualquer sinal/excesso) para HH:MM no relógio 00:00–23:59."""
+    m = int(minutos_desde_meia_noite) % _MINUTOS_DIA
+    if m < 0:
+        m += _MINUTOS_DIA
+    h, mins = divmod(m, 60)
+    return f"{h:02d}:{mins:02d}"
+
+
+def _encadear_minuto_relogio(anterior_abs: int, relogio_min: int) -> int | None:
+    """
+    Próximo instante absoluto após ``anterior_abs``.
+
+    Se o relógio for menor que o da batida anterior no dia civil, assume virada
+    de meia-noite (+24 h). No máximo uma virada por batida.
+    """
+    local_ant = anterior_abs % _MINUTOS_DIA
+    dia = anterior_abs // _MINUTOS_DIA
+    if relogio_min > local_ant:
+        candidato = dia * _MINUTOS_DIA + relogio_min
+    elif relogio_min < local_ant:
+        candidato = (dia + 1) * _MINUTOS_DIA + relogio_min
+    else:
+        return None
+    if candidato <= anterior_abs:
+        return None
+    return candidato
+
+
+def _batidas_ponto_minutos_absolutos(
+    entrada: str,
+    saida_almoco: str,
+    entrada_almoco: str,
+    saida: str,
+) -> list[int] | None:
+    """
+    Batidas em minutos absolutos (0 = 00:00 do dia da Entrada), com suporte a virada de dia.
+
+    Sem almoço: [entrada, saída].
+    Com almoço: [entrada, saída_almoço, entrada_almoço, saída].
+    None se incompleto ou ordem impossível.
+    """
+    pe = interpretar_hora_minuto(entrada)
+    pf = interpretar_hora_minuto(saida)
+    if pe is None or pf is None:
+        return None
+    ps = interpretar_hora_minuto(saida_almoco)
+    pa = interpretar_hora_minuto(entrada_almoco)
+    tem_almoco = ps is not None and pa is not None
+    if not tem_almoco and ((saida_almoco or "").strip() or (entrada_almoco or "").strip()):
+        return None
+
+    m_pe = _para_minutos_desde_meia_noite(pe)
+    m_pf = _para_minutos_desde_meia_noite(pf)
+    if not tem_almoco:
+        if m_pf > m_pe:
+            return [m_pe, m_pf]
+        if m_pf < m_pe:
+            # Saída no dia seguinte.
+            return [m_pe, m_pf + _MINUTOS_DIA]
+        return None
+
+    m_ps = _para_minutos_desde_meia_noite(ps)
+    m_pa = _para_minutos_desde_meia_noite(pa)
+    t0 = m_pe
+    t1 = _encadear_minuto_relogio(t0, m_ps)
+    if t1 is None:
+        return None
+    t2 = _encadear_minuto_relogio(t1, m_pa)
+    if t2 is None:
+        return None
+    t3 = _encadear_minuto_relogio(t2, m_pf)
+    if t3 is None:
+        return None
+    return [t0, t1, t2, t3]
+
+
+def intervalos_jornada_minutos_absolutos(
+    entrada: str,
+    saida_almoco: str,
+    entrada_almoco: str,
+    saida: str,
+) -> list[tuple[int, int]] | None:
+    """
+    Intervalos de trabalho [início, fim) em minutos absolutos (almoço excluído).
+
+    Suporta virada de meia-noite entre batidas. None se inválido.
+    """
+    batidas = _batidas_ponto_minutos_absolutos(entrada, saida_almoco, entrada_almoco, saida)
+    if not batidas:
+        return None
+    if len(batidas) == 2:
+        intervalos = [(batidas[0], batidas[1])]
+    elif len(batidas) == 4:
+        intervalos = [(batidas[0], batidas[1]), (batidas[2], batidas[3])]
+    else:
+        return None
+    for a, b in intervalos:
+        if b <= a:
+            return None
+    total = sum(b - a for a, b in intervalos)
+    if total <= 0 or total > _MAX_MINUTOS_JORNADA:
+        return None
+    return intervalos
+
+
+def aplicar_deslocamento_aos_intervalos(
+    intervalos: list[tuple[int, int]],
+    deslocamento_ida: str,
+    deslocamento_volta: str,
+) -> list[tuple[int, int]]:
+    """Antecipa o início pela Ida e atrasa o fim pela Volta (durações)."""
+    if not intervalos:
+        return []
+    min_ida = duracao_hhmm_para_minutos(deslocamento_ida)
+    min_volta = duracao_hhmm_para_minutos(deslocamento_volta)
+    saida = [ (a, b) for a, b in intervalos ]
+    a0, b0 = saida[0]
+    saida[0] = (a0 - min_ida, b0)
+    a1, b1 = saida[-1]
+    saida[-1] = (a1, b1 + min_volta)
+    return saida
+
+
+def segmentos_locais_para_noturno(
+    intervalos_abs: list[tuple[int, int]],
+) -> list[tuple[int, int]]:
+    """
+    Parte intervalos absolutos em trechos no relógio local 0..1440
+    (fim = 1440 representa 24:00), para cruzar com a janela noturna.
+    """
+    locais: list[tuple[int, int]] = []
+    for inicio_abs, fim_abs in intervalos_abs:
+        if fim_abs <= inicio_abs:
+            continue
+        cur = inicio_abs
+        while cur < fim_abs:
+            dia_inicio = (cur // _MINUTOS_DIA) * _MINUTOS_DIA
+            dia_fim = dia_inicio + _MINUTOS_DIA
+            trecho_fim = min(fim_abs, dia_fim)
+            local_a = cur - dia_inicio
+            local_b = trecho_fim - dia_inicio  # 1..1440
+            if local_b > local_a:
+                locais.append((local_a, local_b))
+            cur = trecho_fim
+    return locais
+
+
 def calcular_minutos_jornada_liquida(
     entrada: str,
     saida_almoco: str,
@@ -74,38 +227,21 @@ def calcular_minutos_jornada_liquida(
     """
     Calcula minutos trabalhados sem contar o almoço.
 
-    Com almoço completo: (saída almoço − entrada) + (saída − entrada almoço).
-    Sem almoço (saída e entrada almoço vazios): saída − entrada.
+    Suporta término no dia seguinte (ex.: Entrada 22:00, Saída 06:00 → 8 h).
+    Com almoço: soma os dois períodos; cada batida pode virar a meia-noite uma vez.
     Devolve None se a combinação for inconsistente ou faltar entrada/saída principais.
     """
-    pe = interpretar_hora_minuto(entrada)
-    ps = interpretar_hora_minuto(saida_almoco)
-    pa = interpretar_hora_minuto(entrada_almoco)
-    pf = interpretar_hora_minuto(saida)
-    if pe is None or pf is None:
+    intervalos = intervalos_jornada_minutos_absolutos(
+        entrada, saida_almoco, entrada_almoco, saida
+    )
+    if not intervalos:
         return None
-    tem_almoco = ps is not None and pa is not None
-    if tem_almoco:
-        m_pe, m_ps, m_pa, m_pf = (
-            _para_minutos_desde_meia_noite(pe),
-            _para_minutos_desde_meia_noite(ps),
-            _para_minutos_desde_meia_noite(pa),
-            _para_minutos_desde_meia_noite(pf),
-        )
-        if not (m_pe < m_ps < m_pa < m_pf):
-            return None
-        return (m_ps - m_pe) + (m_pf - m_pa)
-    if ps is not None or pa is not None:
-        return None
-    m_pe, m_pf = _para_minutos_desde_meia_noite(pe), _para_minutos_desde_meia_noite(pf)
-    if m_pf <= m_pe:
-        return None
-    return m_pf - m_pe
+    return sum(b - a for a, b in intervalos)
 
 
 def formatar_minutos_como_texto(total_minutos: int) -> str:
     """Formata uma duração em minutos como «X h YY min»."""
-    horas, minutos = divmod(total_minutos, 60)
+    horas, minutos = divmod(max(0, int(total_minutos)), 60)
     return f"{horas} h {minutos:02d} min"
 
 
@@ -217,3 +353,68 @@ def calcular_tempo_servico_hhmm(
     e = duracao_hhmm_para_minutos(tempo_extra_escopo)
     o = duracao_hhmm_para_minutos(tempo_ociosidade)
     return minutos_para_hhmm(max(0, t - e - o))
+
+
+def minutos_deslocamento_ida_volta(deslocamento_ida: str, deslocamento_volta: str) -> int:
+    """Soma as durações de ida e volta (HH:MM interpretado como duração)."""
+    return duracao_hhmm_para_minutos(deslocamento_ida) + duracao_hhmm_para_minutos(
+        deslocamento_volta
+    )
+
+
+def ajustar_horario_por_minutos(horario_hhmm: str, delta_minutos: int) -> str:
+    """
+    Soma ``delta_minutos`` a um horário de relógio HH:MM.
+
+    O resultado envolve no ciclo de 24 h (ex.: 23:30 + 1 h → 00:30; 00:30 − 1 h → 23:30).
+    Vazio ou inválido → string vazia.
+    """
+    par = interpretar_hora_minuto(horario_hhmm)
+    if par is None:
+        return ""
+    total = _para_minutos_desde_meia_noite(par) + int(delta_minutos)
+    return minutos_relogio_para_hhmm(total)
+
+
+def horarios_ponto_com_deslocamento_para_ft(
+    ponto_entrada: str,
+    ponto_saida_almoco: str,
+    ponto_entrada_almoco: str,
+    ponto_saida: str,
+    deslocamento_ida: str,
+    deslocamento_volta: str,
+) -> dict[str, str]:
+    """
+    Horários de ponto para a FT quando o deslocamento entra no cálculo:
+
+    - Ida (duração) antecipa a Entrada (pode ir para o dia anterior no relógio);
+    - Volta (duração) atrasa a Saída (pode ir para o dia seguinte no relógio);
+    - Almoço permanece igual.
+    """
+    intervalos = intervalos_jornada_minutos_absolutos(
+        ponto_entrada,
+        ponto_saida_almoco,
+        ponto_entrada_almoco,
+        ponto_saida,
+    )
+    entrada = str(ponto_entrada or "").strip()
+    saida = str(ponto_saida or "").strip()
+    if intervalos:
+        estendidos = aplicar_deslocamento_aos_intervalos(
+            intervalos, deslocamento_ida, deslocamento_volta
+        )
+        entrada = minutos_relogio_para_hhmm(estendidos[0][0])
+        saida = minutos_relogio_para_hhmm(estendidos[-1][1])
+    else:
+        min_ida = duracao_hhmm_para_minutos(deslocamento_ida)
+        min_volta = duracao_hhmm_para_minutos(deslocamento_volta)
+        if entrada and min_ida > 0:
+            entrada = ajustar_horario_por_minutos(entrada, -min_ida) or entrada
+        if saida and min_volta > 0:
+            saida = ajustar_horario_por_minutos(saida, min_volta) or saida
+    return {
+        "ponto_entrada": entrada,
+        "ponto_saida_almoco": str(ponto_saida_almoco or "").strip(),
+        "ponto_entrada_almoco": str(ponto_entrada_almoco or "").strip(),
+        "ponto_saida": saida,
+    }

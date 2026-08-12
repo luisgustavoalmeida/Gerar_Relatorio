@@ -70,6 +70,32 @@ CAMPOS_JSON_DESLOCAMENTO: tuple[str, ...] = (
 # União ponto + deslocamento (ordem usada na interface)
 CAMPOS_JSON_HORARIOS: tuple[str, ...] = CAMPOS_JSON_PONTO + CAMPOS_JSON_DESLOCAMENTO
 
+# Se verdadeiro, Ida antecipa a Entrada e Volta atrasa a Saída nas métricas
+# (trabalhadas/normais/extras/noturno) e na planilha FT.
+CHAVE_JSON_INCLUIR_DESLOCAMENTO_FT: str = "incluir_deslocamento_nas_horas_ft"
+
+
+def incluir_deslocamento_nas_horas(registro: dict[str, Any] | None) -> bool:
+    """
+    Interpreta a flag «incluir_deslocamento_nas_horas_ft» de forma segura.
+
+    Aceita bool, 0/1 e textos comuns (sim/não, true/false). Qualquer outro valor → False.
+    """
+    if not isinstance(registro, dict):
+        return False
+    valor = registro.get(CHAVE_JSON_INCLUIR_DESLOCAMENTO_FT)
+    if isinstance(valor, bool):
+        return valor
+    if isinstance(valor, (int, float)):
+        return valor == 1
+    texto = str(valor or "").strip().lower()
+    if texto in {"1", "true", "sim", "yes", "on"}:
+        return True
+    if texto in {"", "0", "false", "nao", "não", "no", "off"}:
+        return False
+    return False
+
+
 # Lista legada de batidas (migração)
 CHAVE_JSON_BATIDAS_PONTO: str = "batidas_ponto"
 

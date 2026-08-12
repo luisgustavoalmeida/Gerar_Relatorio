@@ -35,6 +35,7 @@ from rdo_diario.gui.tema import (
     FONT_INTERFACE,
     FONT_METRICAS,
     ALTURA_JANELA,
+    ALTURA_JANELA_MINIMA,
     LARGURA_JANELA,
     RAIO_BORDA,
     capturar_geometria_janela_para_salvar,
@@ -50,6 +51,7 @@ from rdo_diario.gui.tema import (
     forcar_redesenho_tema,
     obter_cores_tema,
     configurar_abas_tabview,
+    apertar_margens_internas_tabview,
     opcoes_tabview_ctk,
     opcoes_combo_ctk,
     opcoes_campo_entrada_ctk,
@@ -100,7 +102,7 @@ class AplicacaoRdo(
         aplicar_icone_janela(self)
         configurar_estilo_ttk(self)
         self.title("Relatório de atividades diárias")
-        self.minsize(LARGURA_JANELA, ALTURA_JANELA)
+        self.minsize(LARGURA_JANELA, ALTURA_JANELA_MINIMA)
 
         self._documento_atual: dict[str, Any] | None = None
         self._caminho_arquivo_atual: Path | None = None
@@ -109,6 +111,12 @@ class AplicacaoRdo(
         self._widgets_campos_dia: dict[str, ctk.CTkTextbox] = {}
         self._widgets_tempo_atividade: dict[str, ctk.CTkEntry] = {}
         self._widgets_horarios: dict[str, ctk.CTkEntry] = {}
+        self._recipientes_texto_dia: dict[str, ctk.CTkFrame] = {}
+        self._linhas_grid_campo_texto: dict[str, int] = {}
+        self._grid_campos_relatorio: ctk.CTkFrame | None = None
+        self._campo_texto_expandido: str | None = None
+        self._id_agendar_recolher_texto: str | None = None
+        self._widget_incluir_deslocamento_ft: ctk.CTkCheckBox | None = None
         self._id_agendamento_salvar: str | None = None
         self._widget_calendario = None
         self._combo_selecao_cliente: ctk.CTkComboBox | None = None
@@ -126,6 +134,7 @@ class AplicacaoRdo(
         self._rotulo_metricas_dia = None
         self._rotulo_metricas_mes = None
         self._rotulo_metricas_totais = None
+        self._area_metricas_rolavel = None
         self._barra_cliente: ctk.CTkFrame | None = None
         self._rotulo_barra_cliente: ctk.CTkLabel | None = None
         self._tabview: ctk.CTkTabview | None = None
@@ -199,6 +208,7 @@ class AplicacaoRdo(
         if self._tabview is not None:
             self._tabview.configure(**opcoes_tabview_ctk())
             configurar_abas_tabview(self._tabview)
+            apertar_margens_internas_tabview(self._tabview)
 
     def _alternar_tema_aplicacao(self) -> None:
         alternar_tema()
@@ -243,7 +253,7 @@ class AplicacaoRdo(
             command=self._ao_trocar_aba_principal,
             **opcoes_tabview_ctk(),
         )
-        self._tabview.pack(fill="both", expand=True, padx=8, pady=(0, 8))
+        self._tabview.pack(fill="both", expand=True, padx=6, pady=(0, 2))
 
         self._tabview.add("Cabeçalhos")
         self._tabview.add("Relatórios de trabalho")
@@ -251,6 +261,7 @@ class AplicacaoRdo(
         aba_salva = carregar_aba_ativa_salva()
         if aba_salva:
             self._tabview.set(aba_salva)
+            apertar_margens_internas_tabview(self._tabview)
         aba_atual = self._tabview.get()
         if aba_atual:
             self._ultima_aba_salva = aba_atual
@@ -271,7 +282,7 @@ class AplicacaoRdo(
             fg_color=COR_FUNDO,
             corner_radius=RAIO_BORDA,
         )
-        area_rolavel.pack(fill="both", expand=True, padx=8, pady=(0, 8))
+        area_rolavel.pack(fill="both", expand=True, padx=8, pady=(0, 4))
         form_cab = ctk.CTkFrame(area_rolavel, fg_color="transparent")
         form_cab.pack(fill="both", expand=True, padx=4, pady=4)
         for indice, campo in enumerate(CAMPOS_JSON_CABECALHO):
@@ -285,19 +296,19 @@ class AplicacaoRdo(
         form_cab.columnconfigure(1, weight=1)
 
         painel = ctk.CTkFrame(aba_registros, fg_color="transparent")
-        painel.pack(fill="both", expand=True, padx=4, pady=8)
+        painel.pack(fill="both", expand=True, padx=2, pady=(2, 2))
         painel.grid_columnconfigure(0, weight=4)
         painel.grid_columnconfigure(1, weight=0)
         painel.grid_rowconfigure(0, weight=1)
 
         coluna_formulario = ctk.CTkFrame(painel, fg_color="transparent")
         coluna_calendario = ctk.CTkFrame(painel, fg_color="transparent", width=280)
-        coluna_formulario.grid(row=0, column=0, sticky="nsew", padx=(0, 8))
-        coluna_calendario.grid(row=0, column=1, sticky="n")
+        coluna_formulario.grid(row=0, column=0, sticky="nsew", padx=(0, 6))
+        coluna_calendario.grid(row=0, column=1, sticky="nsew")
 
         self._montar_coluna_formulario_dia(coluna_formulario)
         self._montar_coluna_calendario(coluna_calendario)
-
+        apertar_margens_internas_tabview(self._tabview)
     def _inicializar_apos_abrir(self) -> None:
         """Primeira carga: combo, documento inicial, data de hoje e marcas no calendário."""
         inicial = obter_documento_cliente_inicial()
@@ -976,7 +987,7 @@ class AplicacaoRdo(
             altura_padrao=ALTURA_JANELA,
             geometria_salva=carregar_geometria_janela_salva(),
             largura_minima=LARGURA_JANELA,
-            altura_minima=ALTURA_JANELA,
+            altura_minima=ALTURA_JANELA_MINIMA,
         )
         aplicar_geometria_janela_tela(self, geometria)
         self.update_idletasks()
@@ -994,6 +1005,7 @@ class AplicacaoRdo(
         """Grava a aba selecionada para reabrir na próxima execução."""
         if self._tabview is None:
             return
+        apertar_margens_internas_tabview(self._tabview)
         aba = self._tabview.get()
         if not aba or aba == self._ultima_aba_salva:
             return

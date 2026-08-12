@@ -486,6 +486,22 @@ def _configurar_selecao_feriado(cal: Calendar, data_selecionada: date, feriados_
         cal.configure(selectforeground=cores["texto_botao"])
 
 
+def _ativar_barra_rolagem_sob_demanda(area: ctk.CTkScrollableFrame) -> None:
+    """Mostra a barra vertical do ``CTkScrollableFrame`` só quando o conteúdo não cabe."""
+    barra = area._scrollbar
+    canvas = area._parent_canvas
+
+    def _ao_atualizar_vista(primeiro: str, ultimo: str) -> None:
+        barra.set(primeiro, ultimo)
+        if float(primeiro) <= 0.0 and float(ultimo) >= 1.0:
+            barra.grid_remove()
+        else:
+            barra.grid()
+
+    canvas.configure(yscrollcommand=_ao_atualizar_vista)
+    barra.grid_remove()
+
+
 class MixinCalendario:
     """Marcação de dias, seleção de data e painel de métricas sob o calendário."""
 
@@ -500,6 +516,7 @@ class MixinCalendario:
     _rotulo_metricas_dia: ctk.CTkLabel | None
     _rotulo_metricas_mes: ctk.CTkLabel | None
     _rotulo_metricas_totais: ctk.CTkLabel | None
+    _area_metricas_rolavel: ctk.CTkScrollableFrame | None
     _data_em_edicao: date
     _documento_atual: dict[str, Any] | None
     _config_regras_horas: dict[str, Any]
@@ -507,7 +524,7 @@ class MixinCalendario:
     def _montar_coluna_calendario(self, coluna_calendario: ctk.CTkBaseClass) -> None:
         """Monta calendário compacto, legenda e painel de métricas."""
         grupo_cal, moldura_cal = _criar_painel_calendario_com_dica(coluna_calendario)
-        grupo_cal.pack(side=tk.TOP, anchor=tk.N)
+        grupo_cal.pack(side=tk.TOP, fill="both", expand=True, anchor=tk.N)
         hoje = date.today()
         self._rotulo_data_atual = ctk.CTkLabel(
             moldura_cal,
@@ -539,59 +556,69 @@ class MixinCalendario:
         self._montar_painel_metricas_calendario(moldura_cal)
 
     def _montar_painel_metricas_calendario(self, moldura_cal: ctk.CTkBaseClass) -> None:
-        """Abaixo do calendário: métricas do dia, do mês e totais do projeto."""
-        grupo, painel = criar_painel_ctk_com_titulo(
+        """Abaixo do calendário: métricas do dia, do mês e totais (com rolagem se não couber)."""
+        grupo, _cabecalho, painel = criar_painel_ctk_com_titulo(
             moldura_cal,
             "Métricas:",
         )
-        grupo.pack(fill="x", pady=(8, 0))
-        ctk.CTkLabel(
+        grupo.pack(fill="both", expand=True, pady=(8, 0))
+
+        area_rolavel = ctk.CTkScrollableFrame(
             painel,
+            fg_color="transparent",
+            corner_radius=0,
+        )
+        area_rolavel.pack(fill="both", expand=True)
+        _ativar_barra_rolagem_sob_demanda(area_rolavel)
+        self._area_metricas_rolavel = area_rolavel
+
+        ctk.CTkLabel(
+            area_rolavel,
             text="Métricas do dia:",
             font=FONT_GRUPO,
-            wraplength=260,
+            wraplength=240,
             justify="left",
             anchor="w",
         ).pack(anchor="w", fill="x")
         self._rotulo_metricas_dia = ctk.CTkLabel(
-            painel,
+            area_rolavel,
             text="",
             font=FONT_METRICAS,
-            wraplength=260,
+            wraplength=240,
             justify="left",
             anchor="w",
         )
         self._rotulo_metricas_dia.pack(anchor="w", fill="x")
         ctk.CTkLabel(
-            painel,
+            area_rolavel,
             text="Métricas do mês:",
             font=FONT_GRUPO,
-            wraplength=260,
+            wraplength=240,
             justify="left",
             anchor="w",
         ).pack(anchor="w", fill="x", pady=(8, 0))
         self._rotulo_metricas_mes = ctk.CTkLabel(
-            painel,
+            area_rolavel,
             text="",
             font=FONT_METRICAS,
-            wraplength=260,
+            wraplength=240,
             justify="left",
             anchor="w",
         )
         self._rotulo_metricas_mes.pack(anchor="w", fill="x")
         ctk.CTkLabel(
-            painel,
+            area_rolavel,
             text="Métricas do projeto:",
             font=FONT_GRUPO,
-            wraplength=260,
+            wraplength=240,
             justify="left",
             anchor="w",
         ).pack(anchor="w", fill="x", pady=(8, 0))
         self._rotulo_metricas_totais = ctk.CTkLabel(
-            painel,
+            area_rolavel,
             text="",
             font=FONT_METRICAS,
-            wraplength=260,
+            wraplength=240,
             justify="left",
             anchor="w",
         )
@@ -609,15 +636,21 @@ class MixinCalendario:
             self._rotulo_metricas_dia.configure(text="(Selecione um cliente.)")
             self._rotulo_metricas_mes.configure(text="")
             self._rotulo_metricas_totais.configure(text="")
+            self._atualizar_vista_rolagem_metricas()
             return
         payload = self._payload_formulario_dia_sem_contagem_mes()
         m = calcular_metricas_horas_para_dia(
             self._data_em_edicao, payload, self._config_regras_horas
         )
         if not m.get("calculo_valido"):
-            self._rotulo_metricas_dia.configure(
-                text=str(m.get("mensagem") or "Preencha os horários de ponto para calcular.")
-            )
+            msg = str(m.get("mensagem") or "Preencha os horários de ponto para calcular.")
+            min_desloc = int(m.get("minutos_deslocamento") or 0)
+            if min_desloc > 0:
+                msg = (
+                    f"{msg}\n"
+                    f"Deslocamento: {formatar_minutos_como_texto(min_desloc)}"
+                )
+            self._rotulo_metricas_dia.configure(text=msg)
         else:
             self._rotulo_metricas_dia.configure(
                 text=(
@@ -625,7 +658,8 @@ class MixinCalendario:
                     f"Normais: {formatar_minutos_como_texto(int(m.get('minutos_normais') or 0))}\n"
                     f"Extra 50%: {formatar_minutos_como_texto(int(m.get('minutos_extra_50') or 0))}\n"
                     f"Extra 100%: {formatar_minutos_como_texto(int(m.get('minutos_extra_100') or 0))}\n"
-                    f"Noturno: {formatar_minutos_como_texto(int(m.get('minutos_adicional_noturno') or 0))}"
+                    f"Noturno: {formatar_minutos_como_texto(int(m.get('minutos_adicional_noturno') or 0))}\n"
+                    f"Deslocamento: {formatar_minutos_como_texto(int(m.get('minutos_deslocamento') or 0))}"
                 )
             )
         regs = self._registros_diarios_efetivos_para_contagem()
@@ -654,6 +688,24 @@ class MixinCalendario:
             formatar_resumo_metricas_texto(agg_total),
         ]
         self._rotulo_metricas_totais.configure(text="\n".join(linhas_total))
+        self._atualizar_vista_rolagem_metricas()
+
+    def _atualizar_vista_rolagem_metricas(self) -> None:
+        """Recalcula a região de rolagem para mostrar/esconder a barra sob demanda."""
+        area = getattr(self, "_area_metricas_rolavel", None)
+        if area is None:
+            return
+
+        def _sincronizar() -> None:
+            try:
+                canvas = area._parent_canvas
+                canvas.configure(scrollregion=canvas.bbox("all"))
+                # Dispara yscrollcommand (mostra/esconde a barra).
+                canvas.yview_moveto(canvas.yview()[0])
+            except tk.TclError:
+                pass
+
+        self.after_idle(_sincronizar)
 
     def _ao_mudar_mes_calendario(self, _evento: tk.Event | None = None) -> None:
         """Ao mudar mês/ano no calendário, repõe feriados (vermelho) e marcas de registo."""

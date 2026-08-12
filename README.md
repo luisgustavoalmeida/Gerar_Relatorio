@@ -1,13 +1,13 @@
 # Gerar Relatório — Relatório Diário de Obra (RDO)
 
 [![Python](https://img.shields.io/badge/Python-3.12+-blue.svg)](https://www.python.org/)
-[![Versão](https://img.shields.io/badge/Versão-1.0.4-informational.svg)](template/sobre.json)
+[![Versão](https://img.shields.io/badge/Versão-1.0.5-informational.svg)](template/sobre.json)
 [![Windows](https://img.shields.io/badge/Platform-Windows-blue.svg)](https://www.microsoft.com/windows)
 [![Download](https://img.shields.io/github/v/release/luisgustavoalmeida/Gerar_Relatorio?label=Download)](https://github.com/luisgustavoalmeida/Gerar_Relatorio/releases/latest)
 
 Aplicação desktop para registo de atividades diárias em projetos de engenharia e serviços em geral. Permite o registo detalhado de atividades, controle de horários de ponto, cálculo automático de métricas de horas (normais, extras, noturno) e exportação para planilhas Excel (RDO e Folha de Tempo).
 
-**Versão atual:** 1.0.4 · **Formato dos dados (JSON):** 1 · **Plataforma:** Windows 10 ou superior
+**Versão atual:** 1.0.5 · **Formato dos dados (JSON):** 1 · **Plataforma:** Windows 10 ou superior
 
 **Utilizadores finais (Windows):** baixe o executável em [Releases](https://github.com/luisgustavoalmeida/Gerar_Relatorio/releases/latest) — não é necessário instalar Python.
 
@@ -38,6 +38,8 @@ Aplicação desktop para registo de atividades diárias em projetos de engenhari
 - **Preferências locais unificadas:** `template/config_usuario.json` memoriza tema, geometria da janela, aba aberta e último projeto (contratante + natureza); na primeira execução após actualização, importa automaticamente `_ultimo_cliente.json` ou `dados_rdo/config_usuario.json` se existirem
 - **Geometria da janela:** tamanho e posição gravados automaticamente ao redimensionar ou mover a janela; na próxima execução, a janela reabre na mesma posição (se ainda couber no ecrã)
 - **Aba memorizada:** a última aba seleccionada (*Cabeçalhos* ou *Relatórios de trabalho*) é restaurada ao reabrir a aplicação
+- **Campos de texto adaptáveis:** *Registro de serviço* cresce com a janela; *extra-escopo* e *ociosidade* expandem ao receber foco e recolhem ao sair
+- **Painel de métricas rolável:** dia, mês e projeto cabem em ecrãs mais baixos (altura mínima 1075×700; abertura padrão 1075×900)
 - **Auto-save:** gravação automática cerca de **1,2 s** após parar de digitar
 - **Validação em tempo real:** formatação de horários (`0830` → `08:30`) e indicação visual de dias incompletos ou inválidos
 
@@ -77,27 +79,31 @@ O calendário atualiza enquanto digita (antes do auto-save gravar no disco), ref
 ### Controlo de horários
 
 - **Ponto eletrônico:** Entrada, Saída almoço, Entrada almoço, Saída
-- **Deslocamento:** Ida e Volta (não substituem entrada/saída para o dia ficar verde no calendário)
+- **Turno que atravessa meia-noite:** se a *Saída* for menor que a *Entrada* (ex.: 22:00→06:00), o sistema assume término no dia seguinte e conta horas e adicional noturno nos dois lados da meia-noite; com almoço, cada batida pode virar a meia-noite uma vez
+- **Deslocamento:** Ida e Volta como **duração** do percurso (formato h:mm, ex.: `0:30`); não substituem entrada/saída para o dia ficar verde no calendário
+- **Incluir Deslocamento:** caixa no formulário do dia; se marcada, a Folha de Tempo antecipa a Entrada pela Ida, atrasa a Saída pela Volta e inclui esse tempo nas horas da planilha e nas métricas; se desmarcada, o deslocamento fica só informativo (comportamento anterior)
 - **Validação de ponto** (para o dia ficar **verde** no calendário):
   - **Entrada** e **Saída** são obrigatórias
-  - **Sem intervalo de almoço:** deixe *Saída almoço* e *Entrada almoço* vazios; exige **Entrada** anterior à **Saída**
-  - **Com almoço:** preencha os quatro horários em ordem cronológica estrita (entrada → saída almoço → entrada almoço → saída)
+  - **Sem intervalo de almoço:** deixe *Saída almoço* e *Entrada almoço* vazios; entrada e saída em ordem cronológica (com ou sem virada de dia)
+  - **Com almoço:** preencha os quatro horários em ordem cronológica (entrada → saída almoço → entrada almoço → saída), permitindo no máximo uma virada de meia-noite por batida
   - Preencher só um dos campos de almoço, só entrada ou só saída, ou violar a ordem cronológica deixa o dia em **laranja**
 
 ### Métricas de horas
 
-Painel *Métricas* abaixo do calendário, com três blocos:
+Painel *Métricas* abaixo do calendário (área rolável), com três blocos:
 
-- **Métricas do dia:** horas trabalhadas, normais, extra 50%, extra 100% e adicional noturno do dia em edição
-- **Métricas do mês:** totais do mês visível no calendário (dias com cálculo válido)
+- **Métricas do dia:** horas trabalhadas, normais, extra 50%, extra 100%, adicional noturno e deslocamento do dia em edição
+- **Métricas do mês:** totais do mês visível no calendário (dias com cálculo válido; deslocamento também soma quando preenchido)
 - **Métricas do projeto:** totais acumulados de todos os meses com registos válidos (período e número de meses com dados)
+
+Quando *Incluir Deslocamento* está marcado, trabalhadas, normais, extras e noturno incluem a Ida+Volta; o tópico **Deslocamento** continua a mostrar essa duração em separado.
 
 Classificação com base em `template/config_regras_horas.json`:
 
 - **Horas normais:** jornada normal configurada por dia da semana
 - **Horas extras 50%:** sobretempo diurno após a jornada normal
 - **Horas extras 100%:** restante ou conforme regras (noturno, domingos, feriados)
-- **Adicional noturno:** horas entre 22:00 e 06:00 (configurável; suporte opcional à hora reduzida CLT)
+- **Adicional noturno:** horas entre 22:00 e 06:00 (configurável; suporte opcional à hora reduzida CLT; correcto em turnos que atravessam meia-noite)
 
 O menu *Horas → Copiar relatório detalhado do mês (métricas)* copia o resumo mensal para a área de transferência.
 
@@ -115,6 +121,7 @@ O menu *Horas → Copiar relatório detalhado do mês (métricas)* copia o resum
 - **Mapeamento:** células definidas em `template/mapa_celulas_excel.json` (inclui `numero` e `folha` por dia no RDO)
 - **Saída:** `saida_relatorios/<contratante>/<natureza>/` com ficheiros nomeados por mês, tipo, natureza do serviço e funcionário — por exemplo `2026-05_RDO_Supervisorio_UHE_Rondon_Luis_Gustavo_de_Almeida.xlsx` e o equivalente `FT_...`
 - **Por mês ou completo:** *Arquivo → Gerar Excel — mês em edição (RDO/FT)* exporta só o mês da data seleccionada no calendário; *Gerar Excel — todos os meses (RDO/FT)* gera **todos os meses** com dias que tenham conteúdo no JSON do projeto (texto, horários ou tempos)
+- **FT e deslocamento:** na exportação da Folha de Tempo as métricas são recalculadas; com *Incluir Deslocamento* activo, os horários de ponto na planilha reflectem Ida/Volta e as colunas de horas usam o mesmo cálculo do painel de métricas
 
 ### Gestão de projetos
 
@@ -147,7 +154,7 @@ O menu *Horas → Copiar relatório detalhado do mês (métricas)* copia o resum
 Para usar a aplicação **sem instalar Python**:
 
 1. Abra a página de [Releases](https://github.com/luisgustavoalmeida/Gerar_Relatorio/releases/latest).
-2. Em **Assets**, baixe o ficheiro **`Gerar_Relatorio_*.zip`** (ex.: `Gerar_Relatorio_1.0.4.zip`).
+2. Em **Assets**, baixe o ficheiro **`Gerar_Relatorio_*.zip`** (ex.: `Gerar_Relatorio_1.0.5.zip`).
 3. Extraia o zip para uma pasta de sua preferência (ex.: `Documentos\Gerar_Relatorio`).
 4. Execute **`Gerar_Relatorio.exe`**.
 
@@ -387,7 +394,7 @@ Na primeira leitura após actualização, o ficheiro é importado automaticament
 
 - Menu *Exibir → Alternar tema claro/escuro* (preferência em `template/config_usuario.json`, chave `tema_aparencia`)
 - Cores e estilos editáveis em `template/tema_aplicacao.json` (sem recompilar o executável)
-- Tamanho, posição e aba activa gravados automaticamente; tamanho mínimo predefinido: 1075×900 px
+- Tamanho, posição e aba activa gravados automaticamente; tamanho mínimo predefinido: 1075×700 px (abertura padrão 1075×900)
 
 ### Dicionário ortográfico
 
@@ -497,7 +504,7 @@ Não faça commit de `dist/` no Git. Para disponibilizar o executável a outras 
 
 1. Faça push do código da versão para `main`.
 2. Em GitHub → **Releases** → **Create a new release** (ou edite a release existente).
-3. Use a tag `vX.Y.Z` (ex.: `v1.0.4`), anexe apenas `dist/Gerar_Relatorio_*.zip` e publique como **Latest release**.
+3. Use a tag `vX.Y.Z` (ex.: `v1.0.5`), anexe apenas `dist/Gerar_Relatorio_*.zip` e publique como **Latest release**.
 4. O download fica em: https://github.com/luisgustavoalmeida/Gerar_Relatorio/releases/latest
 
 ## Solução de problemas

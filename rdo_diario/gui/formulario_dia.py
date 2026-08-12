@@ -33,9 +33,9 @@ from rdo_diario.schema import (
     CAMPOS_JSON_DESLOCAMENTO,
     CAMPOS_JSON_HORARIOS,
     CAMPOS_JSON_PONTO,
-    CAMPOS_JSON_TEXTO_DIA,
     CHAVE_JSON_BATIDAS_PONTO,
     CHAVE_JSON_FOLHA_RELATORIO_MES,
+    CHAVE_JSON_INCLUIR_DESLOCAMENTO_FT,
     CHAVE_JSON_METRICAS_HORAS,
     CHAVE_JSON_NUMERO_RELATORIO_MES,
     ROTULOS_HORARIO,
@@ -44,6 +44,7 @@ from rdo_diario.schema import (
     aplicar_metadados_data_no_registro_diario,
     atualizar_numero_folha_mes_em_registros,
     extrair_horarios_do_registro_dia,
+    incluir_deslocamento_nas_horas,
     nome_dia_semana_portugues,
     registro_de_dia_possui_conteudo,
 )
@@ -51,9 +52,17 @@ from rdo_diario.schema import (
 if TYPE_CHECKING:
     from rdo_diario.gui.app import AplicacaoRdo
 
-_ALTURA_TEXTO_GRANDE = 200
-_ALTURA_TEXTO_PEQUENO = 56
+# Extra-escopo / ociosidade: compactos por omissão; expandem ao receber foco.
+# Registo de serviço: cresce com a janela e cede espaço quando o rodapé expande.
+_ALTURA_TEXTO_SERVICO = 56
+_ALTURA_TEXTO_RODAPE = 48
+_ALTURA_TEXTO_RODAPE_EXPANDIDO = 160
 _LARGURA_CAMPO_ENTRADA = 60
+_CAMPOS_TEXTO_EXPANDIVEIS = ("registro_extra_escopo", "registro_ociosidade")
+_MAPA_TEMPO_PARA_CAMPO_TEXTO = {
+    "tempo_extra_escopo": "registro_extra_escopo",
+    "tempo_ociosidade": "registro_ociosidade",
+}
 
 
 class MixinFormularioDia:
@@ -62,6 +71,12 @@ class MixinFormularioDia:
     _widgets_campos_dia: dict[str, ctk.CTkTextbox]
     _widgets_tempo_atividade: dict[str, ctk.CTkEntry]
     _widgets_horarios: dict[str, ctk.CTkEntry]
+    _recipientes_texto_dia: dict[str, ctk.CTkFrame]
+    _linhas_grid_campo_texto: dict[str, int]
+    _grid_campos_relatorio: ctk.CTkFrame | None
+    _campo_texto_expandido: str | None
+    _id_agendar_recolher_texto: str | None
+    _widget_incluir_deslocamento_ft: ctk.CTkCheckBox | None
     _rotulo_texto_data: ctk.CTkLabel | None
     _rotulo_contagem_mes: ctk.CTkLabel | None
     _comando_validacao_entrada_hora: Any
@@ -72,22 +87,16 @@ class MixinFormularioDia:
     _id_agendamento_salvar: str | None
     TAG_ERRO_ORTOGRAFIA: str
 
-    def _criar_grupo_ctk(self, pai: ctk.CTkBaseClass, titulo: str) -> tuple[ctk.CTkFrame, ctk.CTkFrame]:
-        return criar_painel_ctk_com_titulo(pai, titulo)
-
-    def _criar_texto_multilinha(
+    def _criar_grupo_ctk(
         self,
         pai: ctk.CTkBaseClass,
+        titulo: str,
         *,
-        altura_px: int = _ALTURA_TEXTO_GRANDE,
-        expandir_verticalmente: bool = True,
-    ) -> ctk.CTkTextbox:
-        texto = ctk.CTkTextbox(pai, **opcoes_caixa_texto_ctk(altura_px=altura_px))
-        if expandir_verticalmente:
-            texto.pack(fill="both", expand=True, pady=4)
-        else:
-            texto.pack(fill="x", expand=False, pady=4)
+        compacto: bool = False,
+    ) -> tuple[ctk.CTkFrame, ctk.CTkFrame, ctk.CTkFrame]:
+        return criar_painel_ctk_com_titulo(pai, titulo, compacto=compacto)
 
+    def _ligar_ortografia_caixa(self, texto: ctk.CTkTextbox) -> None:
         interno = texto_interno_campo(texto)
         interno.tag_configure(
             self.TAG_ERRO_ORTOGRAFIA,
@@ -103,36 +112,241 @@ class MixinFormularioDia:
             "<Control-Button-1>",
             lambda e, w=texto: self._menu_correcoes_ortografia(w, e),
         )
+
+    def _criar_texto_multilinha(
+        self,
+        pai: ctk.CTkBaseClass,
+        *,
+        altura_px: int = _ALTURA_TEXTO_SERVICO,
+        expandir_verticalmente: bool = True,
+        campo: str | None = None,
+    ) -> ctk.CTkTextbox:
+        """Cria caixa de texto. Se expandir, acompanha o pai e não desce de ``altura_px``."""
+        recipiente = ctk.CTkFrame(pai, fg_color="transparent", height=altura_px)
+        if expandir_verticalmente:
+            recipiente.pack(fill="both", expand=True, pady=(1, 0))
+        else:
+            recipiente.pack(fill="x", expand=False, pady=(1, 0))
+        recipiente.pack_propagate(False)
+        texto = ctk.CTkTextbox(recipiente, **opcoes_caixa_texto_ctk(altura_px=altura_px))
+        texto.pack(fill="both", expand=True)
+
+        def _sincronizar_altura(_evento: tk.Event | None = None) -> None:
+            try:
+                disponivel = int(recipiente.winfo_height())
+            except tk.TclError:
+                return
+            if disponivel < 2:
+                return
+            expandido = campo is not None and campo == getattr(self, "_campo_texto_expandido", None)
+            if expandir_verticalmente or expandido:
+                alvo = max(altura_px, disponivel)
+            else:
+                alvo = altura_px
+            if int(texto.cget("height")) != alvo:
+                texto.configure(height=alvo)
+
+        recipiente.bind("<Configure>", lambda _e: _sincronizar_altura())
+        if campo is not None:
+            self._recipientes_texto_dia[campo] = recipiente
+        self._ligar_ortografia_caixa(texto)
         return texto
 
-    def _montar_linha_tempo_atividade(self, pai: ctk.CTkBaseClass, chave_json_tempo: str) -> None:
-        linha = ctk.CTkFrame(pai, fg_color="transparent")
-        linha.pack(fill="x", pady=(4, 0))
+    def _montar_linha_tempo_atividade(
+        self,
+        pai: ctk.CTkBaseClass,
+        chave_json_tempo: str,
+    ) -> None:
         rotulo = ROTULOS_TEMPO_ATIVIDADE_DIA[chave_json_tempo]
-        ctk.CTkLabel(linha, text=rotulo + ":", anchor="w", font=FONT_INTERFACE).pack(side="left", padx=(0, 6))
-        entrada = ctk.CTkEntry(linha, **opcoes_campo_entrada_ctk(largura=_LARGURA_CAMPO_ENTRADA))
+        ctk.CTkLabel(pai, text=rotulo + ":", anchor="w", font=FONT_INTERFACE).pack(
+            side="left", padx=(0, 6)
+        )
+        entrada = ctk.CTkEntry(pai, **opcoes_campo_entrada_ctk(largura=_LARGURA_CAMPO_ENTRADA))
         entrada.pack(side="left")
         aplicar_validacao_entrada_ctk(entrada, self._comando_validacao_entrada_duracao)
         entrada.bind("<KeyRelease>", self._ao_tecla_solta_campo_duracao)
         entrada.bind("<FocusOut>", lambda _e, w=entrada: self._ao_sair_foco_campo_duracao(w))
+        campo_texto = _MAPA_TEMPO_PARA_CAMPO_TEXTO.get(chave_json_tempo)
+        if campo_texto is not None:
+            entrada.bind(
+                "<FocusIn>",
+                lambda _e, c=campo_texto: self._ao_foco_campo_texto_expansivel(c),
+            )
+            entrada.bind(
+                "<FocusOut>",
+                lambda _e, c=campo_texto: self._ao_sair_foco_campo_texto_expansivel(c),
+                add="+",
+            )
         self._widgets_tempo_atividade[chave_json_tempo] = entrada
 
+    def _chave_tempo_do_campo_texto(self, campo: str) -> str | None:
+        if campo == "registro_extra_escopo":
+            return "tempo_extra_escopo"
+        if campo == "registro_ociosidade":
+            return "tempo_ociosidade"
+        return None
+
+    def _ligar_foco_expansao_caixa(self, texto: ctk.CTkTextbox, campo: str) -> None:
+        interno = texto_interno_campo(texto)
+        interno.bind(
+            "<FocusIn>",
+            lambda _e, c=campo: self._ao_foco_campo_texto_expansivel(c),
+            add="+",
+        )
+        interno.bind(
+            "<FocusOut>",
+            lambda _e, c=campo: self._ao_sair_foco_campo_texto_expansivel(c),
+            add="+",
+        )
+
+    def _widget_pertence_ao_campo_texto(self, widget: tk.Misc | None, campo: str) -> bool:
+        if widget is None:
+            return False
+        texto = self._widgets_campos_dia.get(campo)
+        if texto is not None:
+            if widget is texto or widget is texto_interno_campo(texto):
+                return True
+        chave_tempo = self._chave_tempo_do_campo_texto(campo)
+        if chave_tempo is None:
+            return False
+        entrada = self._widgets_tempo_atividade.get(chave_tempo)
+        if entrada is None:
+            return False
+        return widget is entrada or widget is getattr(entrada, "_entry", None)
+
+    def _expandir_campo_texto_rodape(self, campo: str) -> None:
+        if campo not in _CAMPOS_TEXTO_EXPANDIVEIS:
+            return
+        if self._campo_texto_expandido == campo:
+            return
+        if self._campo_texto_expandido is not None:
+            self._recolher_campo_texto_rodape(animar=False)
+        grid = self._grid_campos_relatorio
+        if grid is None:
+            return
+        linha = self._linhas_grid_campo_texto.get(campo)
+        if linha is None:
+            return
+        self._campo_texto_expandido = campo
+        grid.grid_rowconfigure(0, weight=0, minsize=_ALTURA_TEXTO_SERVICO + 24)
+        grid.grid_rowconfigure(linha, weight=1, minsize=_ALTURA_TEXTO_RODAPE_EXPANDIDO)
+        recipiente = self._recipientes_texto_dia.get(campo)
+        if recipiente is not None:
+            recipiente.pack_configure(fill="both", expand=True)
+            recipiente.configure(height=_ALTURA_TEXTO_RODAPE_EXPANDIDO)
+        texto = self._widgets_campos_dia.get(campo)
+        if texto is not None:
+            texto.configure(height=_ALTURA_TEXTO_RODAPE_EXPANDIDO)
+
+    def _recolher_campo_texto_rodape(self, *, animar: bool = True) -> None:
+        del animar  # reservado; recolha é imediata
+        campo = self._campo_texto_expandido
+        if campo is None:
+            return
+        grid = self._grid_campos_relatorio
+        linha = self._linhas_grid_campo_texto.get(campo)
+        self._campo_texto_expandido = None
+        if grid is not None and linha is not None:
+            grid.grid_rowconfigure(linha, weight=0, minsize=0)
+            grid.grid_rowconfigure(0, weight=1, minsize=_ALTURA_TEXTO_SERVICO + 24)
+        recipiente = self._recipientes_texto_dia.get(campo)
+        if recipiente is not None:
+            recipiente.pack_configure(fill="x", expand=False)
+            recipiente.configure(height=_ALTURA_TEXTO_RODAPE)
+        texto = self._widgets_campos_dia.get(campo)
+        if texto is not None:
+            texto.configure(height=_ALTURA_TEXTO_RODAPE)
+
+    def _ao_foco_campo_texto_expansivel(self, campo: str) -> None:
+        if self._id_agendar_recolher_texto is not None:
+            self.after_cancel(self._id_agendar_recolher_texto)
+            self._id_agendar_recolher_texto = None
+        if campo == "registro_servico":
+            self._recolher_campo_texto_rodape()
+            return
+        self._expandir_campo_texto_rodape(campo)
+
+    def _ao_sair_foco_campo_texto_expansivel(self, campo: str) -> None:
+        if self._campo_texto_expandido != campo:
+            return
+        if self._id_agendar_recolher_texto is not None:
+            self.after_cancel(self._id_agendar_recolher_texto)
+        self._id_agendar_recolher_texto = self.after(120, self._verificar_recolher_texto_rodape)
+
+    def _verificar_recolher_texto_rodape(self) -> None:
+        self._id_agendar_recolher_texto = None
+        campo = self._campo_texto_expandido
+        if campo is None:
+            return
+        try:
+            foco = self.focus_get()
+        except tk.TclError:
+            foco = None
+        if self._widget_pertence_ao_campo_texto(foco, campo):
+            return
+        # Troca directa entre extra-escopo e ociosidade: expandir o novo sem colapsar.
+        for outro in _CAMPOS_TEXTO_EXPANDIVEIS:
+            if outro != campo and self._widget_pertence_ao_campo_texto(foco, outro):
+                self._expandir_campo_texto_rodape(outro)
+                return
+        self._recolher_campo_texto_rodape()
+
+    def _montar_campo_texto_dia_fixo(
+        self,
+        pai: ctk.CTkBaseClass,
+        campo: str,
+        *,
+        altura_px: int,
+        expandir_verticalmente: bool,
+        pady_rotulo: tuple[int, int] = (4, 0),
+    ) -> None:
+        chave_tempo = self._chave_tempo_do_campo_texto(campo)
+        linha_rotulo = ctk.CTkFrame(pai, fg_color="transparent")
+        linha_rotulo.pack(fill="x", pady=pady_rotulo)
+        ctk.CTkLabel(
+            linha_rotulo,
+            text=ROTULOS_TEXTO_DIA[campo] + ":",
+            anchor="w",
+            font=FONT_INTERFACE,
+        ).pack(side="left")
+        if chave_tempo is not None:
+            # Título à esquerda; tempo da atividade à direita, na mesma linha.
+            bloco_tempo = ctk.CTkFrame(linha_rotulo, fg_color="transparent")
+            bloco_tempo.pack(side="right")
+            self._montar_linha_tempo_atividade(bloco_tempo, chave_tempo)
+
+        texto = self._criar_texto_multilinha(
+            pai,
+            altura_px=altura_px,
+            expandir_verticalmente=expandir_verticalmente,
+            campo=campo,
+        )
+        self._widgets_campos_dia[campo] = texto
+        if campo in _CAMPOS_TEXTO_EXPANDIVEIS or campo == "registro_servico":
+            self._ligar_foco_expansao_caixa(texto, campo)
+
     def _montar_coluna_formulario_dia(self, coluna_formulario: ctk.CTkBaseClass) -> None:
-        grupo_dia, moldura_dia = self._criar_grupo_ctk(coluna_formulario, "Relatório")
+        grupo_dia, cabecalho, moldura_dia = self._criar_grupo_ctk(
+            coluna_formulario, "Relatório", compacto=True
+        )
         grupo_dia.pack(fill="both", expand=True)
 
-        linha_data = ctk.CTkFrame(moldura_dia, fg_color="transparent")
-        linha_data.pack(fill="x", pady=(0, 6))
-        ctk.CTkLabel(linha_data, text="Data selecionada:", anchor="w", font=FONT_INTERFACE).pack(side="left")
+        # Título + data + contagem do mês na mesma linha do cabeçalho.
+        ctk.CTkLabel(
+            cabecalho,
+            text="Data selecionada:",
+            anchor="w",
+            font=FONT_INTERFACE,
+        ).pack(side="left", padx=(16, 0))
         self._rotulo_texto_data = ctk.CTkLabel(
-            linha_data,
+            cabecalho,
             text="",
             font=FONT_DATA_SELECIONADA,
             anchor="w",
         )
-        self._rotulo_texto_data.pack(side="left", padx=8)
+        self._rotulo_texto_data.pack(side="left", padx=(6, 0))
         self._rotulo_contagem_mes = ctk.CTkLabel(
-            linha_data,
+            cabecalho,
             text="",
             font=FONT_CONTAGEM_MES,
             text_color=COR_TEXTO_SECUNDARIO,
@@ -140,38 +354,68 @@ class MixinFormularioDia:
         )
         self._rotulo_contagem_mes.pack(side="left", padx=(12, 0))
 
+        # Linhas: serviço | extra-escopo | ociosidade | horários.
+        # Extra/ociosidade expandem ao foco e o serviço cede espaço.
         campos = ctk.CTkFrame(moldura_dia, fg_color="transparent")
         campos.pack(fill="both", expand=True)
-        for campo in CAMPOS_JSON_TEXTO_DIA:
-            ctk.CTkLabel(campos, text=ROTULOS_TEXTO_DIA[campo] + ":", anchor="w", font=FONT_INTERFACE).pack(
-                anchor="w", pady=(8, 0)
-            )
-            if campo in ("registro_extra_escopo", "registro_ociosidade"):
-                texto = self._criar_texto_multilinha(
-                    campos,
-                    altura_px=_ALTURA_TEXTO_PEQUENO,
-                    expandir_verticalmente=False,
-                )
-            else:
-                texto = self._criar_texto_multilinha(campos, altura_px=_ALTURA_TEXTO_GRANDE)
-            self._widgets_campos_dia[campo] = texto
-            if campo == "registro_extra_escopo":
-                self._montar_linha_tempo_atividade(campos, "tempo_extra_escopo")
-            elif campo == "registro_ociosidade":
-                self._montar_linha_tempo_atividade(campos, "tempo_ociosidade")
+        self._grid_campos_relatorio = campos
+        self._linhas_grid_campo_texto = {
+            "registro_servico": 0,
+            "registro_extra_escopo": 1,
+            "registro_ociosidade": 2,
+        }
+        campos.grid_columnconfigure(0, weight=1)
+        campos.grid_rowconfigure(0, weight=1, minsize=_ALTURA_TEXTO_SERVICO + 24)
+        campos.grid_rowconfigure(1, weight=0)
+        campos.grid_rowconfigure(2, weight=0)
+        campos.grid_rowconfigure(3, weight=0)
 
-        self._montar_secao_horarios(campos)
+        area_servico = ctk.CTkFrame(campos, fg_color="transparent")
+        area_servico.grid(row=0, column=0, sticky="nsew")
+        self._montar_campo_texto_dia_fixo(
+            area_servico,
+            "registro_servico",
+            altura_px=_ALTURA_TEXTO_SERVICO,
+            expandir_verticalmente=True,
+            pady_rotulo=(0, 0),
+        )
+
+        area_extra = ctk.CTkFrame(campos, fg_color="transparent")
+        area_extra.grid(row=1, column=0, sticky="nsew")
+        self._montar_campo_texto_dia_fixo(
+            area_extra,
+            "registro_extra_escopo",
+            altura_px=_ALTURA_TEXTO_RODAPE,
+            expandir_verticalmente=False,
+            pady_rotulo=(4, 0),
+        )
+
+        area_ocio = ctk.CTkFrame(campos, fg_color="transparent")
+        area_ocio.grid(row=2, column=0, sticky="nsew")
+        self._montar_campo_texto_dia_fixo(
+            area_ocio,
+            "registro_ociosidade",
+            altura_px=_ALTURA_TEXTO_RODAPE,
+            expandir_verticalmente=False,
+            pady_rotulo=(4, 0),
+        )
+
+        area_horarios = ctk.CTkFrame(campos, fg_color="transparent")
+        area_horarios.grid(row=3, column=0, sticky="ew")
+        self._montar_secao_horarios(area_horarios)
 
     def _montar_secao_horarios(self, pai: ctk.CTkBaseClass) -> None:
-        grupo_horarios, moldura = self._criar_grupo_ctk(
+        # Sem painel aninhado: só rótulo + campos, para não gastar altura em bordas/padding.
+        ctk.CTkLabel(
             pai,
-            "Horários — ponto e deslocamento (24h, HH:MM)",
-        )
-        grupo_horarios.pack(fill="x", pady=(14, 6))
+            text="Horários — ponto e deslocamento (24h, HH:MM)",
+            font=FONT_GRUPO,
+            anchor="w",
+        ).pack(anchor="w", fill="x", pady=(4, 1))
 
         def par_horario(linha: ctk.CTkFrame, chave_campo: str, *, espacamento_direita: int = 16) -> None:
             bloco = ctk.CTkFrame(linha, fg_color="transparent")
-            bloco.pack(side="left", padx=(0, espacamento_direita), pady=2)
+            bloco.pack(side="left", padx=(0, espacamento_direita), pady=0)
             ctk.CTkLabel(bloco, text=ROTULOS_HORARIO[chave_campo] + ":", anchor="w", font=FONT_INTERFACE).pack(
                 side="left", padx=(0, 4)
             )
@@ -183,7 +427,7 @@ class MixinFormularioDia:
             self._configurar_enter_proximo_campo_horario(ent, chave_campo)
             self._widgets_horarios[chave_campo] = ent
 
-        linha_ponto = ctk.CTkFrame(moldura, fg_color="transparent")
+        linha_ponto = ctk.CTkFrame(pai, fg_color="transparent")
         linha_ponto.pack(fill="x")
         ctk.CTkLabel(linha_ponto, text="Ponto:", font=FONT_GRUPO, anchor="w").pack(
             side="left", padx=(0, 6)
@@ -191,8 +435,8 @@ class MixinFormularioDia:
         for chave in CAMPOS_JSON_PONTO:
             par_horario(linha_ponto, chave, espacamento_direita=8)
 
-        linha_desloc = ctk.CTkFrame(moldura, fg_color="transparent")
-        linha_desloc.pack(fill="x", pady=(6, 0))
+        linha_desloc = ctk.CTkFrame(pai, fg_color="transparent")
+        linha_desloc.pack(fill="x", pady=(2, 0))
         ctk.CTkLabel(
             linha_desloc,
             text="Deslocamento:",
@@ -201,6 +445,17 @@ class MixinFormularioDia:
         ).pack(side="left", padx=(0, 10))
         for chave in CAMPOS_JSON_DESLOCAMENTO:
             par_horario(linha_desloc, chave)
+        self._widget_incluir_deslocamento_ft = ctk.CTkCheckBox(
+            linha_desloc,
+            text="Incluir Deslocamento",
+            font=FONT_INTERFACE,
+            command=self._ao_alterar_incluir_deslocamento_ft,
+        )
+        self._widget_incluir_deslocamento_ft.pack(side="left", padx=(8, 0))
+
+    def _ao_alterar_incluir_deslocamento_ft(self) -> None:
+        self._atualizar_rotulo_jornada_liquida()
+        self._agendar_salvamento_automatico()
 
     def _aplicar_formatacao_campo_entrada(self, entrada: ctk.CTkEntry, tipo: str = "horario") -> None:
         texto = entrada.get()
@@ -279,6 +534,10 @@ class MixinFormularioDia:
         for chave, widget in self._widgets_horarios.items():
             bruto = widget.get().strip()
             saida[chave] = normalizar_texto_horario(bruto) if bruto else ""
+        check = getattr(self, "_widget_incluir_deslocamento_ft", None)
+        saida[CHAVE_JSON_INCLUIR_DESLOCAMENTO_FT] = bool(
+            check is not None and check.get() == 1
+        )
         saida.pop(CHAVE_JSON_BATIDAS_PONTO, None)
         saida.pop("jornada_entrada", None)
         saida.pop("jornada_saida", None)
@@ -318,6 +577,12 @@ class MixinFormularioDia:
             widget.delete(0, "end")
             bruto = str(horarios.get(campo, "") or "").strip()
             widget.insert(0, normalizar_texto_horario(bruto) if bruto else "")
+        check = getattr(self, "_widget_incluir_deslocamento_ft", None)
+        if check is not None:
+            if incluir_deslocamento_nas_horas(registro):
+                check.select()
+            else:
+                check.deselect()
         self._atualizar_rotulo_jornada_liquida()
         self._atualizar_rotulo_contagem_relatorios_mes()
         for w in self._widgets_campos_dia.values():
