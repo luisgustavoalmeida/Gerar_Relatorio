@@ -96,6 +96,38 @@ def incluir_deslocamento_nas_horas(registro: dict[str, Any] | None) -> bool:
     return False
 
 
+def obter_padrao_incluir_deslocamento_projeto(documento: dict[str, Any] | None) -> bool:
+    """Padrão do projeto (meta) para «Incluir Deslocamento» em dias novos."""
+    if not isinstance(documento, dict):
+        return False
+    meta = documento.get("meta")
+    if not isinstance(meta, dict):
+        return False
+    return incluir_deslocamento_nas_horas({CHAVE_JSON_INCLUIR_DESLOCAMENTO_FT: meta.get(CHAVE_JSON_INCLUIR_DESLOCAMENTO_FT)})
+
+
+def definir_padrao_incluir_deslocamento_projeto(documento: dict[str, Any], ativo: bool) -> None:
+    """Grava em ``meta`` o padrão do projeto para novos dias e alinhamento global."""
+    meta = documento.setdefault("meta", {})
+    if not isinstance(meta, dict):
+        documento["meta"] = {"ultima_edicao_iso": ""}
+        meta = documento["meta"]
+    meta[CHAVE_JSON_INCLUIR_DESLOCAMENTO_FT] = bool(ativo)
+
+
+def valor_incluir_deslocamento_para_dia(
+    documento: dict[str, Any] | None,
+    registro: dict[str, Any] | None,
+) -> bool:
+    """
+    Valor da caixa no dia: se o registo já tiver a flag, usa-a;
+    caso contrário (dia novo/vazio), usa o padrão do projeto.
+    """
+    if isinstance(registro, dict) and CHAVE_JSON_INCLUIR_DESLOCAMENTO_FT in registro:
+        return incluir_deslocamento_nas_horas(registro)
+    return obter_padrao_incluir_deslocamento_projeto(documento)
+
+
 # Lista legada de batidas (migração)
 CHAVE_JSON_BATIDAS_PONTO: str = "batidas_ponto"
 
@@ -475,5 +507,8 @@ def criar_estrutura_documento_vazio(contratante: str, natureza_servico: str) -> 
         },
         "cabecalho_fixo": {campo: "" for campo in CAMPOS_JSON_CABECALHO},
         "registros_diarios": {},
-        "meta": {"ultima_edicao_iso": ""},
+        "meta": {
+            "ultima_edicao_iso": "",
+            CHAVE_JSON_INCLUIR_DESLOCAMENTO_FT: False,
+        },
     }

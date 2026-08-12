@@ -117,6 +117,7 @@ class AplicacaoRdo(
         self._campo_texto_expandido: str | None = None
         self._id_agendar_recolher_texto: str | None = None
         self._widget_incluir_deslocamento_ft: ctk.CTkCheckBox | None = None
+        self._ignorando_callback_incluir_deslocamento = False
         self._id_agendamento_salvar: str | None = None
         self._widget_calendario = None
         self._combo_selecao_cliente: ctk.CTkComboBox | None = None

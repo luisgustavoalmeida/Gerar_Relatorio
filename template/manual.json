@@ -105,6 +105,7 @@
         "Com almoço: as quatro batidas seguem ordem cronológica; cada batida pode virar a meia-noite uma vez (ex.: 18:00 / 21:00 / 22:00 / 05:00).",
         "Deslocamento (Ida / Volta): duração do percurso (ex.: 0:30). Nas métricas aparece à parte das horas trabalhadas.",
         "Caixa «Incluir Deslocamento»: se marcada, a Folha de Tempo antecipa a Entrada pela Ida, atrasa a Saída pela Volta (o relógio pode passar de 23:59 para 00:xx) e inclui esse tempo nas horas da planilha e nas métricas; se desmarcada, o deslocamento não entra no cálculo de trabalhadas (comportamento anterior).",
+        "Ao marcar ou desmarcar a caixa, o sistema pergunta se deseja aplicar a alteração a todos os dias do projeto. Se escolher Sim, a opção fica igual em todos os dias existentes e passa a ser o padrão para dias novos.",
         "Digite horários como 0830 — o sistema formata para 08:30. Durações usam formato h:mm (ex.: 0130 → 1:30).",
         "Ao alterar horários de ponto ou deslocamento, o painel de métricas abaixo do calendário é actualizado na hora."
       ]

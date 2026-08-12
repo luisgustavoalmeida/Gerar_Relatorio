@@ -44,9 +44,10 @@ from rdo_diario.schema import (
     aplicar_metadados_data_no_registro_diario,
     atualizar_numero_folha_mes_em_registros,
     extrair_horarios_do_registro_dia,
-    incluir_deslocamento_nas_horas,
+    definir_padrao_incluir_deslocamento_projeto,
     nome_dia_semana_portugues,
     registro_de_dia_possui_conteudo,
+    valor_incluir_deslocamento_para_dia,
 )
 
 if TYPE_CHECKING:
@@ -77,6 +78,7 @@ class MixinFormularioDia:
     _campo_texto_expandido: str | None
     _id_agendar_recolher_texto: str | None
     _widget_incluir_deslocamento_ft: ctk.CTkCheckBox | None
+    _ignorando_callback_incluir_deslocamento: bool
     _rotulo_texto_data: ctk.CTkLabel | None
     _rotulo_contagem_mes: ctk.CTkLabel | None
     _comando_validacao_entrada_hora: Any
@@ -453,7 +455,89 @@ class MixinFormularioDia:
         )
         self._widget_incluir_deslocamento_ft.pack(side="left", padx=(8, 0))
 
-    def _ao_alterar_incluir_deslocamento_ft(self) -> None:
+    def _definir_checkbox_incluir_deslocamento(self, ativo: bool) -> None:
+        """Actualiza a caixa sem disparar o diálogo de «aplicar a todos»."""
+        check = getattr(self, "_widget_incluir_deslocamento_ft", None)
+        if check is None:
+            return
+        self._ignorando_callback_incluir_deslocamento = True
+        try:
+            if ativo:
+                check.select()
+            else:
+                check.deselect()
+        finally:
+            self._ignorando_callback_incluir_deslocamento = False
+
+    def _aplicar_incluir_deslocamento_a_todos_os_dias(self: AplicacaoRdo, ativo: bool) -> int:
+        """
+        Define o padrão do projeto, grava a flag em todos os registos diários
+        e recalcula métricas. Devolve quantos dias foram actualizados.
+        """
+        if not self._documento_atual:
+            return 0
+        definir_padrao_incluir_deslocamento_projeto(self._documento_atual, ativo)
+        registros = self._documento_atual.setdefault("registros_diarios", {})
+        if not isinstance(registros, dict):
+            return 0
+        atualizados = 0
+        for iso, reg in list(registros.items()):
+            if not isinstance(reg, dict):
+                continue
+            reg[CHAVE_JSON_INCLUIR_DESLOCAMENTO_FT] = bool(ativo)
+            try:
+                d = date.fromisoformat(str(iso).strip()[:10])
+            except ValueError:
+                continue
+            reg[CHAVE_JSON_METRICAS_HORAS] = calcular_metricas_horas_para_dia(
+                d, reg, self._config_regras_horas
+            )
+            aplicar_metadados_data_no_registro_diario(str(iso).strip()[:10], reg)
+            atualizados += 1
+        return atualizados
+
+    def _ao_alterar_incluir_deslocamento_ft(self: AplicacaoRdo) -> None:
+        if getattr(self, "_ignorando_callback_incluir_deslocamento", False):
+            return
+        check = getattr(self, "_widget_incluir_deslocamento_ft", None)
+        if check is None:
+            return
+        ativo = bool(check.get() == 1)
+        acao = "marcar" if ativo else "desmarcar"
+
+        aplicar_todos = False
+        if self._documento_atual:
+            registros = self._documento_atual.get("registros_diarios") or {}
+            n_dias = sum(1 for r in registros.values() if isinstance(r, dict))
+            if n_dias == 0:
+                n_dias = 1
+            aplicar_todos = bool(
+                messagebox.askyesno(
+                    "Incluir Deslocamento",
+                    f"Deseja {acao} «Incluir Deslocamento» em todos os dias "
+                    f"do projeto ({n_dias} dia{'s' if n_dias != 1 else ''} com registo)?\n\n"
+                    "Sim — aplica a todos os dias (anteriores e novos) e torna este o padrão do projeto\n"
+                    "Não — aplica apenas ao dia actual",
+                    parent=self,
+                )
+            )
+
+        if aplicar_todos:
+            self._persistir_dia_atual_no_documento()
+            n = self._aplicar_incluir_deslocamento_a_todos_os_dias(ativo)
+            self._definir_checkbox_incluir_deslocamento(ativo)
+            self._atualizar_rotulo_jornada_liquida()
+            self._salvar_documento_agora(silencioso=True)
+            messagebox.showinfo(
+                "Incluir Deslocamento",
+                f"«Incluir Deslocamento» foi "
+                f"{'marcada' if ativo else 'desmarcada'} em {n} dia{'s' if n != 1 else ''} "
+                "do projeto.\n\n"
+                "Este passa a ser o padrão para todos os dias novos.",
+                parent=self,
+            )
+            return
+
         self._atualizar_rotulo_jornada_liquida()
         self._agendar_salvamento_automatico()
 
@@ -579,10 +663,9 @@ class MixinFormularioDia:
             widget.insert(0, normalizar_texto_horario(bruto) if bruto else "")
         check = getattr(self, "_widget_incluir_deslocamento_ft", None)
         if check is not None:
-            if incluir_deslocamento_nas_horas(registro):
-                check.select()
-            else:
-                check.deselect()
+            self._definir_checkbox_incluir_deslocamento(
+                valor_incluir_deslocamento_para_dia(self._documento_atual, registro)
+            )
         self._atualizar_rotulo_jornada_liquida()
         self._atualizar_rotulo_contagem_relatorios_mes()
         for w in self._widgets_campos_dia.values():
