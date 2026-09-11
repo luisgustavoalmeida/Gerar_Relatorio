@@ -16,17 +16,23 @@ from typing import Any
 
 from openpyxl import load_workbook
 from openpyxl.styles import Alignment
+from openpyxl.utils import get_column_letter
+from openpyxl.utils.cell import coordinate_from_string, column_index_from_string
 
+from rdo_diario.assinaturas import resolver_assinatura
 from rdo_diario.calculo_metricas_horas import calcular_metricas_horas_para_dia
 from rdo_diario.config_horas import carregar_config_regras_horas
 from rdo_diario.horario_util import horarios_ponto_com_deslocamento_para_ft
+from rdo_diario.logos import resolver_logo
 from rdo_diario.paths import (
     ARQUIVO_MAPA_CELULAS_EXCEL_JSON,
     PASTA_SAIDA_RELATORIOS_EXCEL,
     RAIZ_PROJETO,
 )
 from rdo_diario.schema import (
+    CHAVE_JSON_ASSINATURA_ARQUIVO,
     CHAVE_JSON_FOLHA_RELATORIO_MES,
+    CHAVE_JSON_LOGO_ARQUIVO,
     CHAVE_JSON_NUMERO_RELATORIO_MES,
     extrair_horarios_do_registro_dia,
     incluir_deslocamento_nas_horas,
@@ -225,6 +231,245 @@ def _titulo_planilha_dia(iso_data: str) -> str:
     return t or "Dia"
 
 
+def _col_width_px(ws, col_letter: str) -> float:
+    dim = ws.column_dimensions.get(col_letter)
+    width = dim.width if dim is not None and dim.width is not None else None
+    if width is None:
+        width = ws.sheet_format.defaultColWidth or 8.43
+    return float(width) * 7.0 + 5.0
+
+
+def _row_height_px(ws, row: int) -> float:
+    dim = ws.row_dimensions.get(row)
+    height = dim.height if dim is not None and dim.height is not None else None
+    if height is None:
+        height = ws.sheet_format.defaultRowHeight or 15.0
+    return float(height) * (96.0 / 72.0)
+
+
+def _intervalo_tamanho_px(ws, inicio: str, fim: str) -> tuple[int, int]:
+    c1, r1 = coordinate_from_string(inicio.upper())
+    c2, r2 = coordinate_from_string(fim.upper())
+    i1 = column_index_from_string(c1)
+    i2 = column_index_from_string(c2)
+    if i2 < i1:
+        i1, i2 = i2, i1
+    if r2 < r1:
+        r1, r2 = r2, r1
+    largura = sum(_col_width_px(ws, get_column_letter(i)) for i in range(i1, i2 + 1))
+    altura = sum(_row_height_px(ws, r) for r in range(int(r1), int(r2) + 1))
+    return max(1, int(round(largura))), max(1, int(round(altura)))
+
+
+def _aparar_assinatura(pil_img):
+    """Remove margem transparente / fundo branco para a tinta preencher melhor a área."""
+    img = pil_img.convert("RGBA")
+    w, h = img.size
+    pixels = img.load()
+    min_x, min_y, max_x, max_y = w, h, -1, -1
+    for y in range(h):
+        for x in range(w):
+            r, g, b, a = pixels[x, y]
+            if a < 20:
+                continue
+            if r >= 248 and g >= 248 and b >= 248:
+                continue
+            if x < min_x:
+                min_x = x
+            if y < min_y:
+                min_y = y
+            if x > max_x:
+                max_x = x
+            if y > max_y:
+                max_y = y
+    if max_x < min_x or max_y < min_y:
+        return img
+    pad = 3
+    return img.crop(
+        (
+            max(0, min_x - pad),
+            max(0, min_y - pad),
+            min(w, max_x + 1 + pad),
+            min(h, max_y + 1 + pad),
+        )
+    )
+
+
+def _anchor_marker(celula: str, *, col_off_px: int = 0, row_off_px: int = 0):
+    from openpyxl.drawing.spreadsheet_drawing import AnchorMarker
+    from openpyxl.utils.units import pixels_to_EMU
+
+    col_letters, row = coordinate_from_string(celula.upper())
+    col = column_index_from_string(col_letters) - 1
+    row_idx = int(row) - 1
+    return AnchorMarker(
+        col=col,
+        colOff=pixels_to_EMU(max(0, col_off_px)),
+        row=row_idx,
+        rowOff=pixels_to_EMU(max(0, row_off_px)),
+    )
+
+
+def _cfg_assinatura_tipo(mapa: dict[str, Any], tipo: str) -> dict[str, Any]:
+    """Configuração de assinatura para «rdo» ou «ft» (com defaults)."""
+    bloco = mapa.get("assinatura") or {}
+    defaults_rdo = {
+        "celula_inicio": "G74",
+        "celula_fim": "H76",
+        "alinhamento_horizontal": "esquerda",
+        "alinhamento_vertical": "base",
+        "margem_base_px": 0,
+        "offset_x_px": 2,
+        "fator_preenchimento": 0.72,
+        "aparar_margens": True,
+    }
+    defaults_ft = {
+        "celula_inicio": "C45",
+        "celula_fim": "D48",
+        "alinhamento_horizontal": "centro",
+        "alinhamento_vertical": "base",
+        "margem_base_px": 0,
+        "offset_x_px": 0,
+        "fator_preenchimento": 0.85,
+        "aparar_margens": True,
+    }
+    if isinstance(bloco.get(tipo), dict):
+        base = defaults_rdo if tipo == "rdo" else defaults_ft
+        return {**base, **bloco[tipo]}
+    return defaults_rdo if tipo == "rdo" else defaults_ft
+
+
+def _cfg_logo_rdo(mapa: dict[str, Any]) -> dict[str, Any]:
+    defaults = {
+        "celula_inicio": "C1",
+        "celula_fim": "C5",
+        "alinhamento_horizontal": "centro",
+        "alinhamento_vertical": "centro",
+        "margem_x_px": 4,
+        "margem_topo_px": 2,
+        "margem_base_px": 2,
+        "fator_preenchimento": 0.95,
+        "aparar_margens": False,
+    }
+    bloco = mapa.get("logo") or {}
+    if isinstance(bloco.get("rdo"), dict):
+        return {**defaults, **bloco["rdo"]}
+    if isinstance(bloco, dict) and bloco.get("celula_inicio"):
+        return {**defaults, **bloco}
+    return defaults
+
+
+def _inserir_imagem_na_folha(ws, path: Path, cfg: dict[str, Any]) -> None:
+    """
+    Insere a imagem na área configurada sem distorcer nem alterar alturas de linha.
+    Alinhamento horizontal/vertical configurável.
+
+    O bitmap embutido fica com resolução superior ao tamanho de ecrã (≈2×), para
+    manter nitidez no Excel; ``width``/``height`` controlam só o tamanho visual.
+    """
+    import io
+
+    from openpyxl.drawing.image import Image as XLImage
+    from openpyxl.drawing.spreadsheet_drawing import OneCellAnchor
+    from openpyxl.drawing.xdr import XDRPositiveSize2D
+    from openpyxl.utils.units import pixels_to_EMU
+    from PIL import Image as PILImage
+
+    inicio = str(cfg.get("celula_inicio") or "C1").strip().upper() or "C1"
+    fim = str(cfg.get("celula_fim") or inicio).strip().upper() or inicio
+
+    box_w, box_h = _intervalo_tamanho_px(ws, inicio, fim)
+    margem_x = int(cfg.get("margem_x_px") or 8)
+    margem_topo = int(cfg.get("margem_topo_px") or 2)
+    margem_base = int(cfg.get("margem_base_px") if cfg.get("margem_base_px") is not None else 3)
+    offset_x = int(cfg.get("offset_x_px") or 0)
+    offset_y = int(cfg.get("offset_y_px") or 0)
+    fator = float(cfg.get("fator_preenchimento") or 1.0)
+    fator = max(0.3, min(fator, 1.0))
+    aparar = bool(cfg.get("aparar_margens", True))
+    util_w = max(1, box_w - 2 * margem_x)
+    util_h = max(1, box_h - margem_topo - margem_base)
+
+    try:
+        with PILImage.open(path) as raw:
+            trabalhada = _aparar_assinatura(raw) if aparar else raw.convert("RGBA")
+            escala_display = min(util_w / trabalhada.width, util_h / trabalhada.height) * fator
+            dest_w = max(1, int(round(trabalhada.width * escala_display)))
+            dest_h = max(1, int(round(trabalhada.height * escala_display)))
+
+            fator_nitidez = 2
+            max_bmp_w = dest_w * fator_nitidez
+            max_bmp_h = dest_h * fator_nitidez
+            if trabalhada.width > max_bmp_w or trabalhada.height > max_bmp_h:
+                escala_bmp = min(max_bmp_w / trabalhada.width, max_bmp_h / trabalhada.height)
+                bmp_w = max(1, int(round(trabalhada.width * escala_bmp)))
+                bmp_h = max(1, int(round(trabalhada.height * escala_bmp)))
+                trabalhada = trabalhada.resize((bmp_w, bmp_h), PILImage.Resampling.LANCZOS)
+
+            buf = io.BytesIO()
+            trabalhada.save(buf, format="PNG", optimize=True)
+            buf.seek(0)
+    except OSError:
+        return
+
+    try:
+        img = XLImage(buf)
+    except Exception:
+        return
+    img.width = dest_w
+    img.height = dest_h
+
+    alin_h = str(cfg.get("alinhamento_horizontal") or "centro").strip().lower()
+    if alin_h in ("esquerda", "left"):
+        off_x = margem_x + offset_x
+    elif alin_h in ("direita", "right"):
+        off_x = margem_x + max(0, util_w - dest_w) + offset_x
+    else:
+        off_x = margem_x + max(0, (util_w - dest_w) // 2) + offset_x
+    off_x = max(0, off_x)
+
+    alin_v = str(cfg.get("alinhamento_vertical") or "base").strip().lower()
+    if alin_v in ("topo", "top"):
+        off_y = max(0, margem_topo + offset_y)
+    elif alin_v in ("centro", "center", "meio"):
+        off_y = max(0, margem_topo + max(0, (util_h - dest_h) // 2) + offset_y)
+    else:
+        off_y = max(0, box_h - margem_base - dest_h + offset_y)
+
+    img.anchor = OneCellAnchor(
+        _from=_anchor_marker(inicio, col_off_px=off_x, row_off_px=off_y),
+        ext=XDRPositiveSize2D(pixels_to_EMU(dest_w), pixels_to_EMU(dest_h)),
+    )
+    ws.add_image(img)
+
+
+def _inserir_assinatura_na_folha(ws, path: Path, cfg: dict[str, Any]) -> None:
+    """Compatibilidade: assinatura usa o inseridor genérico (com aparar margens)."""
+    cfg_ass = dict(cfg)
+    cfg_ass.setdefault("aparar_margens", True)
+    _inserir_imagem_na_folha(ws, path, cfg_ass)
+
+
+def _inserir_assinatura_documento(ws, documento: dict[str, Any], mapa: dict[str, Any], tipo: str) -> None:
+    cab = documento.get("cabecalho_fixo") or {}
+    path = resolver_assinatura(
+        str(cab.get("nome_funcionario") or ""),
+        cab.get(CHAVE_JSON_ASSINATURA_ARQUIVO),
+    )
+    if not path:
+        return
+    _inserir_assinatura_na_folha(ws, path, _cfg_assinatura_tipo(mapa, tipo))
+
+
+def _inserir_logo_documento(ws, documento: dict[str, Any], mapa: dict[str, Any]) -> None:
+    cab = documento.get("cabecalho_fixo") or {}
+    nome_empresa = str(cab.get("contratada") or cab.get("contratante") or "").strip()
+    path = resolver_logo(nome_empresa, cab.get(CHAVE_JSON_LOGO_ARQUIVO))
+    if not path:
+        return
+    _inserir_imagem_na_folha(ws, path, _cfg_logo_rdo(mapa))
+
+
 def _preencher_rdo_mes(
     documento: dict[str, Any],
     mapa: dict[str, Any],
@@ -257,7 +502,9 @@ def _preencher_rdo_mes(
     map_dia = cfg.get("por_registro_dia") or {}
     cel_obs = str(cfg.get("observacoes_fiscalizacao_dia") or "").strip()
     cel_hor = str(cfg.get("horarios_ponto_detalhe") or "").strip()
+    cel_data_geracao = str(cfg.get("data_geracao_celula") or "").strip()
     folhas_mes = mapa_numero_folha_por_mes(registros, ano, mes)
+    data_geracao = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
 
     for iso, ws in pares:
         reg = registros.get(iso) or {}
@@ -317,6 +564,19 @@ def _preencher_rdo_mes(
             _escrever_celula(ws, cel_obs, str(cab.get("fiscalizacao") or "").strip(), wrap=True)
         if cel_hor:
             _escrever_celula(ws, cel_hor, _texto_horarios_ponto(reg), wrap=True)
+        if cel_data_geracao:
+            _escrever_celula(ws, cel_data_geracao, data_geracao)
+            cel = ws[cel_data_geracao]
+            cel.number_format = "DD/MM/YYYY"
+            al = cel.alignment.copy() if cel.alignment else Alignment()
+            cel.alignment = Alignment(
+                horizontal="left",
+                vertical=al.vertical or "center",
+                wrap_text=al.wrap_text,
+            )
+
+        _inserir_logo_documento(ws, documento, mapa)
+        _inserir_assinatura_documento(ws, documento, mapa, "rdo")
 
     nome_f = _nome_arquivo_relatorio_mes(documento, ano, mes, "RDO")
     destino = pasta_saida / nome_f
@@ -457,6 +717,8 @@ def _preencher_ft_mes(
         if val is None:
             continue
         _escrever_celula(ws, str(endereco), str(val).strip() if val is not None else "")
+
+    _inserir_assinatura_documento(ws, documento, mapa, "ft")
 
     nome_f = _nome_arquivo_relatorio_mes(documento, ano, mes, "FT")
     destino = pasta_saida / nome_f

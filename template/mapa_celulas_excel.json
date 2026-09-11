@@ -30,7 +30,8 @@
       "ponto_saida": "D74",
       "deslocamento_ida": "C71",
       "deslocamento_volta": "D71"
-    }
+    },
+    "data_geracao_celula": "G73"
   },
   "ft": {
     "arquivo_template": "template/FT.xlsx",
@@ -57,6 +58,39 @@
       "metricas_horas.adicional_noturno_hhmm": "N",
       "registro_servico": "O",
       "tipo_dia_feriado_coluna_w": "W"
+    }
+  },
+  "assinatura": {
+    "descricao": "Imagem da assinatura do funcionário (proporção preservada, alinhada à base da área; não altera altura de linhas).",
+    "rdo": {
+      "celula_inicio": "G75",
+      "celula_fim": "H77",
+      "alinhamento_horizontal": "esquerda",
+      "margem_base_px": 8,
+      "offset_x_px": 30,
+      "fator_preenchimento": 1.00
+    },
+    "ft": {
+      "celula_inicio": "C45",
+      "celula_fim": "D48",
+      "alinhamento_horizontal": "centro",
+      "margem_base_px": 0,
+      "offset_x_px": 0,
+      "fator_preenchimento": 1.00
+    }
+  },
+  "logo": {
+    "descricao": "Logo da empresa (contratada) no cabeçalho do RDO; proporção preservada, centrado em C1:C5.",
+    "rdo": {
+      "celula_inicio": "C1",
+      "celula_fim": "C5",
+      "alinhamento_horizontal": "centro",
+      "alinhamento_vertical": "centro",
+      "margem_x_px": 4,
+      "margem_topo_px": 2,
+      "margem_base_px": 2,
+      "fator_preenchimento": 0.95,
+      "aparar_margens": false
     }
   }
 }

@@ -1,13 +1,13 @@
 # Gerar Relatório — Relatório Diário de Obra (RDO)
 
 [![Python](https://img.shields.io/badge/Python-3.12+-blue.svg)](https://www.python.org/)
-[![Versão](https://img.shields.io/badge/Versão-1.0.5-informational.svg)](template/sobre.json)
+[![Versão](https://img.shields.io/badge/Versão-1.0.6-informational.svg)](template/sobre.json)
 [![Windows](https://img.shields.io/badge/Platform-Windows-blue.svg)](https://www.microsoft.com/windows)
 [![Download](https://img.shields.io/github/v/release/luisgustavoalmeida/Gerar_Relatorio?label=Download)](https://github.com/luisgustavoalmeida/Gerar_Relatorio/releases/latest)
 
-Aplicação desktop para registo de atividades diárias em projetos de engenharia e serviços em geral. Permite o registo detalhado de atividades, controle de horários de ponto, cálculo automático de métricas de horas (normais, extras, noturno) e exportação para planilhas Excel (RDO e Folha de Tempo).
+Aplicação desktop para registo de atividades diárias em projetos de engenharia e serviços em geral. Permite o registo detalhado de atividades, controle de horários de ponto, cálculo automático de métricas de horas (normais, extras, noturno), assinatura e logo nas planilhas, e exportação para Excel (RDO e Folha de Tempo).
 
-**Versão atual:** 1.0.5 · **Formato dos dados (JSON):** 1 · **Plataforma:** Windows 10 ou superior
+**Versão atual:** 1.0.6 · **Formato dos dados (JSON):** 1 · **Plataforma:** Windows 10 ou superior
 
 **Utilizadores finais (Windows):** baixe o executável em [Releases](https://github.com/luisgustavoalmeida/Gerar_Relatorio/releases/latest) — não é necessário instalar Python.
 
@@ -33,7 +33,7 @@ Aplicação desktop para registo de atividades diárias em projetos de engenhari
 
 - **Seleção de projeto:** combobox no topo da janela (contratante + natureza do serviço); cada projeto tem um ficheiro JSON em `dados_rdo/`
 - **Barra de menus CustomTkinter:** listas suspensas arredondadas (*Arquivo*, *Revisão*, *Horas*, *Exibir*, *Ajuda*)
-- **Abas:** *Cabeçalhos* (13 campos fixos reutilizáveis) e *Relatórios de trabalho* (formulário diário + calendário + métricas)
+- **Abas:** *Cabeçalhos* (13 campos fixos, assinatura e logo) e *Relatórios de trabalho* (formulário diário + calendário + métricas)
 - **Tema claro/escuro:** alternância em *Exibir → Alternar tema claro/escuro*; preferência gravada em `template/config_usuario.json`; paleta editável em `template/tema_aplicacao.json`
 - **Preferências locais unificadas:** `template/config_usuario.json` memoriza tema, geometria da janela, aba aberta e último projeto (contratante + natureza); na primeira execução após actualização, importa automaticamente `_ultimo_cliente.json` ou `dados_rdo/config_usuario.json` se existirem
 - **Geometria da janela:** tamanho e posição gravados automaticamente ao redimensionar ou mover a janela; na próxima execução, a janela reabre na mesma posição (se ainda couber no ecrã)
@@ -47,7 +47,17 @@ Aplicação desktop para registo de atividades diárias em projetos de engenhari
 
 ![Aba Cabeçalhos — tema escuro](Imagens%20Interface/Cabe%C3%A7alhos_tema_escuro.png)
 
-*Aba **Cabeçalhos** — informações reutilizáveis para as planilhas RDO e FT (temas claro e escuro).*
+*Aba **Cabeçalhos** — informações reutilizáveis, assinatura do funcionário e logo da empresa para as planilhas RDO e FT (temas claro e escuro).*
+
+### Assinatura e logo da empresa
+
+Na aba *Cabeçalhos*, abaixo dos 13 campos de texto:
+
+- **Assinatura:** adicionar/remover imagem do funcionário (pré-visualização); ficheiro em `template/assinaturas/` nomeado pelo **Nome funcionário**
+- **Logo empresa:** adicionar/remover logo da contratada; ficheiro em `template/logos/` nomeado pela **Contratada**
+- **Exportação:** a assinatura é inserida no RDO (área de visto) e na FT (Emitente); o logo vai para o RDO em **C1:C5** — proporção preservada, sem alterar altura das linhas
+- **Modelo de cabeçalho:** *Arquivo → Salvar / Carregar modelo de cabeçalho* inclui campos **e** as imagens, para reutilizar noutros projetos
+- **Executável (.exe):** imagens e modelo ficam ao lado do `.exe` em `template/` (pastas graváveis)
 
 ![Aba Relatórios de trabalho — tema claro](Imagens%20Interface/Relat%C3%B3rios_tema_claro.png)
 
@@ -116,9 +126,9 @@ O menu *Horas → Copiar relatório detalhado do mês (métricas)* copia o resum
 
 ### Exportação para Excel
 
-- **RDO (Relatório Diário de Obra):** uma folha por dia com registro, a partir de `template/RDO.xlsx`
-- **FT (Folha de Tempo):** resumo mensal, a partir de `template/FT.xlsx`
-- **Mapeamento:** células definidas em `template/mapa_celulas_excel.json` (inclui `numero` e `folha` por dia no RDO)
+- **RDO (Relatório Diário de Obra):** uma folha por dia com registro, a partir de `template/RDO.xlsx` (inclui logo, assinatura e data de geração)
+- **FT (Folha de Tempo):** resumo mensal, a partir de `template/FT.xlsx` (inclui assinatura na área Emitente)
+- **Mapeamento:** células definidas em `template/mapa_celulas_excel.json` (cabeçalho, campos diários, `assinatura`, `logo`, data de geração, `numero` e `folha`)
 - **Saída:** `saida_relatorios/<contratante>/<natureza>/` com ficheiros nomeados por mês, tipo, natureza do serviço e funcionário — por exemplo `2026-05_RDO_Supervisorio_UHE_Rondon_Luis_Gustavo_de_Almeida.xlsx` e o equivalente `FT_...`
 - **Por mês ou completo:** *Arquivo → Gerar Excel — mês em edição (RDO/FT)* exporta só o mês da data seleccionada no calendário; *Gerar Excel — todos os meses (RDO/FT)* gera **todos os meses** com dias que tenham conteúdo no JSON do projeto (texto, horários ou tempos)
 - **FT e deslocamento:** na exportação da Folha de Tempo as métricas são recalculadas; com *Incluir Deslocamento* activo, os horários de ponto na planilha reflectem Ida/Volta e as colunas de horas usam o mesmo cálculo do painel de métricas
@@ -154,11 +164,11 @@ O menu *Horas → Copiar relatório detalhado do mês (métricas)* copia o resum
 Para usar a aplicação **sem instalar Python**:
 
 1. Abra a página de [Releases](https://github.com/luisgustavoalmeida/Gerar_Relatorio/releases/latest).
-2. Em **Assets**, baixe o ficheiro **`Gerar_Relatorio_*.zip`** (ex.: `Gerar_Relatorio_1.0.5.zip`).
+2. Em **Assets**, baixe o ficheiro **`Gerar_Relatorio_*.zip`** (ex.: `Gerar_Relatorio_1.0.6.zip`).
 3. Extraia o zip para uma pasta de sua preferência (ex.: `Documentos\Gerar_Relatorio`).
 4. Execute **`Gerar_Relatorio.exe`**.
 
-Na primeira execução são criadas, ao lado do `.exe`, as pastas `template/`, `dados_rdo/` e `saida_relatorios/`. Mantenha-as na mesma pasta do executável.
+Na primeira execução são criadas, ao lado do `.exe`, as pastas `template/` (com `assinaturas/` e `logos/`), `dados_rdo/` e `saida_relatorios/`. Mantenha-as na mesma pasta do executável.
 
 > Os binários **não** ficam no repositório Git (`dist/` está no `.gitignore`). Cada versão publicada tem o [zip anexado na Release](https://github.com/luisgustavoalmeida/Gerar_Relatorio/releases/latest).
 
@@ -237,8 +247,8 @@ O script irá:
 
 ### Fluxo de trabalho
 
-1. **Configuração inicial:** aba *Cabeçalhos* — empreendimento, contratante, contratada, fiscalização, etc. (13 campos)
-2. **Modelo reutilizável:** *Arquivo → Salvar modelo de cabeçalho* / *Carregar modelo de cabeçalho* (`template/modelo_cabecalho.json`)
+1. **Configuração inicial:** aba *Cabeçalhos* — empreendimento, contratante, contratada, fiscalização, etc. (13 campos); opcionalmente assinatura e logo
+2. **Modelo reutilizável:** *Arquivo → Salvar modelo de cabeçalho* / *Carregar modelo de cabeçalho* (`template/modelo_cabecalho.json` + imagens em `template/assinaturas/` e `template/logos/`)
 3. **Registo diário:** selecione a data, descreva atividades, registe ponto e deslocamento
 4. **Extra-escopo e ociosidade:** campos dedicados com tempo consumido
 5. **Exportação:** *Arquivo → Gerar Excel — mês em edição* ou *Gerar Excel — todos os meses*
@@ -269,7 +279,7 @@ O script irá:
 | Gerar Excel — mês em edição (RDO/FT) | Exporta RDO e FT do mês da data seleccionada no calendário |
 | Gerar Excel — todos os meses (RDO/FT) | Exporta todos os meses com registos no projeto |
 | Abrir pasta relatórios | Abre `saida_relatorios/` no explorador |
-| Salvar / Carregar modelo de cabeçalho | Reutiliza cabeçalhos entre projetos |
+| Salvar / Carregar modelo de cabeçalho | Reutiliza cabeçalhos **e** imagens (assinatura/logo) entre projetos |
 | Abrir Templates / Abrir dados (.json) | Abre pastas `template/` e `dados_rdo/` |
 
 ### Revisão
@@ -326,10 +336,13 @@ Gerar_Relatorio/
 │   ├── paths.py                     # Caminhos raiz, template, dados, saída
 │   ├── schema.py                    # Estrutura JSON, validação do calendário
 │   ├── storage.py                   # Leitura/gravação atómica por projeto
+│   ├── assinaturas.py               # Imagens de assinatura (template/assinaturas/)
+│   ├── logos.py                     # Logos da empresa (template/logos/)
+│   ├── modelo_cabecalho.py          # Salvar/carregar modelo com imagens
 │   ├── config_horas.py              # Regras de horas e feriados
 │   ├── calculo_metricas_horas.py    # Normais, extras 50/100%, noturno
 │   ├── horario_util.py              # Normalização HH:MM, jornada líquida
-│   ├── gerar_excel_relatorios.py    # Exportação RDO/FT (openpyxl)
+│   ├── gerar_excel_relatorios.py    # Exportação RDO/FT (openpyxl + imagens)
 │   ├── verificacao_ortografia.py    # Integração LanguageTool (HTTP)
 │   ├── dicionario_ortografia_usuario.py
 │   ├── ajuda_conteudo.py            # Renderização Manual/Sobre a partir de JSON
@@ -349,19 +362,19 @@ Gerar_Relatorio/
 │   └── [Contratante_-_Natureza].json
 │
 ├── template/
-│   ├── config_usuario.json          # Preferências locais (tema, geometria, aba, último projeto; não versionado)
-│   ├── RDO.xlsx                     # Modelo RDO
-│   ├── FT.xlsx                      # Modelo Folha de Tempo
-│   ├── mapa_celulas_excel.json      # Mapeamento JSON → células Excel
-│   ├── config_regras_horas.json     # Regras de jornada, extras e noturno
-│   ├── tema_aplicacao.json          # Paleta de cores da interface
-│   ├── modelo_cabecalho.json        # Modelo reutilizável de cabeçalho
-│   ├── _dicionario_ortografia.json
-│   ├── manual.json                  # Manual (Ajuda → Manual)
-│   └── sobre.json                   # Sobre (Ajuda → Sobre)
+│   ├── RDO.xlsx / FT.xlsx           # Modelos Excel
+│   ├── mapa_celulas_excel.json      # Mapeamento JSON → células (incl. assinatura/logo)
+│   ├── modelo_cabecalho.json        # Modelo reutilizável (campos + refs às imagens)
+│   ├── assinaturas/                 # Imagens de assinatura do funcionário
+│   ├── logos/                       # Logos da contratada
+│   ├── config_regras_horas.json
+│   ├── config_usuario.json          # Preferências locais (não versionado)
+│   ├── manual.json / sobre.json
+│   ├── tema_aplicacao.json
+│   └── _dicionario_ortografia.json
 │
-├── Imagens Interface/               # Capturas de ecrã para documentação (README)
-└── saida_relatorios/                # Relatórios Excel gerados (criada automaticamente)
+├── saida_relatorios/                # Excel gerados
+└── Imagens Interface/               # Capturas para documentação
 ```
 
 ## Configurações
@@ -496,7 +509,7 @@ dist/
 └── Gerar_Relatorio_<versão>.zip   # pacote para a GitHub Release (só o .exe dentro)
 ```
 
-Na **primeira execução**, ao lado do `.exe` são criadas automaticamente as pastas `template/`, `dados_rdo/` e `saida_relatorios/` (copiadas do bundle interno). Mantenha-as na mesma pasta do executável.
+Na **primeira execução**, ao lado do `.exe` são criadas automaticamente as pastas `template/` (incluindo `assinaturas/` e `logos/`), `dados_rdo/` e `saida_relatorios/` (copiadas do bundle interno). Mantenha-as na mesma pasta do executável.
 
 ### Publicar uma versão (GitHub Release)
 
@@ -504,7 +517,7 @@ Não faça commit de `dist/` no Git. Para disponibilizar o executável a outras 
 
 1. Faça push do código da versão para `main`.
 2. Em GitHub → **Releases** → **Create a new release** (ou edite a release existente).
-3. Use a tag `vX.Y.Z` (ex.: `v1.0.5`), anexe apenas `dist/Gerar_Relatorio_*.zip` e publique como **Latest release**.
+3. Use a tag `vX.Y.Z` (ex.: `v1.0.6`), anexe apenas `dist/Gerar_Relatorio_*.zip` e publique como **Latest release**.
 4. O download fica em: https://github.com/luisgustavoalmeida/Gerar_Relatorio/releases/latest
 
 ## Solução de problemas
@@ -593,6 +606,6 @@ Este software é **gratuito**. Se quiser apoiar o desenvolvimento, pode enviar u
 | **holidays** | Feriados nacionais do Brasil |
 | **LanguageTool** (API HTTP) | Ortografia e gramática online |
 | **PyInstaller** | Compilação para `.exe` (`compilar.bat`) |
-| **Pillow** | Ícone multi-tamanho do executável (`build_resources/preparar_icone.py`) |
+| **Pillow** | Assinatura/logo na interface e no Excel; ícone multi-tamanho do `.exe` |
 
 Dependências em `requirements.txt`: `customtkinter`, `tkcalendar`, `holidays`, `openpyxl`, `pyinstaller`, `pillow`.

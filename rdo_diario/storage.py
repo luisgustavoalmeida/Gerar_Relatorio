@@ -14,7 +14,9 @@ from typing import Any
 from rdo_diario.paths import ARQUIVO_CONFIG_USUARIO_JSON, PASTA_DADOS_RDO, PASTA_RDO_ARQUIVADOS
 from rdo_diario.schema import (
     CAMPOS_JSON_CABECALHO,
+    CHAVE_JSON_ASSINATURA_ARQUIVO,
     CHAVE_JSON_CONTRATANTE,
+    CHAVE_JSON_LOGO_ARQUIVO,
     CHAVE_JSON_NATUREZA_SERVICO,
     criar_estrutura_documento_vazio,
     normalizar_metadados_registros_diarios,
@@ -223,6 +225,8 @@ def _garantir_estrutura_cabecalho(documento: dict[str, Any]) -> None:
     cabecalho = documento.setdefault("cabecalho_fixo", {})
     for campo in CAMPOS_JSON_CABECALHO:
         cabecalho.setdefault(campo, "")
+    cabecalho.setdefault(CHAVE_JSON_ASSINATURA_ARQUIVO, "")
+    cabecalho.setdefault(CHAVE_JSON_LOGO_ARQUIVO, "")
     if not str(cabecalho.get("natureza_servico", "")).strip():
         chave = documento.get("chave") or {}
         natureza = str(chave.get(CHAVE_JSON_NATUREZA_SERVICO, "")).strip()

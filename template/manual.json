@@ -9,7 +9,7 @@
         "Na primeira execução, se não existir nenhum projeto, a aplicação mostra uma mensagem orientando a criar um em Arquivo → Novo projeto (contratante + natureza do serviço).",
         "Configure os dados fixos na aba Cabeçalhos.",
         "Na aba Relatórios de trabalho, selecione a data no calendário e preencha o registro do dia.",
-        "As pastas template/, dados_rdo/ e saida_relatorios/ são criadas automaticamente ao lado do .exe na primeira execução (modo compilado)."
+        "As pastas template/ (incluindo assinaturas/ e logos/), dados_rdo/ e saida_relatorios/ são criadas automaticamente ao lado do .exe na primeira execução (modo compilado)."
       ]
     },
     {
@@ -17,7 +17,7 @@
       "lista": [
         "Barra de menus: Arquivo, Revisão, Horas, Exibir e Ajuda (listas suspensas arredondadas).",
         "Barra superior: combobox Cliente (contratante + natureza) para trocar de projeto vigente.",
-        "Aba Cabeçalhos: 13 campos fixos que alimentam as planilhas RDO e FT (Folha de Tempo).",
+        "Aba Cabeçalhos: 13 campos fixos, mais Assinatura e Logo da empresa, que alimentam as planilhas RDO e FT.",
         "Aba Relatórios de trabalho: formulário do dia à esquerda; calendário, legenda e métricas à direita.",
         "Campos de texto: Registro de serviço cresce com a janela; extra-escopo e ociosidade expandem ao receber foco e recolhem ao sair.",
         "Painel Métricas (abaixo do calendário) é rolável — útil com altura mínima da janela.",
@@ -52,21 +52,24 @@
       "lista": [
         "Arquivo → Salvar agora: grava imediatamente no disco (o título da janela mostra a hora do salvamento).",
         "Arquivo → Limpar informações do dia em edição: apaga textos, horários, durações e o registro JSON desse dia (com confirmação).",
-        "Arquivo → Salvar modelo de cabeçalho: grava os campos actuais da aba Cabeçalhos em template/modelo_cabecalho.json.",
-        "Arquivo → Carregar modelo de cabeçalho: copia template/modelo_cabecalho.json para o cabecalho_fixo do projeto aberto (com confirmação)."
+        "Arquivo → Salvar modelo de cabeçalho: grava os campos da aba Cabeçalhos, a assinatura e o logo em template/modelo_cabecalho.json e nas pastas template/assinaturas e template/logos (ao lado do .exe).",
+        "Arquivo → Carregar modelo de cabeçalho: aplica o modelo ao projeto aberto, incluindo assinatura e logo (com confirmação se já houver dados)."
       ]
     },
     {
       "titulo": "5. Cabeçalhos (aba Cabeçalhos)",
       "paragrafos": [
-        "Os campos são gravados no JSON do projeto (objeto cabecalho_fixo) e copiados para as planilhas Excel na exportação."
+        "Os campos são gravados no JSON do projeto (objeto cabecalho_fixo) e copiados para as planilhas Excel na exportação. Assinatura e logo ficam em template/assinaturas/ e template/logos/ (ao lado do .exe)."
       ],
       "lista": [
         "Natureza do serviço, Empreendimento, Contratante",
         "Endereço, Cidade, Estado",
         "Início contratual, Término contratual",
         "Contratada, Nome funcionário, Telefone",
-        "Fiscalização, Nome fiscal"
+        "Fiscalização, Nome fiscal",
+        "Assinatura: adicionar/remover imagem do funcionário (pré-visualização); usada no RDO (área de visto) e na FT (Emitente); ficheiro nomeado pelo nome do funcionário",
+        "Logo empresa: adicionar/remover logo da contratada; inserido no RDO em C1:C5; ficheiro nomeado pela contratada",
+        "Modelo de cabeçalho (Arquivo): ao salvar/carregar, inclui também assinatura e logo para reutilizar noutros projetos"
       ]
     },
     {
@@ -156,12 +159,12 @@
         "Gerar Excel — mês em edição (RDO/FT): exporta RDO e FT apenas do mês da data seleccionada no calendário.",
         "Gerar Excel — todos os meses (RDO/FT): exporta todos os meses que tenham registos no JSON do projeto.",
         "Antes da exportação, o dia em edição e o cabeçalho são salvos automaticamente.",
-        "RDO: uma folha por dia com registo, a partir de template/RDO.xlsx.",
-        "FT (Folha de Tempo): resumo mensal, a partir de template/FT.xlsx (necessário ter template/FT.xlsx). As métricas são recalculadas na exportação; com «Incluir Deslocamento» activo, Entrada/Saída na planilha reflectem Ida/Volta.",
-        "Mapeamento de células em template/mapa_celulas_excel.json (inclui cabeçalho fixo, campos diários, numero, folha e horários).",
+        "RDO: uma folha por dia com registo, a partir de template/RDO.xlsx. Inclui assinatura, logo (C1:C5) e data de geração do relatório.",
+        "FT (Folha de Tempo): resumo mensal, a partir de template/FT.xlsx (necessário ter template/FT.xlsx). As métricas são recalculadas na exportação; com «Incluir Deslocamento» activo, Entrada/Saída na planilha reflectem Ida/Volta. Inclui a assinatura na área Emitente.",
+        "Mapeamento de células em template/mapa_celulas_excel.json (cabeçalho, campos diários, assinatura, logo, data de geração, numero, folha e horários).",
         "Saída em saida_relatorios/<contratante>/<natureza>/ com nomes como 2026-05_RDO_<natureza>_<funcionário>.xlsx e equivalente FT_....",
         "Abrir pasta relatórios: abre saida_relatorios/ no explorador.",
-        "Abrir Templates: abre template/ (modelos Excel, regras, manual, dicionário, config_usuario.json).",
+        "Abrir Templates: abre template/ (modelos Excel, regras, manual, assinaturas, logos, dicionário, config_usuario.json).",
         "Abrir dados (.json): abre dados_rdo/ (JSON por projeto; arquivados em dados_rdo/rdo_arquivados/)."
       ]
     },
@@ -169,7 +172,7 @@
       "titulo": "14. Pastas principais",
       "lista": [
         "dados_rdo/ — um JSON por projeto vigente; subpasta rdo_arquivados/ para projectos arquivados.",
-        "template/ — modelos Excel (RDO.xlsx, FT.xlsx), config_regras_horas.json, mapa_celulas_excel.json, modelo_cabecalho.json, config_usuario.json, manual.json, sobre.json, tema_aplicacao.json e _dicionario_ortografia.json.",
+        "template/ — modelos Excel (RDO.xlsx, FT.xlsx), mapa_celulas_excel.json, modelo_cabecalho.json, assinaturas/, logos/, config_regras_horas.json, config_usuario.json, manual.json, sobre.json, tema_aplicacao.json e _dicionario_ortografia.json.",
         "saida_relatorios/ — relatórios Excel gerados (criada automaticamente)."
       ]
     },

@@ -119,7 +119,7 @@ echo 📁 Executavel (onefile):
 echo    dist\Gerar_Relatorio.exe
 echo.
 echo 📋 Na primeira execucao, ao lado do .exe sao criadas:
-echo    template\  dados_rdo\  saida_relatorios\
+echo    template\  (inclui assinaturas\ e logos\)  dados_rdo\  saida_relatorios\
 echo.
 echo ⚠️  Distribua o .exe; mantenha as pastas geradas na mesma pasta do executavel.
 echo.

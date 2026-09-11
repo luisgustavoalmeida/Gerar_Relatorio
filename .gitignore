@@ -25,4 +25,14 @@ build/
 dados/
 saida/
 template/config_usuario.json
-gerar_relatorio.spec
+dados_rdo/Andritz_-_TAF_Regulador_de_Tensão_UG3_UHE_GPS.json
+dados_rdo/Andritz_-_TAF_Regulador_de_Tensão_UG3_UHE_GPS.json
+
+# Assinaturas e logos do utilizador (mantém as pastas em template/)
+template/assinaturas/*
+!template/assinaturas/.gitkeep
+template/logos/*
+!template/logos/.gitkeep
+
+# Pasta assets antiga (já não usada)
+assets/

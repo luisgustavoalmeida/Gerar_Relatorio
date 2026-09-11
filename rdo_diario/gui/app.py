@@ -6,11 +6,18 @@ import json
 import tkinter as tk
 from datetime import date, datetime
 from pathlib import Path
-from tkinter import messagebox
+from tkinter import filedialog, messagebox
 from typing import Any
 
 import customtkinter as ctk
+from PIL import Image
 
+from rdo_diario.assinaturas import (
+    caminho_relativo,
+    garantir_pasta_assinaturas,
+    resolver_assinatura,
+    salvar_assinatura_para_funcionario,
+)
 from rdo_diario.config_horas import (
     carregar_config_regras_horas,
     garantir_arquivo_config_regras_existe,
@@ -27,6 +34,8 @@ from rdo_diario.gui.tema import (
     COR_FUNDO,
     COR_FUNDO_CARD,
     COR_FUNDO_SECUNDARIO,
+    COR_PRIMARIA,
+    COR_PRIMARIA_HOVER,
     COR_TEXTO,
     COR_TEXTO_SECUNDARIO,
     FONT_DICA_ABA,
@@ -61,14 +70,26 @@ from rdo_diario.horario_util import (
     texto_duracao_permitido_na_digitacao,
     texto_horario_permitido_na_digitacao,
 )
+from rdo_diario.logos import (
+    garantir_pasta_logos,
+    resolver_logo,
+    salvar_logo_para_empresa,
+)
+from rdo_diario.modelo_cabecalho import (
+    caminho_modelo_cabecalho,
+    carregar_modelo_cabecalho_arquivo,
+    localizar_arquivo_modelo_cabecalho,
+    salvar_modelo_cabecalho_arquivo,
+)
 from rdo_diario.paths import (
-    ARQUIVO_MODELO_CABECALHO_JSON,
     PASTA_DADOS_RDO,
     garantir_pastas_executavel,
 )
 from rdo_diario.schema import (
     CAMPOS_JSON_CABECALHO,
+    CHAVE_JSON_ASSINATURA_ARQUIVO,
     CHAVE_JSON_CONTRATANTE,
+    CHAVE_JSON_LOGO_ARQUIVO,
     CHAVE_JSON_NATUREZA_SERVICO,
     ROTULOS_CABECALHO,
 )
@@ -293,7 +314,114 @@ class AplicacaoRdo(
             entrada = ctk.CTkEntry(form_cab, width=480, **opcoes_campo_entrada_ctk())
             entrada.grid(row=indice, column=1, sticky="ew", pady=6)
             entrada.bind("<KeyRelease>", self._agendar_salvamento_automatico)
+            if campo == "nome_funcionario":
+                entrada.bind("<KeyRelease>", self._ao_alterar_nome_funcionario, add="+")
+            if campo == "contratada":
+                entrada.bind("<KeyRelease>", self._ao_alterar_contratada, add="+")
             self._widgets_cabecalho[campo] = entrada
+
+        row_ass = len(CAMPOS_JSON_CABECALHO)
+        ctk.CTkLabel(form_cab, text="Assinatura:", anchor="ne", font=FONT_INTERFACE).grid(
+            row=row_ass, column=0, sticky="ne", pady=6, padx=(0, 10)
+        )
+        frame_ass = ctk.CTkFrame(form_cab, fg_color="transparent")
+        frame_ass.grid(row=row_ass, column=1, sticky="ew", pady=6)
+        self.lbl_preview_assinatura = ctk.CTkLabel(
+            frame_ass,
+            text="Nenhuma assinatura",
+            width=220,
+            height=72,
+            fg_color=COR_FUNDO_SECUNDARIO,
+            corner_radius=RAIO_BORDA,
+            text_color=COR_TEXTO_SECUNDARIO,
+            font=FONT_DICA_ABA,
+        )
+        self.lbl_preview_assinatura.pack(side="left", padx=(0, 10))
+        self._img_preview_assinatura = None
+        btns_ass = ctk.CTkFrame(frame_ass, fg_color="transparent")
+        btns_ass.pack(side="left", fill="y")
+        ctk.CTkButton(
+            btns_ass,
+            text="Adicionar assinatura…",
+            width=170,
+            command=self._escolher_assinatura,
+            fg_color=COR_PRIMARIA,
+            hover_color=COR_PRIMARIA_HOVER,
+        ).pack(anchor="w", pady=(0, 4))
+        ctk.CTkButton(
+            btns_ass,
+            text="Remover assinatura",
+            width=170,
+            command=self._remover_assinatura,
+        ).pack(anchor="w", pady=2)
+        ctk.CTkButton(
+            btns_ass,
+            text="Abrir pasta de assinaturas",
+            width=170,
+            command=self._abrir_pasta_assinaturas,
+        ).pack(anchor="w", pady=2)
+        self.lbl_status_assinatura = ctk.CTkLabel(
+            frame_ass,
+            text="",
+            anchor="w",
+            justify="left",
+            wraplength=280,
+            font=FONT_DICA_ABA,
+            text_color=COR_TEXTO_SECUNDARIO,
+        )
+        self.lbl_status_assinatura.pack(side="left", padx=(12, 0), fill="x", expand=True)
+
+        row_logo = row_ass + 1
+        ctk.CTkLabel(form_cab, text="Logo empresa:", anchor="ne", font=FONT_INTERFACE).grid(
+            row=row_logo, column=0, sticky="ne", pady=6, padx=(0, 10)
+        )
+        frame_logo = ctk.CTkFrame(form_cab, fg_color="transparent")
+        frame_logo.grid(row=row_logo, column=1, sticky="ew", pady=6)
+        self.lbl_preview_logo = ctk.CTkLabel(
+            frame_logo,
+            text="Nenhum logo",
+            width=220,
+            height=72,
+            fg_color=COR_FUNDO_SECUNDARIO,
+            corner_radius=RAIO_BORDA,
+            text_color=COR_TEXTO_SECUNDARIO,
+            font=FONT_DICA_ABA,
+        )
+        self.lbl_preview_logo.pack(side="left", padx=(0, 10))
+        self._img_preview_logo = None
+        btns_logo = ctk.CTkFrame(frame_logo, fg_color="transparent")
+        btns_logo.pack(side="left", fill="y")
+        ctk.CTkButton(
+            btns_logo,
+            text="Adicionar logo…",
+            width=170,
+            command=self._escolher_logo,
+            fg_color=COR_PRIMARIA,
+            hover_color=COR_PRIMARIA_HOVER,
+        ).pack(anchor="w", pady=(0, 4))
+        ctk.CTkButton(
+            btns_logo,
+            text="Remover logo",
+            width=170,
+            command=self._remover_logo,
+        ).pack(anchor="w", pady=2)
+        ctk.CTkButton(
+            btns_logo,
+            text="Abrir pasta de logos",
+            width=170,
+            command=self._abrir_pasta_logos,
+        ).pack(anchor="w", pady=2)
+        self.lbl_status_logo = ctk.CTkLabel(
+            frame_logo,
+            text="",
+            anchor="w",
+            justify="left",
+            wraplength=280,
+            font=FONT_DICA_ABA,
+            text_color=COR_TEXTO_SECUNDARIO,
+        )
+        self.lbl_status_logo.pack(side="left", padx=(12, 0), fill="x", expand=True)
+
         form_cab.columnconfigure(1, weight=1)
 
         painel = ctk.CTkFrame(aba_registros, fg_color="transparent")
@@ -797,6 +925,258 @@ class AplicacaoRdo(
         for campo, widget in self._widgets_cabecalho.items():
             widget.delete(0, "end")
             widget.insert(0, str(cabecalho.get(campo, "") or ""))
+        # Reutiliza assinatura já salva para o mesmo nome de funcionário
+        if not str(cabecalho.get(CHAVE_JSON_ASSINATURA_ARQUIVO) or "").strip():
+            path_ass = resolver_assinatura(str(cabecalho.get("nome_funcionario") or ""), None)
+            if path_ass:
+                cabecalho[CHAVE_JSON_ASSINATURA_ARQUIVO] = caminho_relativo(path_ass)
+                self._documento_atual["cabecalho_fixo"] = cabecalho
+        # Reutiliza logo já salvo para a mesma contratada
+        if not str(cabecalho.get(CHAVE_JSON_LOGO_ARQUIVO) or "").strip():
+            nome_emp = str(cabecalho.get("contratada") or cabecalho.get("contratante") or "")
+            path_logo = resolver_logo(nome_emp, None)
+            if path_logo:
+                cabecalho[CHAVE_JSON_LOGO_ARQUIVO] = caminho_relativo(path_logo)
+                self._documento_atual["cabecalho_fixo"] = cabecalho
+        self._atualizar_preview_assinatura()
+        self._atualizar_preview_logo()
+
+    def _obter_assinatura_arquivo_documento(self) -> str:
+        if not self._documento_atual:
+            return ""
+        cab = self._documento_atual.get("cabecalho_fixo") or {}
+        return str(cab.get(CHAVE_JSON_ASSINATURA_ARQUIVO) or "").strip()
+
+    def _definir_assinatura_arquivo_documento(self, relativo: str) -> None:
+        if not self._documento_atual:
+            return
+        cab = dict(self._documento_atual.get("cabecalho_fixo") or {})
+        cab[CHAVE_JSON_ASSINATURA_ARQUIVO] = (relativo or "").strip()
+        self._documento_atual["cabecalho_fixo"] = cab
+
+    def _nome_funcionario_formulario(self) -> str:
+        widget = self._widgets_cabecalho.get("nome_funcionario")
+        if widget is not None:
+            return widget.get().strip()
+        if self._documento_atual:
+            cab = self._documento_atual.get("cabecalho_fixo") or {}
+            return str(cab.get("nome_funcionario") or "").strip()
+        return ""
+
+    def _ao_alterar_nome_funcionario(self, _evento: tk.Event | None = None) -> None:
+        self._atualizar_preview_assinatura()
+
+    def _atualizar_preview_assinatura(self) -> None:
+        if not hasattr(self, "lbl_preview_assinatura"):
+            return
+        path = resolver_assinatura(
+            self._nome_funcionario_formulario(),
+            self._obter_assinatura_arquivo_documento(),
+        )
+        if not path:
+            self._img_preview_assinatura = None
+            self.lbl_preview_assinatura.configure(image=None, text="Nenhuma assinatura")
+            if hasattr(self, "lbl_status_assinatura"):
+                self.lbl_status_assinatura.configure(text="")
+            return
+        try:
+            img = Image.open(path).convert("RGBA")
+            img.thumbnail((200, 64), Image.Resampling.LANCZOS)
+            ctk_img = ctk.CTkImage(light_image=img, dark_image=img, size=img.size)
+            self._img_preview_assinatura = ctk_img
+            self.lbl_preview_assinatura.configure(image=ctk_img, text="")
+            if hasattr(self, "lbl_status_assinatura"):
+                self.lbl_status_assinatura.configure(
+                    text=(
+                        f"Arquivo: {caminho_relativo(path)}\n"
+                        "(salva com o nome do funcionário e no modelo de cabeçalho)"
+                    )
+                )
+        except OSError:
+            self._img_preview_assinatura = None
+            self.lbl_preview_assinatura.configure(image=None, text="Erro ao carregar")
+            if hasattr(self, "lbl_status_assinatura"):
+                self.lbl_status_assinatura.configure(text=str(path))
+
+    def _escolher_assinatura(self) -> None:
+        if not self._documento_atual:
+            messagebox.showwarning(
+                "Assinatura",
+                "Abra ou crie um cliente antes de adicionar a assinatura.",
+                parent=self,
+            )
+            return
+        nome = self._nome_funcionario_formulario()
+        if not nome:
+            messagebox.showwarning(
+                "Assinatura",
+                "Preencha o «Nome funcionário» antes de adicionar a assinatura.",
+                parent=self,
+            )
+            return
+        path = filedialog.askopenfilename(
+            title="Selecionar imagem da assinatura",
+            filetypes=[
+                ("Imagens", "*.png;*.jpg;*.jpeg;*.webp;*.gif;*.bmp"),
+                ("Todos os ficheiros", "*.*"),
+            ],
+            parent=self,
+        )
+        if not path:
+            return
+        try:
+            rel = salvar_assinatura_para_funcionario(Path(path), nome)
+        except (OSError, ValueError, FileNotFoundError) as erro:
+            messagebox.showerror("Assinatura", str(erro), parent=self)
+            return
+        self._definir_assinatura_arquivo_documento(rel)
+        self._atualizar_preview_assinatura()
+        self._agendar_salvamento_automatico()
+
+    def _remover_assinatura(self) -> None:
+        if not self._documento_atual:
+            return
+        if not self._obter_assinatura_arquivo_documento() and not resolver_assinatura(
+            self._nome_funcionario_formulario(), None
+        ):
+            messagebox.showinfo("Assinatura", "Não há assinatura associada a este projeto.", parent=self)
+            return
+        if not messagebox.askyesno(
+            "Remover assinatura",
+            "Remover a assinatura deste projeto?\n"
+            "(O arquivo em template/assinaturas permanece para reutilização.)",
+            parent=self,
+        ):
+            return
+        self._definir_assinatura_arquivo_documento("")
+        self._atualizar_preview_assinatura()
+        self._agendar_salvamento_automatico()
+
+    def _abrir_pasta_assinaturas(self) -> None:
+        pasta = garantir_pasta_assinaturas()
+        self._abrir_pasta_no_explorador(pasta)
+
+    def _obter_logo_arquivo_documento(self) -> str:
+        if not self._documento_atual:
+            return ""
+        cab = self._documento_atual.get("cabecalho_fixo") or {}
+        return str(cab.get(CHAVE_JSON_LOGO_ARQUIVO) or "").strip()
+
+    def _definir_logo_arquivo_documento(self, relativo: str) -> None:
+        if not self._documento_atual:
+            return
+        cab = dict(self._documento_atual.get("cabecalho_fixo") or {})
+        cab[CHAVE_JSON_LOGO_ARQUIVO] = (relativo or "").strip()
+        self._documento_atual["cabecalho_fixo"] = cab
+
+    def _nome_empresa_logo_formulario(self) -> str:
+        """Nome usado para gravar/reutilizar o logo (contratada, senão contratante)."""
+        for campo in ("contratada", "contratante"):
+            widget = self._widgets_cabecalho.get(campo)
+            if widget is not None:
+                valor = widget.get().strip()
+                if valor:
+                    return valor
+        if self._documento_atual:
+            cab = self._documento_atual.get("cabecalho_fixo") or {}
+            for campo in ("contratada", "contratante"):
+                valor = str(cab.get(campo) or "").strip()
+                if valor:
+                    return valor
+        return ""
+
+    def _ao_alterar_contratada(self, _evento: tk.Event | None = None) -> None:
+        self._atualizar_preview_logo()
+
+    def _atualizar_preview_logo(self) -> None:
+        if not hasattr(self, "lbl_preview_logo"):
+            return
+        path = resolver_logo(
+            self._nome_empresa_logo_formulario(),
+            self._obter_logo_arquivo_documento(),
+        )
+        if not path:
+            self._img_preview_logo = None
+            self.lbl_preview_logo.configure(image=None, text="Nenhum logo")
+            if hasattr(self, "lbl_status_logo"):
+                self.lbl_status_logo.configure(text="")
+            return
+        try:
+            img = Image.open(path).convert("RGBA")
+            img.thumbnail((200, 64), Image.Resampling.LANCZOS)
+            ctk_img = ctk.CTkImage(light_image=img, dark_image=img, size=img.size)
+            self._img_preview_logo = ctk_img
+            self.lbl_preview_logo.configure(image=ctk_img, text="")
+            if hasattr(self, "lbl_status_logo"):
+                self.lbl_status_logo.configure(
+                    text=(
+                        f"Arquivo: {caminho_relativo(path)}\n"
+                        "(salva com o nome da contratada e no modelo de cabeçalho)"
+                    )
+                )
+        except OSError:
+            self._img_preview_logo = None
+            self.lbl_preview_logo.configure(image=None, text="Erro ao carregar")
+            if hasattr(self, "lbl_status_logo"):
+                self.lbl_status_logo.configure(text=str(path))
+
+    def _escolher_logo(self) -> None:
+        if not self._documento_atual:
+            messagebox.showwarning(
+                "Logo",
+                "Abra ou crie um cliente antes de adicionar o logo.",
+                parent=self,
+            )
+            return
+        nome = self._nome_empresa_logo_formulario()
+        if not nome:
+            messagebox.showwarning(
+                "Logo",
+                "Preencha a «Contratada» (ou Contratante) antes de adicionar o logo.",
+                parent=self,
+            )
+            return
+        path = filedialog.askopenfilename(
+            title="Selecionar logo da empresa",
+            filetypes=[
+                ("Imagens", "*.png;*.jpg;*.jpeg;*.webp;*.gif;*.bmp"),
+                ("Todos os ficheiros", "*.*"),
+            ],
+            parent=self,
+        )
+        if not path:
+            return
+        try:
+            rel = salvar_logo_para_empresa(Path(path), nome)
+        except (OSError, ValueError, FileNotFoundError) as erro:
+            messagebox.showerror("Logo", str(erro), parent=self)
+            return
+        self._definir_logo_arquivo_documento(rel)
+        self._atualizar_preview_logo()
+        self._agendar_salvamento_automatico()
+
+    def _remover_logo(self) -> None:
+        if not self._documento_atual:
+            return
+        if not self._obter_logo_arquivo_documento() and not resolver_logo(
+            self._nome_empresa_logo_formulario(), None
+        ):
+            messagebox.showinfo("Logo", "Não há logo associado a este projeto.", parent=self)
+            return
+        if not messagebox.askyesno(
+            "Remover logo",
+            "Remover o logo deste projeto?\n"
+            "(O arquivo em template/logos permanece para reutilização.)",
+            parent=self,
+        ):
+            return
+        self._definir_logo_arquivo_documento("")
+        self._atualizar_preview_logo()
+        self._agendar_salvamento_automatico()
+
+    def _abrir_pasta_logos(self) -> None:
+        pasta = garantir_pasta_logos()
+        self._abrir_pasta_no_explorador(pasta)
 
     def _copiar_cabecalho_formulario_para_documento(self) -> None:
         """Grava no documento em memória os valores atuais dos campos do cabeçalho."""
@@ -847,7 +1227,7 @@ class AplicacaoRdo(
             self.title(f"Relatório de atividades diárias — salvo {datetime.now().strftime('%H:%M:%S')}")
 
     def _salvar_modelo_cabecalho(self) -> None:
-        """Salva os dados atuais do cabeçalho em um arquivo JSON modelo na pasta template."""
+        """Salva cabeçalho + assinatura + logo para reutilizar noutros projetos."""
         if not self._documento_atual:
             messagebox.showwarning(
                 "Modelo de cabeçalho",
@@ -855,45 +1235,54 @@ class AplicacaoRdo(
                 parent=self,
             )
             return
+        self._copiar_cabecalho_formulario_para_documento()
         cabecalho = dict(self._documento_atual.get("cabecalho_fixo") or {})
-        for campo, widget in self._widgets_cabecalho.items():
-            cabecalho[campo] = widget.get().strip()
 
         try:
-            salvar_documento_json(ARQUIVO_MODELO_CABECALHO_JSON, cabecalho)
+            caminho, modelo_salvo = salvar_modelo_cabecalho_arquivo(cabecalho)
+            for chave in (CHAVE_JSON_ASSINATURA_ARQUIVO, CHAVE_JSON_LOGO_ARQUIVO):
+                if chave in modelo_salvo:
+                    cabecalho[chave] = modelo_salvo[chave]
+            for campo in CAMPOS_JSON_CABECALHO:
+                if campo in modelo_salvo:
+                    cabecalho[campo] = modelo_salvo[campo]
+            self._documento_atual["cabecalho_fixo"] = cabecalho
+            self._atualizar_preview_assinatura()
+            self._atualizar_preview_logo()
+            self._agendar_salvamento_automatico()
+            raiz_imgs = caminho.parent
             messagebox.showinfo(
                 "Modelo de cabeçalho",
-                f"Modelo de cabeçalho salvo com sucesso em:\n\n{ARQUIVO_MODELO_CABECALHO_JSON}",
+                "Modelo de cabeçalho salvo com sucesso (campos, assinatura e logo).\n\n"
+                f"Ficheiro:\n{caminho}\n\n"
+                "Imagens em:\n"
+                f"{raiz_imgs / 'assinaturas'}\n"
+                f"{raiz_imgs / 'logos'}",
                 parent=self,
             )
-        except OSError as erro:
+        except (OSError, ValueError) as erro:
             messagebox.showerror("Salvar modelo", str(erro), parent=self)
 
     def _carregar_modelo_cabecalho(self) -> None:
-        """Carrega um modelo de cabeçalho do arquivo JSON e preenche o formulário."""
-        if not ARQUIVO_MODELO_CABECALHO_JSON.exists():
+        """Carrega o modelo (campos + imagens) e aplica ao projeto aberto."""
+        if localizar_arquivo_modelo_cabecalho() is None:
             messagebox.showwarning(
                 "Modelo de cabeçalho",
-                f"Arquivo de modelo não encontrado:\n\n{ARQUIVO_MODELO_CABECALHO_JSON}\n\n"
+                f"Arquivo de modelo não encontrado:\n\n{caminho_modelo_cabecalho()}\n\n"
                 "Primeiro, salve um modelo usando «Salvar modelo de cabeçalho».",
                 parent=self,
             )
             return
 
         try:
-            modelo = carregar_documento_json(ARQUIVO_MODELO_CABECALHO_JSON)
-        except (OSError, json.JSONDecodeError) as erro:
+            modelo = carregar_modelo_cabecalho_arquivo()
+        except FileNotFoundError as erro:
+            messagebox.showwarning("Modelo de cabeçalho", str(erro), parent=self)
+            return
+        except (OSError, json.JSONDecodeError, ValueError) as erro:
             messagebox.showerror(
                 "Carregar modelo",
                 f"Erro ao ler arquivo de modelo:\n{erro}",
-                parent=self,
-            )
-            return
-
-        if not isinstance(modelo, dict):
-            messagebox.showerror(
-                "Carregar modelo",
-                "Arquivo de modelo inválido (não é um dicionário JSON).",
                 parent=self,
             )
             return
@@ -903,7 +1292,7 @@ class AplicacaoRdo(
                 "Carregar modelo de cabeçalho",
                 "Os campos de cabeçalho já contêm informações preenchidas.\n\n"
                 "Deseja substituí-las pelos valores do modelo salvo?\n\n"
-                "Os dados atuais serão perdidos.",
+                "Os dados atuais serão perdidos (as imagens do modelo serão aplicadas).",
                 parent=self,
                 icon="warning",
             ):
@@ -915,11 +1304,23 @@ class AplicacaoRdo(
             widget.insert(0, valor)
 
         if self._documento_atual:
-            self._documento_atual["cabecalho_fixo"] = dict(modelo)
+            cab = dict(self._documento_atual.get("cabecalho_fixo") or {})
+            for campo in CAMPOS_JSON_CABECALHO:
+                cab[campo] = str(modelo.get(campo, "") or "")
+            cab[CHAVE_JSON_ASSINATURA_ARQUIVO] = str(
+                modelo.get(CHAVE_JSON_ASSINATURA_ARQUIVO) or ""
+            ).strip()
+            cab[CHAVE_JSON_LOGO_ARQUIVO] = str(
+                modelo.get(CHAVE_JSON_LOGO_ARQUIVO) or ""
+            ).strip()
+            self._documento_atual["cabecalho_fixo"] = cab
+            self._atualizar_preview_assinatura()
+            self._atualizar_preview_logo()
 
         messagebox.showinfo(
             "Modelo de cabeçalho",
-            "O formulário de cabeçalho foi atualizado com os valores do modelo.",
+            "O formulário de cabeçalho foi atualizado com os valores do modelo,\n"
+            "incluindo assinatura e logo (quando disponíveis).",
             parent=self,
         )
 

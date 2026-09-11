@@ -38,6 +38,11 @@ CAMPOS_JSON_CABECALHO: tuple[str, ...] = (
     "nome_fiscal",
 )
 
+# Path relativo à raiz (ex.: template/assinaturas/Luis_Gustavo.jpg) — não é campo de texto na UI
+CHAVE_JSON_ASSINATURA_ARQUIVO: str = "assinatura_arquivo"
+# Path relativo à raiz (ex.: template/logos/Megawatt_Sistemas.png)
+CHAVE_JSON_LOGO_ARQUIVO: str = "logo_arquivo"
+
 # --- Campos de texto livre por dia ---
 CAMPOS_JSON_TEXTO_DIA: tuple[str, ...] = (
     "registro_servico",
@@ -505,7 +510,11 @@ def criar_estrutura_documento_vazio(contratante: str, natureza_servico: str) -> 
             CHAVE_JSON_CONTRATANTE: c,
             CHAVE_JSON_NATUREZA_SERVICO: n,
         },
-        "cabecalho_fixo": {campo: "" for campo in CAMPOS_JSON_CABECALHO},
+        "cabecalho_fixo": {
+            **{campo: "" for campo in CAMPOS_JSON_CABECALHO},
+            CHAVE_JSON_ASSINATURA_ARQUIVO: "",
+            CHAVE_JSON_LOGO_ARQUIVO: "",
+        },
         "registros_diarios": {},
         "meta": {
             "ultima_edicao_iso": "",
