@@ -1,18 +1,20 @@
 {
-  "empreendimento": "UHE GPS - COPEL",
-  "contratante": "Andritz",
-  "natureza_servico": "TAF - UHE GPS - Regulador de Tensão",
-  "inicio_contratual": "30/03/2026",
+  "natureza_servico": "Supervisório UHE Rondon",
+  "empreendimento": "UHE Rondon",
+  "contratante": "Eletrogóes S/A",
+  "endereco": "Rio Comemoração",
+  "cidade": "Pimenta Bueno",
+  "estado": "RO",
+  "inicio_contratual": "13/05/2026",
   "termino_contratual": "",
   "contratada": "Megawatt Sistemas",
   "nome_funcionario": "Luís Gustavo de Almeida",
-  "fiscalizacao": "Andritz",
-  "nome_fiscal": "Cesar Souza",
-  "telefone": "32 985072121",
-  "endereco": "Andritz Araquara",
-  "cidade": "Araraquara",
-  "estado": "SP",
+  "telefone": "(32) 98507-2121",
+  "fiscalizacao": "",
+  "nome_fiscal": "",
+  "assinatura_arquivo": "template/assinaturas/Luís_Gustavo_de_Almeida.jpg",
+  "logo_arquivo": "template/logos/Megawatt_Sistemas.png",
   "meta": {
-    "ultima_edicao_iso": "2026-06-19T00:01:46.134149+00:00"
+    "ultima_edicao_iso": "2026-09-11T07:43:09.136149+00:00"
   }
 }
