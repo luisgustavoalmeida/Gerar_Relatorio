@@ -61,11 +61,14 @@ def extrair_sugestoes_do_match(match: dict[str, Any]) -> list[str]:
     return saida
 
 
-def verificar_com_languagetool(texto: str, idioma: str = IDIOMA_PADRAO) -> list[dict[str, Any]]:
+def verificar_com_languagetool(
+    texto: str, idioma: str = IDIOMA_PADRAO
+) -> list[dict[str, Any]] | None:
     """
     Envia o texto ao LanguageTool e devolve a lista ``matches`` (offset, length, message, …).
 
-    Em falha de rede ou limite do serviço, devolve lista vazia (sem levantar exceção).
+    Texto vazio devolve lista vazia. Em falha de rede ou limite do serviço devolve
+    ``None``, para a interface não apagar marcas já visíveis.
     """
     amostra = texto if len(texto) <= TAMANHO_MAXIMO_CARACTERES else texto[:TAMANHO_MAXIMO_CARACTERES]
     if not amostra.strip():
@@ -101,6 +104,6 @@ def verificar_com_languagetool(texto: str, idioma: str = IDIOMA_PADRAO) -> list[
         json.JSONDecodeError,
         ValueError,
     ):
-        return []
+        return None
 
     return list(corpo.get("matches") or [])

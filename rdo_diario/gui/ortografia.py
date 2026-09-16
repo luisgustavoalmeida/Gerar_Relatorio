@@ -127,7 +127,7 @@ class MixinOrtografia:
         indice_inicio: str,
         indice_fim: str,
     ) -> None:
-        """Guarda o trecho no dicionário local e volta a analisar o campo (ignora maiúsculas)."""
+        """Guarda o trecho no dicionário local e remove as marcas correspondentes de imediato."""
         if not trecho.strip():
             return
         try:
@@ -136,8 +136,10 @@ class MixinOrtografia:
             atual = ""
         if atual.casefold() != trecho.casefold():
             trecho = atual or trecho
-        if adicionar_palavra(trecho):
-            self._conjunto_dicionario_ortografia = conjunto_para_filtragem()
+        adicionada = adicionar_palavra(trecho)
+        self._conjunto_dicionario_ortografia = conjunto_para_filtragem()
+        self._remover_alvos_com_trecho(widget, trecho)
+        if adicionada:
             messagebox.showinfo(
                 "Dicionário pessoal",
                 f"«{trecho}» foi adicionado. Os avisos para esta forma deixam de aparecer.",
@@ -149,7 +151,7 @@ class MixinOrtografia:
                 f"«{trecho}» já estava no dicionário.",
                 parent=self,
             )
-        self._executar_verificacao_ortografia(widget)
+        self._agendar_verificacao_ortografia(widget)
 
     def _abrir_dialogo_dicionario_ortografia(self) -> None:
         """Janela para listar, acrescentar e remover entradas do ficheiro JSON local."""
@@ -219,6 +221,86 @@ class MixinOrtografia:
         ctk.CTkButton(botoes, text="Cancelar", command=topo.destroy).pack(side="right", padx=(0, 8))
         entrada.bind("<Return>", lambda _e: acrescentar())
 
+    def _offset_de_indice_tk(self, widget: ctk.CTkTextbox, indice: str) -> int | None:
+        """Posição em caracteres (0-based) do índice Tk no texto atual do campo."""
+        try:
+            return len(widget.get("1.0", indice))
+        except tk.TclError:
+            return None
+
+    def _invalidar_jobs_ortografia_em_voo(self, widget: ctk.CTkTextbox) -> None:
+        """Descarta resultados de pedidos LanguageTool ainda em curso neste campo."""
+        wid = id(widget)
+        self._ortografia_job_id_por_widget[wid] = self._ortografia_job_id_por_widget.get(wid, 0) + 1
+
+    def _repintar_marcas_ortografia(self, widget: ctk.CTkTextbox, alvos: list[dict[str, Any]]) -> None:
+        """Substitui as marcas vermelhas pelas faixas em ``alvos`` (sem consultar a API)."""
+        caixa = texto_interno_campo(widget)
+        try:
+            caixa.tag_remove(self.TAG_ERRO_ORTOGRAFIA, "1.0", tk.END)
+        except tk.TclError:
+            return
+        validos: list[dict[str, Any]] = []
+        for alvo in alvos:
+            try:
+                caixa.tag_add(self.TAG_ERRO_ORTOGRAFIA, alvo["inicio"], alvo["fim"])
+            except tk.TclError:
+                continue
+            validos.append(alvo)
+        self._ortografia_alvos_por_widget[id(widget)] = validos
+
+    def _remover_alvos_com_trecho(self, widget: ctk.CTkTextbox, trecho: str) -> None:
+        """Tira as marcas cujo texto coincide com ``trecho`` (sem diferenciar maiúsculas)."""
+        chave = trecho.casefold().strip()
+        if not chave:
+            return
+        wid = id(widget)
+        restantes: list[dict[str, Any]] = []
+        for alvo in self._ortografia_alvos_por_widget.get(wid) or []:
+            try:
+                atual = widget.get(alvo["inicio"], alvo["fim"])
+            except tk.TclError:
+                continue
+            if atual.casefold().strip() == chave:
+                continue
+            restantes.append(alvo)
+        self._invalidar_jobs_ortografia_em_voo(widget)
+        self._repintar_marcas_ortografia(widget, restantes)
+
+    def _atualizar_alvos_apos_substituicao(
+        self,
+        widget: ctk.CTkTextbox,
+        offset: int,
+        comprimento_antigo: int,
+        comprimento_novo: int,
+        alvos_offsets: list[tuple[int, int, dict[str, Any]]],
+    ) -> None:
+        """Recalcula índices das marcas restantes após uma correção local."""
+        try:
+            texto_novo = widget.get("1.0", "end-1c")
+        except tk.TclError:
+            return
+        delta = comprimento_novo - comprimento_antigo
+        fim_antigo = offset + comprimento_antigo
+        novos: list[dict[str, Any]] = []
+        for o0, o1, alvo in alvos_offsets:
+            if not (o1 <= offset or o0 >= fim_antigo):
+                continue
+            if o0 >= fim_antigo:
+                o0 += delta
+                o1 += delta
+            if o0 < 0 or o1 > len(texto_novo) or o0 >= o1:
+                continue
+            novos.append(
+                {
+                    "inicio": offset_caractere_para_indice_tk(texto_novo, o0),
+                    "fim": offset_caractere_para_indice_tk(texto_novo, o1),
+                    "mensagem": alvo.get("mensagem") or "",
+                    "sugestoes": list(alvo.get("sugestoes") or []),
+                }
+            )
+        self._repintar_marcas_ortografia(widget, novos)
+
     def _aplicar_sugestao_ortografia(
         self,
         widget: ctk.CTkTextbox,
@@ -226,18 +308,36 @@ class MixinOrtografia:
         indice_fim: str,
         texto_corrigido: str,
     ) -> None:
-        """Substitui o trecho marcado pela sugestão escolhida e volta a verificar o campo."""
-        caixa = texto_interno_campo(widget)
+        """Substitui o trecho marcado e ajusta as outras marcas sem nova consulta à API."""
+        offset = self._offset_de_indice_tk(widget, indice_inicio)
+        try:
+            trecho_antigo = widget.get(indice_inicio, indice_fim)
+        except tk.TclError:
+            return
+        if offset is None:
+            return
+        alvos_offsets: list[tuple[int, int, dict[str, Any]]] = []
+        for alvo in self._ortografia_alvos_por_widget.get(id(widget)) or []:
+            o0 = self._offset_de_indice_tk(widget, alvo["inicio"])
+            o1 = self._offset_de_indice_tk(widget, alvo["fim"])
+            if o0 is None or o1 is None or o0 >= o1:
+                continue
+            alvos_offsets.append((o0, o1, alvo))
         try:
             widget.delete(indice_inicio, indice_fim)
             widget.insert(indice_inicio, texto_corrigido)
         except tk.TclError:
             return
-        wid = id(widget)
-        self._ortografia_alvos_por_widget.pop(wid, None)
-        caixa.tag_remove(self.TAG_ERRO_ORTOGRAFIA, "1.0", tk.END)
+        self._invalidar_jobs_ortografia_em_voo(widget)
+        self._atualizar_alvos_apos_substituicao(
+            widget,
+            offset,
+            len(trecho_antigo),
+            len(texto_corrigido),
+            alvos_offsets,
+        )
         self._agendar_salvamento_automatico()
-        self._executar_verificacao_ortografia(widget)
+        self._agendar_verificacao_ortografia(widget)
 
     def _agendar_verificacao_ortografia(self, widget: ctk.CTkTextbox) -> None:
         """Agenda verificação após pausa na digitação (evita exceder o limite gratuito da API)."""
@@ -286,7 +386,8 @@ class MixinOrtografia:
                 except tk.TclError:
                     return
                 if atual != texto_ref:
-                    self._ortografia_alvos_por_widget.pop(wid, None)
+                    return
+                if correspondencias is None:
                     return
                 caixa.tag_remove(self.TAG_ERRO_ORTOGRAFIA, "1.0", tk.END)
                 alvos: list[dict[str, Any]] = []
