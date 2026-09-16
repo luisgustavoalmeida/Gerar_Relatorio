@@ -4,12 +4,12 @@
   "aplicacao": {
     "nome": "Gerar Relatório",
     "nome_completo": "Gerar Relatório Diário de Obra (RDO)",
-    "versao": "1.0.6",
-    "data_versao": "2026-09-11",
+    "versao": "1.0.7",
+    "data_versao": "2026-09-16",
     "versao_formato_dados": 1,
-    "descricao": "Aplicação desktop para registo de atividades diárias em projetos de engenharia e serviços. Inclui cabeçalho fixo reutilizável, assinatura e logo da empresa nas planilhas, calendário com código de cores, controlo de horários de ponto (incluindo turnos que atravessam meia-noite), deslocamento opcional nas horas, cálculo automático de métricas, verificação ortográfica e exportação para planilhas Excel (RDO e Folha de Tempo).",
+    "descricao": "Aplicação desktop para registo de atividades diárias em projetos de engenharia e serviços. Inclui cabeçalho fixo reutilizável, assinatura e logo da empresa nas planilhas, calendário com código de cores, controlo de horários de ponto (incluindo turnos que atravessam meia-noite), deslocamento opcional nas horas, cálculo automático de métricas, verificação ortográfica, assistente de reescrita com Google Gemini e exportação para planilhas Excel (RDO e Folha de Tempo).",
     "data_lancamento": "2026-04-01",
-    "ultima_atualizacao": "2026-09-11",
+    "ultima_atualizacao": "2026-09-16",
     "plataforma": "Windows 10 ou superior",
     "python_minimo": "3.12 ou superior"
   },
@@ -33,23 +33,30 @@
   },
   "funcionalidades": [
     "Gestão de projetos: novo, editar chave (contratante + natureza), arquivar/desarquivar (dados_rdo/rdo_arquivados/), excluir e troca no combobox superior",
-    "Calendário mensal com código de cores (verde/laranja conforme registro e ponto; feriado em vermelho; dia em edição azul; hoje em negrito; legenda expansível com +)",
+    "Calendário mensal com código de cores (verde/laranja conforme registro e ponto; feriado em vermelho; dia em edição azul; hoje em negrito; legenda expansível com +); coluna partilhada entre Relatórios e Assistente IA",
     "Tooltip com o nome do feriado ao passar o rato sobre dias marcados em vermelho",
     "Numeração automática no mês (numero, folha e rótulo «No mês: X de Y») exportada para o Excel",
     "Cabeçalho fixo reutilizável por projeto (13 campos) com salvar/carregar modelo em template/modelo_cabecalho.json, incluindo assinatura e logo",
     "Assinatura do funcionário e logo da contratada na aba Cabeçalhos; inserção automática no Excel (RDO e FT) sem distorcer a imagem",
     "Registro diário: serviço, extra-escopo, ociosidade, tempo de serviço calculado e horários de ponto/deslocamento",
+    "Assistente IA (Gemini): rascunho por dia, reescrita editável, prompts globais, histórico configurável, rodízio de chaves persistente, contexto de cabeçalho seleccionável",
     "Campos de texto adaptáveis: registro de serviço cresce com a janela; extra-escopo e ociosidade expandem ao receber foco",
+    "Desfazer/refazer (Ctrl+Z / Ctrl+Y) em campos de texto e entradas",
     "Turnos que atravessam meia-noite (ex.: 22:00→06:00) com horas e adicional noturno nos dois lados da meia-noite",
     "Deslocamento (Ida/Volta) como duração; caixa «Incluir Deslocamento» para somar nas métricas e antecipar/atrasar ponto na Folha de Tempo",
     "Métricas de horas do dia, do mês e totais acumulados do projeto (inclui linha de deslocamento; painel rolável)",
-    "Verificação ortográfica e gramatical (LanguageTool, pt-BR) com dicionário pessoal editável",
+    "Verificação ortográfica e gramatical (LanguageTool, pt-BR) com dicionário pessoal editável (também no Assistente IA e no editor de prompts)",
     "Sincronização de feriados nacionais do Brasil (biblioteca holidays)",
     "Exportação Excel RDO e FT por mês em edição ou por todos os meses com registos (métricas FT recalculadas na exportação)",
     "Tema claro/escuro (Exibir), paleta em tema_aplicacao.json e preferências em template/config_usuario.json",
-    "Auto-save (~1,2 s), validação de horários em tempo real e menus Arquivo, Revisão, Horas, Exibir e Ajuda"
+    "Auto-save (~1,2 s), validação de horários em tempo real e menus Arquivo, Revisão, IA, Horas, Exibir e Ajuda"
   ],
   "historico_versoes": [
+    {
+      "versao": "1.0.7",
+      "data": "2026-09-16",
+      "notas": "Assistente IA reforçado: gestão intuitiva de chaves Gemini (lista adicionar/remover), rodízio persistente entre sessões, prompt 100% editável, filtro de histórico por caracteres mínimos, escolha dos campos de cabeçalho no contexto do prompt, menu Ver conversa com a API, calendário lateral partilhado, desfazer/refazer, ortografia no rascunho/prompt e compilação .exe com template de modelo (config, assinaturas e logos)."
+    },
     {
       "versao": "1.0.6",
       "data": "2026-09-11",
@@ -89,12 +96,14 @@
   "requisitos": [
     "Windows 10 ou superior",
     "Python 3.12+ (ambiente virtual .venv ou executável compilado com PyInstaller)",
-    "Conexão à internet para verificação ortográfica (LanguageTool)",
+    "Conexão à internet para verificação ortográfica (LanguageTool) e para o Assistente IA (Google Gemini)",
+    "Chave(s) Gemini em template/.env (GEMINI_API_KEYS)",
     "Microsoft Excel ou compatível para abrir os relatórios gerados (.xlsx)"
   ],
   "tecnologias": [
     { "nome": "Python 3.12+ / CustomTkinter", "uso": "Interface gráfica principal (tema claro/escuro)" },
     { "nome": "tkcalendar", "uso": "Calendário mensal com seleção de data" },
+    { "nome": "google-genai", "uso": "Assistente IA — reescrita de relatórios com Gemini" },
     { "nome": "openpyxl / Pillow", "uso": "Exportação RDO/FT (.xlsx) e inserção de assinatura/logo nas planilhas" },
     { "nome": "holidays", "uso": "Feriados nacionais do Brasil" },
     { "nome": "LanguageTool", "uso": "Ortografia e gramática (serviço online, pt-BR)" },
@@ -102,12 +111,14 @@
   ],
   "pastas_principais": [
     "dados_rdo/ — um ficheiro JSON por projeto vigente; subpasta rdo_arquivados/ para projectos arquivados",
-    "template/ — modelos Excel, mapa de células, regras, modelo de cabeçalho, assinaturas/, logos/, ajuda e tema",
-    "saida_relatorios/ — relatórios Excel gerados por contratante/natureza (criada automaticamente)"
+    "template/ — modelos Excel, mapa de células, regras, modelo de cabeçalho, assinaturas/, logos/, ajuda, tema e config_usuario.json",
+    "saida_relatorios/ — relatórios Excel gerados por contratante/natureza (criada automaticamente)",
+    ".env — chaves Gemini (GEMINI_API_KEYS); não embutido no .exe"
   ],
   "suporte": [
     "Manual de utilização: menu Ajuda → Manual (template/manual.json)",
     "Informações desta janela: menu Ajuda → Sobre (template/sobre.json)",
+    "Configuração da IA: menu IA → Configurações Gemini...",
     "Problemas de instalação: consulte README.md (secção Solução de problemas)",
     "Regras de horas e feriados: menu Horas → Editar regras de horas e feriados",
     "Contacto do desenvolvedor: ver secção Criador acima"

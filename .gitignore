@@ -17,7 +17,11 @@ __pycache__/
 
 # Ambiente / segredos
 .env
+template/.env
 *.local
+Chave api IA google.txt
+*API*key*.txt
+*api*key*.txt
 
 # Dados preenchidos pelo usuário (local)
 dist/

@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING, Any
 import customtkinter as ctk
 
 from rdo_diario.calculo_metricas_horas import calcular_metricas_horas_para_dia
+from rdo_diario.gui.desfazer_refazer import preparar_widget_edicao, reiniciar_historico_desfazer_widget
 from rdo_diario.gui.tema import (
     COR_TEXTO_SECUNDARIO,
     FONT_CONTAGEM_MES,
@@ -46,7 +47,7 @@ from rdo_diario.schema import (
     extrair_horarios_do_registro_dia,
     definir_padrao_incluir_deslocamento_projeto,
     nome_dia_semana_portugues,
-    registro_de_dia_possui_conteudo,
+    registro_de_dia_possui_conteudo_para_persistencia,
     valor_incluir_deslocamento_para_dia,
 )
 
@@ -98,17 +99,28 @@ class MixinFormularioDia:
     ) -> tuple[ctk.CTkFrame, ctk.CTkFrame, ctk.CTkFrame]:
         return criar_painel_ctk_com_titulo(pai, titulo, compacto=compacto)
 
-    def _ligar_ortografia_caixa(self, texto: ctk.CTkTextbox) -> None:
+    def _ligar_ortografia_caixa(
+        self,
+        texto: ctk.CTkTextbox,
+        *,
+        autosave: bool = True,
+    ) -> None:
         interno = texto_interno_campo(texto)
         interno.tag_configure(
             self.TAG_ERRO_ORTOGRAFIA,
             foreground=obter_cores_tema()["erro"],
             underline=True,
         )
-        interno.bind(
-            "<KeyRelease>",
-            lambda e, w=texto: self._ao_tecla_released_campo_relatorio(w, e),
-        )
+        if autosave:
+            interno.bind(
+                "<KeyRelease>",
+                lambda e, w=texto: self._ao_tecla_released_campo_relatorio(w, e),
+            )
+        else:
+            interno.bind(
+                "<KeyRelease>",
+                lambda _e, w=texto: self._agendar_verificacao_ortografia(w),
+            )
         interno.bind("<Button-3>", lambda e, w=texto: self._menu_correcoes_ortografia(w, e))
         interno.bind(
             "<Control-Button-1>",
@@ -131,6 +143,7 @@ class MixinFormularioDia:
             recipiente.pack(fill="x", expand=False, pady=(1, 0))
         recipiente.pack_propagate(False)
         texto = ctk.CTkTextbox(recipiente, **opcoes_caixa_texto_ctk(altura_px=altura_px))
+        preparar_widget_edicao(texto)
         texto.pack(fill="both", expand=True)
 
         def _sincronizar_altura(_evento: tk.Event | None = None) -> None:
@@ -164,6 +177,7 @@ class MixinFormularioDia:
             side="left", padx=(0, 6)
         )
         entrada = ctk.CTkEntry(pai, **opcoes_campo_entrada_ctk(largura=_LARGURA_CAMPO_ENTRADA))
+        preparar_widget_edicao(entrada)
         entrada.pack(side="left")
         aplicar_validacao_entrada_ctk(entrada, self._comando_validacao_entrada_duracao)
         entrada.bind("<KeyRelease>", self._ao_tecla_solta_campo_duracao)
@@ -422,6 +436,7 @@ class MixinFormularioDia:
                 side="left", padx=(0, 4)
             )
             ent = ctk.CTkEntry(bloco, **opcoes_campo_entrada_ctk(largura=_LARGURA_CAMPO_ENTRADA))
+            preparar_widget_edicao(ent)
             ent.pack(side="left")
             aplicar_validacao_entrada_ctk(ent, self._comando_validacao_entrada_hora)
             ent.bind("<KeyRelease>", self._ao_tecla_solta_campo_hora)
@@ -629,6 +644,8 @@ class MixinFormularioDia:
 
     def _montar_dicionario_dia_desde_formulario(self: AplicacaoRdo) -> dict[str, Any]:
         saida = self._payload_formulario_dia_sem_contagem_mes()
+        if hasattr(self, "_payload_ia_dia"):
+            saida.update(self._payload_ia_dia())
         saida[CHAVE_JSON_METRICAS_HORAS] = calcular_metricas_horas_para_dia(
             self._data_em_edicao, saida, self._config_regras_horas
         )
@@ -643,6 +660,8 @@ class MixinFormularioDia:
             valor = str(registro.get(campo, "") or "")
             widget.delete("1.0", "end")
             widget.insert("1.0", valor)
+        if hasattr(self, "_preencher_campos_ia_com_registro"):
+            self._preencher_campos_ia_com_registro(registro)
         for campo, widget in self._widgets_tempo_atividade.items():
             widget.delete(0, "end")
             bruto = str(registro.get(campo, "") or "").strip()
@@ -668,7 +687,21 @@ class MixinFormularioDia:
             )
         self._atualizar_rotulo_jornada_liquida()
         self._atualizar_rotulo_contagem_relatorios_mes()
-        for w in self._widgets_campos_dia.values():
+        for widget in (
+            *self._widgets_campos_dia.values(),
+            *self._widgets_tempo_atividade.values(),
+            *self._widgets_horarios.values(),
+        ):
+            reiniciar_historico_desfazer_widget(widget)
+        for nome in ("_widget_ia_rascunho", "_widget_ia_saida"):
+            caixa = getattr(self, nome, None)
+            if caixa is not None:
+                reiniciar_historico_desfazer_widget(caixa)
+        if hasattr(self, "_iter_caixas_texto_ortografia"):
+            caixas_ortografia = self._iter_caixas_texto_ortografia()
+        else:
+            caixas_ortografia = list(self._widgets_campos_dia.values())
+        for w in caixas_ortografia:
             self.after(600, lambda x=w: self._executar_verificacao_ortografia(x))
 
     def _limpar_informacoes_dia_em_edicao(self: AplicacaoRdo) -> None:
@@ -704,7 +737,7 @@ class MixinFormularioDia:
         iso = self._data_em_edicao.isoformat()
         registros = self._documento_atual.setdefault("registros_diarios", {})
         dados = self._montar_dicionario_dia_desde_formulario()
-        if registro_de_dia_possui_conteudo(dados):
+        if registro_de_dia_possui_conteudo_para_persistencia(dados):
             registros[iso] = dados
         elif iso in registros:
             del registros[iso]

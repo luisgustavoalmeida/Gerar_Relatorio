@@ -25,6 +25,7 @@ from rdo_diario.config_horas import (
     salvar_config_regras_horas,
     sincronizar_feriados_brasil,
 )
+from rdo_diario.gui.desfazer_refazer import preparar_widget_edicao
 from rdo_diario.gui.menu_barra import EntradaMenuBarra, MenuSuspensoCtk, criar_barra_menu_ctk
 from rdo_diario.gui.tema import opcoes_texto_tk_embutido
 from rdo_diario.paths import (
@@ -55,6 +56,7 @@ class MixinMenu:
             [
                 ("Arquivo", self._itens_menu_arquivo()),
                 ("Revisão", self._itens_menu_revisao()),
+                ("IA", self._itens_menu_ia()),
                 ("Horas", self._itens_menu_horas()),
                 ("Exibir", self._itens_menu_exibir()),
                 ("Ajuda", self._itens_menu_ajuda()),
@@ -132,6 +134,12 @@ class MixinMenu:
                 "Abrir pasta do arquivo de regras",
                 self._abrir_pasta_config_regras_horas,
             ),
+        ]
+
+    def _itens_menu_ia(self) -> list[EntradaMenuBarra]:
+        return [
+            EntradaMenuBarra("Ver conversa com a API...", self._abrir_conversa_api_ia),
+            EntradaMenuBarra("Configurações Gemini...", self._abrir_configuracoes_ia),
         ]
 
     def _itens_menu_exibir(self) -> list[EntradaMenuBarra]:
@@ -235,6 +243,7 @@ class MixinMenu:
             **opcoes_texto_tk_embutido(),
         )
         texto.pack(fill="both", expand=True)
+        preparar_widget_edicao(texto)
         try:
             texto.insert("1.0", json.dumps(self._config_regras_horas, ensure_ascii=False, indent=2))
         except (TypeError, ValueError):

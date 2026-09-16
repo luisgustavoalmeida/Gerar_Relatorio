@@ -322,9 +322,18 @@ class MixinOrtografia:
 
         threading.Thread(target=trabalho_em_thread, daemon=True).start()
 
+    def _iter_caixas_texto_ortografia(self) -> list[ctk.CTkTextbox]:
+        """Campos multilinha com LanguageTool: relatório diário e assistente IA."""
+        caixas = list(self._widgets_campos_dia.values())
+        for attr in ("_widget_ia_rascunho", "_widget_ia_saida"):
+            widget = getattr(self, attr, None)
+            if widget is not None:
+                caixas.append(widget)
+        return caixas
+
     def _verificar_ortografia_todos_campos_relatorio(self) -> None:
-        """Dispara verificação imediata em todos os campos de texto do dia (serviço, extra, ociosidade)."""
-        for _campo, widget in self._widgets_campos_dia.items():
+        """Dispara verificação imediata nos campos de texto do relatório e do assistente IA."""
+        for widget in self._iter_caixas_texto_ortografia():
             wid = id(widget)
             anterior = self._ortografia_timers_por_widget.pop(wid, None)
             if anterior is not None:
@@ -342,7 +351,8 @@ class MixinOrtografia:
             "• O texto dos relatórios é enviado pela internet para análise.\n"
             "• Há limite de uso por IP; a verificação automática só corre alguns segundos após "
             "parar de digitar.\n"
-            "• Erros aparecem a vermelho e sublinhados nos três campos de texto do relatório.\n"
+            "• Erros aparecem a vermelho e sublinhados nos campos de texto do relatório, do "
+            "Assistente IA e do texto do prompt nas Configurações Gemini.\n"
             "• Clique com o botão direito (ou Ctrl+clique no Mac) num trecho vermelho para ver "
             "todas as sugestões de correção e aplicar uma delas.\n"
             "• Use «Dicionário pessoal» no menu Revisão para palavras e siglas que não devem ser "

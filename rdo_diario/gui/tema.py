@@ -19,7 +19,7 @@ NOME_ESTILO_TTK = "Rdo"
 CHAVE_TEMA = "tema_aparencia"
 CHAVE_GEOMETRIA_JANELA = "geometria_janela"
 CHAVE_ABA_ATIVA = "aba_ativa"
-_ABAS_PRINCIPAIS_VALIDAS = frozenset({"Cabeçalhos", "Relatórios de trabalho"})
+_ABAS_PRINCIPAIS_VALIDAS = frozenset({"Cabeçalhos", "Relatórios de trabalho", "Assistente IA"})
 MODO_ATUAL: ModoAparencia = "dark"
 
 
@@ -756,6 +756,30 @@ def opcoes_caixa_texto_ctk(*, altura_px: int) -> dict[str, Any]:
         "wrap": "word",
         "activate_scrollbars": True,
     }
+
+
+def opcoes_botao_ctk() -> dict[str, Any]:
+    """Fonte alinhada aos rótulos e campos do relatório diário."""
+    return {"font": FONT_INTERFACE}
+
+
+def aplicar_estilo_caixa_texto_ctk(
+    widget: ctk.CTkTextbox,
+    *,
+    altura_px: int | None = None,
+) -> None:
+    """Repõe cores e fonte padrão no ``CTkTextbox`` (o texto interno segue o CTk)."""
+    try:
+        h = altura_px if altura_px is not None else int(float(widget.cget("height")))
+    except (tk.TclError, ValueError, TypeError):
+        h = 120
+    opcoes = opcoes_caixa_texto_ctk(altura_px=h)
+    widget.configure(
+        font=opcoes["font"],
+        border_color=opcoes["border_color"],
+        fg_color=opcoes["fg_color"],
+        text_color=opcoes["text_color"],
+    )
 
 
 def opcoes_campo_entrada_ctk(*, largura: int | None = None) -> dict[str, Any]:

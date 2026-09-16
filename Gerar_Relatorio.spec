@@ -4,7 +4,7 @@ PyInstaller spec — Gerar Relatório RDO (Windows, onefile).
 
 Gerar executável:
   compilar.bat
-  ou: pyinstaller --noconfirm --clean gerar_relatorio.spec
+  ou: pyinstaller --noconfirm --clean Gerar_Relatorio.spec
 """
 
 from pathlib import Path
@@ -19,6 +19,18 @@ block_cipher = None
 ctk_datas, ctk_binaries, ctk_hiddenimports = collect_all("customtkinter")
 tkcal_datas, tkcal_binaries, tkcal_hiddenimports = collect_all("tkcalendar")
 pil_datas, pil_binaries, pil_hiddenimports = collect_all("PIL")
+try:
+    genai_datas, genai_binaries, genai_hiddenimports = collect_all("google.genai")
+except Exception:
+    genai_datas, genai_binaries, genai_hiddenimports = [], [], ["google.genai", "google.genai.types"]
+
+# SSL/HTTP usados pelo google-genai (e indiretamente pela rede)
+httpx_datas, httpx_binaries, httpx_hiddenimports = collect_all("httpx")
+certifi_datas, certifi_binaries, certifi_hiddenimports = collect_all("certifi")
+try:
+    pydantic_datas, pydantic_binaries, pydantic_hiddenimports = collect_all("pydantic")
+except Exception:
+    pydantic_datas, pydantic_binaries, pydantic_hiddenimports = [], [], ["pydantic"]
 
 icon_ctk = None
 for candidato in (
@@ -35,10 +47,30 @@ if not icon_ctk:
         "Icone nao encontrado. Execute compilar.bat ou coloque build_resources\\icone_exe.ico"
     )
 
+
+def _datas_template_para_exe() -> list[tuple[str, str]]:
+    """Embute o template completo (modelos Excel, ajuda, config e imagens de exemplo)."""
+    pasta = ROOT / "template"
+    if not pasta.is_dir():
+        return []
+    saida: list[tuple[str, str]] = []
+    for caminho in pasta.rglob("*"):
+        if not caminho.is_file():
+            continue
+        # Mantém .gitkeep só para pastas vazias; imagens reais também entram como modelo.
+        relativo = caminho.relative_to(ROOT)
+        saida.append((str(relativo), str(relativo.parent).replace("\\", "/")))
+    return saida
+
+
 hiddenimports = (
     ctk_hiddenimports
     + tkcal_hiddenimports
     + pil_hiddenimports
+    + genai_hiddenimports
+    + httpx_hiddenimports
+    + certifi_hiddenimports
+    + pydantic_hiddenimports
     + [
         "PIL",
         "PIL.Image",
@@ -59,19 +91,31 @@ hiddenimports = (
         "openpyxl.workbook",
         "openpyxl.worksheet",
         "openpyxl.worksheet.worksheet",
+        "google.genai",
+        "google.genai.types",
+        "httpx",
+        "certifi",
+        "pydantic",
+        "anyio",
+        "sniffio",
+        "httpcore",
     ]
 )
 
+# NÃO embutir dados_rdo/ nem saida_relatorios/ (dados do utilizador / pesados).
+# São criados ao lado do .exe na primeira execução.
 datas = (
-    [
-        ("saida_relatorios", "saida_relatorios"),
-        ("template", "template"),
-        ("dados_rdo", "dados_rdo"),
+    _datas_template_para_exe()
+    + [
         ("build_resources/icone_exe.ico", "build_resources"),
     ]
     + ctk_datas
     + tkcal_datas
     + pil_datas
+    + genai_datas
+    + httpx_datas
+    + certifi_datas
+    + pydantic_datas
 )
 
 excludes = [
@@ -88,7 +132,15 @@ excludes = [
 a = Analysis(
     ["main.py"],
     pathex=[str(ROOT)],
-    binaries=ctk_binaries + tkcal_binaries + pil_binaries,
+    binaries=(
+        ctk_binaries
+        + tkcal_binaries
+        + pil_binaries
+        + genai_binaries
+        + httpx_binaries
+        + certifi_binaries
+        + pydantic_binaries
+    ),
     datas=datas,
     hiddenimports=hiddenimports,
     hookspath=[],

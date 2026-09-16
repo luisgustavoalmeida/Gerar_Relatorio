@@ -9,24 +9,27 @@
         "Na primeira execução, se não existir nenhum projeto, a aplicação mostra uma mensagem orientando a criar um em Arquivo → Novo projeto (contratante + natureza do serviço).",
         "Configure os dados fixos na aba Cabeçalhos.",
         "Na aba Relatórios de trabalho, selecione a data no calendário e preencha o registro do dia.",
-        "As pastas template/ (incluindo assinaturas/ e logos/), dados_rdo/ e saida_relatorios/ são criadas automaticamente ao lado do .exe na primeira execução (modo compilado)."
+        "Na aba Assistente IA, escreva um rascunho livre do dia e peça uma reescrita com Gemini (configure as chaves em IA → Configurações Gemini...; ficheiro template/.env com GEMINI_API_KEYS).",
+        "As pastas template/ (incluindo .env, assinaturas/ e logos/), dados_rdo/ e saida_relatorios/ são criadas automaticamente ao lado do .exe na primeira execução (modo compilado). As chaves Gemini ficam em template/.env (embutido no .exe se existir na compilação)."
       ]
     },
     {
       "titulo": "2. Interface principal",
       "lista": [
-        "Barra de menus: Arquivo, Revisão, Horas, Exibir e Ajuda (listas suspensas arredondadas).",
+        "Barra de menus: Arquivo, Revisão, IA, Horas, Exibir e Ajuda (listas suspensas arredondadas).",
         "Barra superior: combobox Cliente (contratante + natureza) para trocar de projeto vigente.",
         "Aba Cabeçalhos: 13 campos fixos, mais Assinatura e Logo da empresa, que alimentam as planilhas RDO e FT.",
         "Aba Relatórios de trabalho: formulário do dia à esquerda; calendário, legenda e métricas à direita.",
         "Campos de texto: Registro de serviço cresce com a janela; extra-escopo e ociosidade expandem ao receber foco e recolhem ao sair.",
+        "Aba Assistente IA: rascunho e reescrita do dia (mesma data do calendário lateral); configuração só em IA → Configurações Gemini.",
         "Painel Métricas (abaixo do calendário) é rolável — útil com altura mínima da janela.",
         "Exibir → Alternar tema claro/escuro: troca a aparência da interface (CustomTkinter).",
-        "Preferências locais em template/config_usuario.json: tema, geometria da janela, aba aberta e último projeto.",
+        "Preferências locais em template/config_usuario.json: tema, geometria da janela, aba aberta, último projeto e bloco assistente_ia.",
         "Paleta de cores editável em template/tema_aplicacao.json (sem recompilar).",
         "Geometria da janela (tamanho e posição) é memorizada ao redimensionar ou mover a janela; tamanho mínimo 1075×700 (abertura padrão 1075×900).",
-        "A última aba seleccionada (Cabeçalhos ou Relatórios de trabalho) é restaurada ao reabrir.",
+        "A última aba seleccionada (Cabeçalhos, Relatórios de trabalho ou Assistente IA) é restaurada ao reabrir.",
         "Auto-save: cerca de 1,2 s após parar de digitar, o documento é gravado automaticamente.",
+        "Desfazer/refazer: Ctrl+Z e Ctrl+Y nos campos editáveis.",
         "Ao trocar de data no calendário ou de projeto no combobox, o dia em edição é salvo antes.",
         "Ao fechar a janela, o documento em edição é salvo em silêncio.",
         "Validação em tempo real: horários (0830 → 08:30) e cores do calendário reflectem o formulário antes do auto-save."
@@ -94,10 +97,31 @@
       "titulo": "7. Registro diário",
       "lista": [
         "Registro serviço: descrição das actividades (campo principal).",
+        "Assistente IA: um rascunho por dia, salvo localmente no mesmo JSON do projeto; pode ser reescrito várias vezes e o resultado continua editável antes de uso.",
         "Registro extra-escopo e Tempo consumido nesta actividade (h:mm): actividades fora do escopo contratual.",
         "Registro ociosidade e Tempo consumido nesta actividade (h:mm): períodos de inactividade.",
         "Tempo de serviço (tempo_serviço): calculado automaticamente — horas trabalhadas − extra-escopo − ociosidade.",
         "Metadados automáticos por dia: data, data_dia (DD/MM/AAAA), dia_semana, metricas_horas, numero e folha."
+      ]
+    },
+    {
+      "titulo": "7.1. Assistente IA (Gemini)",
+      "lista": [
+        "Escreva o rascunho livre do dia na aba Assistente IA; o texto fica salvo no JSON do projeto mesmo sem internet.",
+        "O calendário lateral é o mesmo da aba Relatórios de trabalho — a data seleccionada aplica-se às duas abas.",
+        "Toda a configuração (chaves, modelo, prompts, histórico e contexto) fica em IA → Configurações Gemini...",
+        "Botão Reescrever com Gemini: envia o prompt editável seleccionado, o contexto de cabeçalho marcado, o histórico filtrado e o rascunho do dia.",
+        "O texto enviado à API é só o prompt que você edita nas configurações (sem envelope fixo do sistema), mais o contexto operacional do dia.",
+        "Dias de histórico: 0 usa só o rascunho actual; só entram dias anteriores com registro_servico preenchido.",
+        "Ignorar histórico com menos de N caracteres: descarta dias curtos demais (0 = não filtrar).",
+        "Remover 1.º ou último parágrafo do histórico: útil quando os registros antigos têm aberturas ou fechos repetitivos.",
+        "Contexto do cabeçalho: marque quais campos do cabeçalho do projeto entram no prompt (padrão: só Natureza do serviço).",
+        "Texto reescrito: continua editável; Use este texto para aplicar em Registro serviço, extra-escopo ou ociosidade.",
+        "Chaves Gemini: lista com Adicionar/Remover; gravadas em .env (GEMINI_API_KEYS, uma chave por linha). Conta fixa ou Rodízio a cada reescrita (o índice do rodízio persiste ao fechar o app).",
+        "Em erro 429/cota, a chave entra em cooldown temporário e a aplicação tenta a próxima automaticamente.",
+        "IA → Ver conversa com a API...: mostra o prompt completo enviado e a resposta da última reescrita do dia seleccionado.",
+        "Ortografia (LanguageTool) também nos campos de rascunho, texto reescrito e no editor de prompts das configurações.",
+        "Desfazer/refazer: Ctrl+Z e Ctrl+Y (ou Ctrl+Shift+Z) nos campos de texto e entradas."
       ]
     },
     {
@@ -140,10 +164,10 @@
       "lista": [
         "LanguageTool (português do Brasil) via internet; texto enviado ao serviço público gratuito.",
         "Verificação automática após cerca de 2,8 s sem digitar (evita exceder limite de uso por IP).",
-        "Erros aparecem sublinhados em vermelho nos três campos de texto do relatório.",
+        "Erros aparecem sublinhados em vermelho nos campos de texto do relatório e também no Assistente IA (rascunho e texto reescrito).",
         "Botão direito (ou Ctrl+clique) no trecho marcado: sugestões e opção de adicionar ao dicionário pessoal.",
         "Revisão → Dicionário pessoal: janela para adicionar, remover ou consultar palavras e siglas ignoradas (template/_dicionario_ortografia.json).",
-        "Verificar ortografia e gramática agora: verificação imediata em todos os campos de texto do dia.",
+        "Verificar ortografia e gramática agora: verificação imediata em todos os campos de texto do dia (inclui Assistente IA).",
         "Sobre a verificação ortográfica: privacidade, limites e funcionamento do LanguageTool."
       ]
     },
@@ -151,6 +175,13 @@
       "titulo": "12. Menu Exibir",
       "lista": [
         "Alternar tema claro/escuro: muda cores da interface; preferência gravada em template/config_usuario.json."
+      ]
+    },
+    {
+      "titulo": "12.1. Menu IA",
+      "lista": [
+        "Ver conversa com a API...: abre a última troca (prompt completo e resposta) do dia seleccionado no calendário.",
+        "Configurações Gemini...: chaves, rodízio, modelo, histórico, filtro por caracteres, campos de cabeçalho no contexto e prompts globais."
       ]
     },
     {
@@ -172,7 +203,7 @@
       "titulo": "14. Pastas principais",
       "lista": [
         "dados_rdo/ — um JSON por projeto vigente; subpasta rdo_arquivados/ para projectos arquivados.",
-        "template/ — modelos Excel (RDO.xlsx, FT.xlsx), mapa_celulas_excel.json, modelo_cabecalho.json, assinaturas/, logos/, config_regras_horas.json, config_usuario.json, manual.json, sobre.json, tema_aplicacao.json e _dicionario_ortografia.json.",
+        "template/ — modelos Excel (RDO.xlsx, FT.xlsx), mapa_celulas_excel.json, modelo_cabecalho.json, .env (chaves Gemini), assinaturas/, logos/, config_regras_horas.json, config_usuario.json (inclui assistente_ia), manual.json, sobre.json, tema_aplicacao.json e _dicionario_ortografia.json.",
         "saida_relatorios/ — relatórios Excel gerados (criada automaticamente)."
       ]
     },

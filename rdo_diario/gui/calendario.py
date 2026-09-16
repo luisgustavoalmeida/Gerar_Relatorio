@@ -700,7 +700,6 @@ class MixinCalendario:
             try:
                 canvas = area._parent_canvas
                 canvas.configure(scrollregion=canvas.bbox("all"))
-                # Dispara yscrollcommand (mostra/esconde a barra).
                 canvas.yview_moveto(canvas.yview()[0])
             except tk.TclError:
                 pass
@@ -711,24 +710,35 @@ class MixinCalendario:
         """Ao mudar mês/ano no calendário, repõe feriados (vermelho) e marcas de registo."""
         self._atualizar_marcadores_calendario()
 
-    def _ao_selecionar_data_calendario(self, _evento: tk.Event | None = None) -> None:
+    def _ao_selecionar_data_calendario(self, evento: tk.Event | None = None) -> None:
         """Quando o usuário escolhe outro dia no calendário, persiste o anterior e carrega o novo."""
-        if not self._widget_calendario:
+        cal = None
+        if evento is not None and isinstance(getattr(evento, "widget", None), Calendar):
+            cal = evento.widget
+        if cal is None:
+            cal = self._widget_calendario
+        if cal is None:
             return
-        nova = self._widget_calendario.selection_get()
+        nova = cal.selection_get()
         if nova == self._data_em_edicao:
             return
         self._alterar_data_em_edicao(nova)
+
+    def _sincronizar_calendarios_com_data_edicao(self) -> None:
+        """Alinha mês/seleção do calendário com a data em edição."""
+        if not self._widget_calendario:
+            return
+        try:
+            self._widget_calendario.see(self._data_em_edicao)
+            self._widget_calendario.selection_set(self._data_em_edicao)
+        except tk.TclError:
+            pass
 
     def _alterar_data_em_edicao(self: AplicacaoRdo, nova_data: date) -> None:
         """Atualiza a data em edição, sincroniza o calendário e o formulário."""
         self._persistir_dia_atual_no_documento()
         self._data_em_edicao = nova_data
-        if self._widget_calendario:
-            try:
-                self._widget_calendario.selection_set(nova_data)
-            except tk.TclError:
-                pass
+        self._sincronizar_calendarios_com_data_edicao()
         self._atualizar_rotulo_data_selecionada()
         self._carregar_registro_dia_no_formulario(nova_data)
         self._atualizar_marcadores_calendario()
@@ -741,11 +751,11 @@ class MixinCalendario:
 
     def _atualizar_rotulo_data_selecionada(self) -> None:
         """Mostra data e dia da semana no rótulo acima do formulário."""
-        if self._rotulo_texto_data:
-            d = self._data_em_edicao
-            self._rotulo_texto_data.configure(
-                text=f"{d.strftime('%d/%m/%Y')} ({nome_dia_semana_portugues(d)})"
-            )
+        d = self._data_em_edicao
+        texto = f"{d.strftime('%d/%m/%Y')} ({nome_dia_semana_portugues(d)})"
+        for rotulo in (self._rotulo_texto_data, getattr(self, "_rotulo_texto_data_ia", None)):
+            if rotulo:
+                rotulo.configure(text=texto)
 
     def _registros_diarios_efetivos_para_contagem(self: AplicacaoRdo) -> dict[str, Any]:
         """
@@ -785,10 +795,14 @@ class MixinCalendario:
         if not self._rotulo_contagem_mes:
             return
         if not self._documento_atual:
-            self._rotulo_contagem_mes.configure(text="No mês: —")
-            return
-        _pos, _tot, folha = self._calcular_numero_e_folha_mes()
-        self._rotulo_contagem_mes.configure(text=f"No mês: {folha}")
+            texto = "No mês: —"
+        else:
+            _pos, _tot, folha = self._calcular_numero_e_folha_mes()
+            texto = f"No mês: {folha}"
+        self._rotulo_contagem_mes.configure(text=texto)
+        rotulo_ia = getattr(self, "_rotulo_contagem_mes_ia", None)
+        if rotulo_ia is not None:
+            rotulo_ia.configure(text=texto)
 
     def _pintar_dias_com_registro_no_calendario(self, cal: Calendar) -> None:
         """

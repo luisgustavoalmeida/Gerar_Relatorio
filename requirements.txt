@@ -2,6 +2,9 @@
 customtkinter>=5.2.2
 tkcalendar>=1.6.1
 
+# Reescrita IA com Google Gemini
+google-genai>=1.32.0
+
 # Feriados nacionais do Brasil (sincronização em config_regras_horas.json)
 holidays>=0.99
 

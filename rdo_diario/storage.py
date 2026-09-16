@@ -7,6 +7,7 @@ from __future__ import annotations
 import json
 import re
 import shutil
+import threading
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -21,6 +22,8 @@ from rdo_diario.schema import (
     criar_estrutura_documento_vazio,
     normalizar_metadados_registros_diarios,
 )
+
+_config_usuario_lock = threading.RLock()
 
 
 def _gerar_nome_arquivo_cliente(contratante: str, natureza_servico: str) -> str:
@@ -301,28 +304,36 @@ def _migrar_config_usuario_legado_para_template() -> None:
 
 def ler_config_usuario() -> dict[str, Any]:
     """Lê preferências locais em ``template/config_usuario.json`` (tema, geometria, último cliente)."""
-    _migrar_config_usuario_legado_para_template()
-    if not ARQUIVO_CONFIG_USUARIO_JSON.is_file():
-        dados: dict[str, Any] = {}
-    else:
-        try:
-            conteudo = json.loads(ARQUIVO_CONFIG_USUARIO_JSON.read_text(encoding="utf-8"))
-            dados = conteudo if isinstance(conteudo, dict) else {}
-        except (json.JSONDecodeError, OSError):
-            dados = {}
-    return _migrar_ultimo_cliente_legado_para_config(dados)
+    with _config_usuario_lock:
+        _migrar_config_usuario_legado_para_template()
+        if not ARQUIVO_CONFIG_USUARIO_JSON.is_file():
+            dados: dict[str, Any] = {}
+        else:
+            try:
+                conteudo = json.loads(ARQUIVO_CONFIG_USUARIO_JSON.read_text(encoding="utf-8"))
+                dados = conteudo if isinstance(conteudo, dict) else {}
+            except (json.JSONDecodeError, OSError):
+                dados = {}
+        return _migrar_ultimo_cliente_legado_para_config(dados)
 
 
 def gravar_config_usuario(dados: dict[str, Any]) -> None:
-    """Persiste preferências locais em ``template/config_usuario.json``."""
-    ARQUIVO_CONFIG_USUARIO_JSON.parent.mkdir(parents=True, exist_ok=True)
-    try:
-        ARQUIVO_CONFIG_USUARIO_JSON.write_text(
-            json.dumps(dados, indent=2, ensure_ascii=False),
-            encoding="utf-8",
-        )
-    except OSError:
-        pass
+    """Persiste preferências locais em ``template/config_usuario.json`` (escrita atômica)."""
+    with _config_usuario_lock:
+        ARQUIVO_CONFIG_USUARIO_JSON.parent.mkdir(parents=True, exist_ok=True)
+        temporario = ARQUIVO_CONFIG_USUARIO_JSON.with_suffix(".json.tmp")
+        try:
+            temporario.write_text(
+                json.dumps(dados, indent=2, ensure_ascii=False) + "\n",
+                encoding="utf-8",
+            )
+            temporario.replace(ARQUIVO_CONFIG_USUARIO_JSON)
+        except OSError:
+            try:
+                if temporario.is_file():
+                    temporario.unlink()
+            except OSError:
+                pass
 
 
 def _migrar_ultimo_cliente_legado_para_config(dados: dict[str, Any]) -> dict[str, Any]:

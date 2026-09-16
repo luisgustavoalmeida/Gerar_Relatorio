@@ -6,7 +6,7 @@
    ✓ compilar.bat              → Compila com .venv local (RECOMENDADO)
    ✓ instalar_simples.bat      → Instala deps e executa a app
    ✓ executar.bat              → Executa a app (requer .venv)
-   ✓ gerar_relatorio.spec      → Spec PyInstaller (onefile)
+   ✓ Gerar_Relatorio.spec      → Spec PyInstaller (onefile)
 
 ──────────────────────────────────────────────────────────────────
 

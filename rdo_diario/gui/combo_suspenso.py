@@ -10,11 +10,103 @@ from rdo_diario.gui.tema import COR_BORDA, RAIO_BORDA, opcoes_item_lista_suspens
 ALTURA_ITEM_LISTA = 34
 ALTURA_MAX_LISTA = 240
 MARGEM_LISTA = 6
+MARGEM_TELA = 8
 
 _lista_aberta_combo: ctk.CTkComboBox | None = None
 _popup_lista_combo: ctk.CTkToplevel | None = None
 _bind_fora_lista_combo: str | None = None
 _raiz_lista_combo: tk.Misc | None = None
+
+
+def _area_util_tela(widget: tk.Misc) -> tuple[int, int, int, int]:
+    """Retorna (x, y, largura, altura) da área útil do monitor sob o widget."""
+    try:
+        import sys
+
+        if sys.platform == "win32":
+            import ctypes
+            from ctypes import wintypes
+
+            class RECT(ctypes.Structure):
+                _fields_ = [
+                    ("left", wintypes.LONG),
+                    ("top", wintypes.LONG),
+                    ("right", wintypes.LONG),
+                    ("bottom", wintypes.LONG),
+                ]
+
+            class MONITORINFO(ctypes.Structure):
+                _fields_ = [
+                    ("cbSize", wintypes.DWORD),
+                    ("rcMonitor", RECT),
+                    ("rcWork", RECT),
+                    ("dwFlags", wintypes.DWORD),
+                ]
+
+            user32 = ctypes.windll.user32
+            ponto = wintypes.POINT(int(widget.winfo_rootx()), int(widget.winfo_rooty()))
+            monitor = user32.MonitorFromPoint(ponto, 2)  # MONITOR_DEFAULTTONEAREST
+            info = MONITORINFO()
+            info.cbSize = ctypes.sizeof(MONITORINFO)
+            if user32.GetMonitorInfoW(monitor, ctypes.byref(info)):
+                trabalho = info.rcWork
+                return (
+                    int(trabalho.left),
+                    int(trabalho.top),
+                    int(trabalho.right - trabalho.left),
+                    int(trabalho.bottom - trabalho.top),
+                )
+    except Exception:
+        pass
+
+    try:
+        return (
+            int(widget.winfo_vrootx()),
+            int(widget.winfo_vrooty()),
+            int(widget.winfo_vrootwidth()),
+            int(widget.winfo_vrootheight()),
+        )
+    except tk.TclError:
+        return 0, 0, int(widget.winfo_screenwidth()), int(widget.winfo_screenheight())
+
+
+def _calcular_geometria_popup(
+    combo: ctk.CTkComboBox,
+    *,
+    largura: int,
+    altura: int,
+) -> tuple[int, int, int, int]:
+    """
+    Posiciona a lista sob o combo quando há espaço; caso contrário, acima.
+    Mantém o popup dentro da área útil do monitor (útil em tela cheia).
+    """
+    combo.update_idletasks()
+    x_combo = int(combo.winfo_rootx())
+    y_combo = int(combo.winfo_rooty())
+    h_combo = int(combo.winfo_height())
+    tela_x, tela_y, tela_w, tela_h = _area_util_tela(combo)
+    esquerda = tela_x + MARGEM_TELA
+    direita = tela_x + tela_w - MARGEM_TELA
+    topo = tela_y + MARGEM_TELA
+    fundo = tela_y + tela_h - MARGEM_TELA
+
+    largura = max(40, min(largura, direita - esquerda))
+    x = min(max(x_combo, esquerda), direita - largura)
+
+    espaco_abaixo = fundo - (y_combo + h_combo + 2)
+    espaco_acima = (y_combo - 2) - topo
+    altura_desejada = max(40, altura)
+
+    abrir_acima = espaco_abaixo < altura_desejada and espaco_acima > espaco_abaixo
+    if abrir_acima:
+        altura_final = min(altura_desejada, max(40, espaco_acima))
+        y = y_combo - 2 - altura_final
+    else:
+        altura_final = min(altura_desejada, max(40, espaco_abaixo))
+        y = y_combo + h_combo + 2
+
+    y = min(max(y, topo), fundo - altura_final)
+    return x, y, largura, altura_final
 
 
 def _fechar_lista_combo_suspenso() -> None:
@@ -99,7 +191,8 @@ def _abrir_lista_arredondada(combo: ctk.CTkComboBox) -> None:
     )
     moldura.pack(fill="both", expand=True, padx=1, pady=1)
 
-    usar_scroll = len(valores) * ALTURA_ITEM_LISTA > ALTURA_MAX_LISTA
+    altura_conteudo = len(valores) * ALTURA_ITEM_LISTA + 2 * MARGEM_LISTA
+    usar_scroll = altura_conteudo > ALTURA_MAX_LISTA
     if usar_scroll:
         container: ctk.CTkBaseClass = ctk.CTkScrollableFrame(
             moldura,
@@ -113,6 +206,7 @@ def _abrir_lista_arredondada(combo: ctk.CTkComboBox) -> None:
     container.pack(fill="both", expand=True, padx=MARGEM_LISTA, pady=MARGEM_LISTA)
 
     for valor in valores:
+
         def _selecionar(v: str = valor) -> None:
             _fechar_lista_combo_suspenso()
             combo._dropdown_callback(v)
@@ -134,10 +228,22 @@ def _abrir_lista_arredondada(combo: ctk.CTkComboBox) -> None:
     popup.update_idletasks()
     largura = max(combo.winfo_width(), moldura.winfo_reqwidth() + 8)
     altura = moldura.winfo_reqheight() + 4
-    x = combo.winfo_rootx()
-    y = combo.winfo_rooty() + combo.winfo_height() + 2
+    x, y, largura, altura = _calcular_geometria_popup(
+        combo,
+        largura=largura,
+        altura=altura,
+    )
+    if usar_scroll and isinstance(container, ctk.CTkScrollableFrame):
+        # Ajusta a altura rolável ao espaço efetivo disponível na tela.
+        altura_interna = max(40, altura - 2 * MARGEM_LISTA - 8)
+        try:
+            container.configure(height=min(ALTURA_MAX_LISTA, altura_interna))
+        except tk.TclError:
+            pass
+        popup.update_idletasks()
     popup.geometry(f"{largura}x{altura}+{x}+{y}")
     popup.deiconify()
+    popup.lift()
     popup.bind("<Escape>", lambda _event: _fechar_lista_combo_suspenso())
     raiz.after(80, lambda: _ligar_fechar_ao_clicar_fora(combo))
 

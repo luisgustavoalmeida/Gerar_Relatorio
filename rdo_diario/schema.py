@@ -50,6 +50,12 @@ CAMPOS_JSON_TEXTO_DIA: tuple[str, ...] = (
     "registro_ociosidade",
 )
 
+# --- Campos auxiliares do assistente IA por dia ---
+CAMPOS_JSON_IA_DIA: tuple[str, ...] = (
+    "ia_rascunho",
+    "ia_ultima_resposta",
+)
+
 # Duração (horas:minutos) associada a extra-escopo e ociosidade — gravado no registro do dia
 CAMPOS_JSON_TEMPO_ATIVIDADE_DIA: tuple[str, ...] = (
     "tempo_extra_escopo",
@@ -422,6 +428,21 @@ def registro_de_dia_possui_conteudo(registro: dict) -> bool:
         return True
     if str(registro.get("jornada_saida", "") or "").strip():
         return True
+    return False
+
+
+def registro_de_dia_possui_conteudo_para_persistencia(registro: dict) -> bool:
+    """
+    Indica se o dia deve continuar salvo no JSON.
+
+    Além do conteúdo principal do relatório, preserva rascunho e última resposta do
+    assistente IA para permitir trabalho offline por data.
+    """
+    if registro_de_dia_possui_conteudo(registro):
+        return True
+    for campo in CAMPOS_JSON_IA_DIA:
+        if str(registro.get(campo, "") or "").strip():
+            return True
     return False
 
 

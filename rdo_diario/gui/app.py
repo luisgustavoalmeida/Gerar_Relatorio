@@ -23,6 +23,12 @@ from rdo_diario.config_horas import (
     garantir_arquivo_config_regras_existe,
 )
 from rdo_diario.dicionario_ortografia_usuario import conjunto_para_filtragem
+from rdo_diario.gui.assistente_ia import MixinAssistenteIa
+from rdo_diario.gui.desfazer_refazer import (
+    instalar_desfazer_refazer_global,
+    registrar_desfazer_refazer_recursivo,
+    reiniciar_historico_desfazer_widget,
+)
 from rdo_diario.gui.calendario import MixinCalendario
 from rdo_diario.gui.formulario_dia import MixinFormularioDia
 from rdo_diario.gui.menu import MixinMenu
@@ -43,6 +49,7 @@ from rdo_diario.gui.tema import (
     FONT_DATA_SELECIONADA,
     FONT_INTERFACE,
     FONT_METRICAS,
+    aplicar_estilo_caixa_texto_ctk,
     ALTURA_JANELA,
     ALTURA_JANELA_MINIMA,
     LARGURA_JANELA,
@@ -114,12 +121,14 @@ class AplicacaoRdo(
     MixinMenu,
     MixinCalendario,
     MixinFormularioDia,
+    MixinAssistenteIa,
     MixinOrtografia,
 ):
     """Janela principal: seleção de cliente, abas de dados fixos e relatório diário."""
 
     def __init__(self) -> None:
         super().__init__()
+        instalar_desfazer_refazer_global(self)
         aplicar_icone_janela(self)
         configurar_estilo_ttk(self)
         self.title("Relatório de atividades diárias")
@@ -141,6 +150,8 @@ class AplicacaoRdo(
         self._ignorando_callback_incluir_deslocamento = False
         self._id_agendamento_salvar: str | None = None
         self._widget_calendario = None
+        self._coluna_calendario_lateral: ctk.CTkFrame | None = None
+        self._painel_corpo: ctk.CTkFrame | None = None
         self._combo_selecao_cliente: ctk.CTkComboBox | None = None
         self._mapa_rotulo_para_caminho: dict[str, Path] = {}
         self._rotulo_texto_data = None
@@ -174,6 +185,7 @@ class AplicacaoRdo(
             lambda proposta: texto_duracao_permitido_na_digitacao(proposta)
         )
         self._montar_corpo_janela()
+        registrar_desfazer_refazer_recursivo(self)
         self._aplicar_geometria_inicial_janela()
 
         self.bind("<Configure>", self._agendar_salvamento_geometria_janela, add="+")
@@ -187,12 +199,13 @@ class AplicacaoRdo(
         self._atualizar_barra_menu_tema()
         self._atualizar_barra_cliente_tema()
         cores = obter_cores_tema()
-        for texto in self._widgets_campos_dia.values():
-            texto.configure(
-                border_color=COR_BORDA,
-                fg_color=COR_FUNDO_CARD,
-                text_color=COR_TEXTO,
-            )
+        caixas_texto = list(self._widgets_campos_dia.values())
+        for nome in ("_widget_ia_rascunho", "_widget_ia_saida"):
+            caixa = getattr(self, nome, None)
+            if caixa is not None:
+                caixas_texto.append(caixa)
+        for texto in caixas_texto:
+            aplicar_estilo_caixa_texto_ctk(texto)
             texto_interno_campo(texto).tag_configure(
                 self.TAG_ERRO_ORTOGRAFIA,
                 foreground=cores["erro"],
@@ -207,15 +220,16 @@ class AplicacaoRdo(
                 fg_color=COR_FUNDO_CARD,
                 text_color=COR_TEXTO,
             )
-        if self._rotulo_texto_data is not None:
-            self._rotulo_texto_data.configure(font=FONT_DATA_SELECIONADA, text_color=COR_TEXTO)
-        if self._rotulo_data_atual is not None:
-            self._rotulo_data_atual.configure(font=FONT_DATA_SELECIONADA, text_color=COR_TEXTO)
-        if self._rotulo_contagem_mes is not None:
-            self._rotulo_contagem_mes.configure(
-                font=FONT_CONTAGEM_MES,
-                text_color=COR_TEXTO_SECUNDARIO,
-            )
+        for rotulo in (
+            self._rotulo_texto_data,
+            getattr(self, "_rotulo_texto_data_ia", None),
+            self._rotulo_data_atual,
+        ):
+            if rotulo is not None:
+                rotulo.configure(font=FONT_DATA_SELECIONADA, text_color=COR_TEXTO)
+        for rotulo in (self._rotulo_contagem_mes, getattr(self, "_rotulo_contagem_mes_ia", None)):
+            if rotulo is not None:
+                rotulo.configure(font=FONT_CONTAGEM_MES, text_color=COR_TEXTO_SECUNDARIO)
         if self._rotulo_metricas_dia is not None:
             self._rotulo_metricas_dia.configure(font=FONT_METRICAS, text_color=COR_TEXTO)
         if self._rotulo_metricas_mes is not None:
@@ -231,6 +245,21 @@ class AplicacaoRdo(
             self._tabview.configure(**opcoes_tabview_ctk())
             configurar_abas_tabview(self._tabview)
             apertar_margens_internas_tabview(self._tabview)
+        for widget in (
+            getattr(self, "_widget_ia_rascunho", None),
+            getattr(self, "_widget_ia_saida", None),
+        ):
+            if widget is not None:
+                aplicar_estilo_caixa_texto_ctk(widget)
+        rotulo_ia_status = getattr(self, "_rotulo_ia_status", None)
+        if rotulo_ia_status is not None:
+            rotulo_ia_status.configure(font=FONT_INTERFACE)
+        combo_ia = getattr(self, "_combo_ia_destino", None)
+        if combo_ia is not None:
+            combo_ia.configure(**opcoes_combo_ctk(largura=220))
+        botao_reescrever = getattr(self, "_botao_ia_reescrever", None)
+        if botao_reescrever is not None:
+            botao_reescrever.configure(font=FONT_INTERFACE)
 
     def _alternar_tema_aplicacao(self) -> None:
         alternar_tema()
@@ -268,17 +297,44 @@ class AplicacaoRdo(
             self._combo_selecao_cliente.configure(**opcoes_combo_ctk(largura=520))
             self._combo_selecao_cliente.update()
 
+    _ABAS_COM_COLUNA_CALENDARIO = frozenset({"Relatórios de trabalho", "Assistente IA"})
+
+    def _atualizar_visibilidade_coluna_calendario(self, aba: str | None = None) -> None:
+        """Mostra o calendário lateral nas abas de relatório e assistente IA."""
+        coluna = self._coluna_calendario_lateral
+        if coluna is None or self._tabview is None:
+            return
+        nome = (aba or self._tabview.get() or "").strip()
+        if nome in self._ABAS_COM_COLUNA_CALENDARIO:
+            coluna.grid()
+        else:
+            coluna.grid_remove()
+
     def _montar_corpo_janela(self) -> None:
-        """Abas «Dados fixos» e «Relatórios», com calendário na segunda."""
+        """Abas principais; calendário único à direita em relatório e assistente IA."""
+        self._painel_corpo = ctk.CTkFrame(self, fg_color="transparent")
+        self._painel_corpo.pack(fill="both", expand=True, padx=6, pady=(0, 2))
+        self._painel_corpo.grid_columnconfigure(0, weight=1)
+        self._painel_corpo.grid_rowconfigure(0, weight=1)
+
         self._tabview = ctk.CTkTabview(
-            self,
+            self._painel_corpo,
             command=self._ao_trocar_aba_principal,
             **opcoes_tabview_ctk(),
         )
-        self._tabview.pack(fill="both", expand=True, padx=6, pady=(0, 2))
+        self._tabview.grid(row=0, column=0, sticky="nsew")
+
+        self._coluna_calendario_lateral = ctk.CTkFrame(
+            self._painel_corpo,
+            fg_color="transparent",
+            width=280,
+        )
+        self._coluna_calendario_lateral.grid(row=0, column=1, sticky="nsew", padx=(6, 0))
+        self._montar_coluna_calendario(self._coluna_calendario_lateral)
 
         self._tabview.add("Cabeçalhos")
         self._tabview.add("Relatórios de trabalho")
+        self._tabview.add("Assistente IA")
         configurar_abas_tabview(self._tabview)
         aba_salva = carregar_aba_ativa_salva()
         if aba_salva:
@@ -289,6 +345,7 @@ class AplicacaoRdo(
             self._ultima_aba_salva = aba_atual
         aba_cabecalho = self._tabview.tab("Cabeçalhos")
         aba_registros = self._tabview.tab("Relatórios de trabalho")
+        aba_assistente = self._tabview.tab("Assistente IA")
 
         dica_cab = ctk.CTkLabel(
             aba_cabecalho,
@@ -424,20 +481,14 @@ class AplicacaoRdo(
 
         form_cab.columnconfigure(1, weight=1)
 
-        painel = ctk.CTkFrame(aba_registros, fg_color="transparent")
-        painel.pack(fill="both", expand=True, padx=2, pady=(2, 2))
-        painel.grid_columnconfigure(0, weight=4)
-        painel.grid_columnconfigure(1, weight=0)
-        painel.grid_rowconfigure(0, weight=1)
+        self._montar_coluna_formulario_dia(aba_registros)
 
-        coluna_formulario = ctk.CTkFrame(painel, fg_color="transparent")
-        coluna_calendario = ctk.CTkFrame(painel, fg_color="transparent", width=280)
-        coluna_formulario.grid(row=0, column=0, sticky="nsew", padx=(0, 6))
-        coluna_calendario.grid(row=0, column=1, sticky="nsew")
+        if hasattr(self, "_montar_aba_assistente_ia"):
+            self._montar_aba_assistente_ia(aba_assistente)
 
-        self._montar_coluna_formulario_dia(coluna_formulario)
-        self._montar_coluna_calendario(coluna_calendario)
         apertar_margens_internas_tabview(self._tabview)
+        self._atualizar_visibilidade_coluna_calendario()
+
     def _inicializar_apos_abrir(self) -> None:
         """Primeira carga: combo, documento inicial, data de hoje e marcas no calendário."""
         inicial = obter_documento_cliente_inicial()
@@ -462,8 +513,7 @@ class AplicacaoRdo(
             str(chave.get(CHAVE_JSON_NATUREZA_SERVICO, "")),
         )
         self._data_em_edicao = date.today()
-        if self._widget_calendario:
-            self._widget_calendario.selection_set(self._data_em_edicao)
+        self._sincronizar_calendarios_com_data_edicao()
         self._atualizar_rotulo_data_selecionada()
         self._carregar_registro_dia_no_formulario(self._data_em_edicao)
         self._atualizar_marcadores_calendario()
@@ -510,8 +560,7 @@ class AplicacaoRdo(
         )
         self._carregar_cabecalho_no_formulario()
         self._carregar_registro_dia_no_formulario(self._data_em_edicao)
-        if self._widget_calendario:
-            self._widget_calendario.selection_set(self._data_em_edicao)
+        self._sincronizar_calendarios_com_data_edicao()
         self._atualizar_marcadores_calendario()
 
     def _abrir_dialogo_novo_cliente(self) -> None:
@@ -630,8 +679,7 @@ class AplicacaoRdo(
             self._marcar_combo_cliente_atual(documento)
             self._carregar_cabecalho_no_formulario()
             self._carregar_registro_dia_no_formulario(self._data_em_edicao)
-            if self._widget_calendario:
-                self._widget_calendario.selection_set(self._data_em_edicao)
+            self._sincronizar_calendarios_com_data_edicao()
             self._atualizar_marcadores_calendario()
             topo.destroy()
 
@@ -712,8 +760,7 @@ class AplicacaoRdo(
             self._atualizar_rotulo_jornada_liquida()
             self._atualizar_rotulo_contagem_relatorios_mes()
 
-        if self._widget_calendario:
-            self._widget_calendario.selection_set(self._data_em_edicao)
+        self._sincronizar_calendarios_com_data_edicao()
         self._atualizar_marcadores_calendario()
 
     def _abrir_dialogo_arquivar_projeto(self) -> None:
@@ -844,8 +891,7 @@ class AplicacaoRdo(
             self._marcar_combo_cliente_atual(documento)
             self._carregar_cabecalho_no_formulario()
             self._carregar_registro_dia_no_formulario(self._data_em_edicao)
-            if self._widget_calendario:
-                self._widget_calendario.selection_set(self._data_em_edicao)
+            self._sincronizar_calendarios_com_data_edicao()
             self._atualizar_marcadores_calendario()
 
             messagebox.showinfo(
@@ -925,6 +971,7 @@ class AplicacaoRdo(
         for campo, widget in self._widgets_cabecalho.items():
             widget.delete(0, "end")
             widget.insert(0, str(cabecalho.get(campo, "") or ""))
+            reiniciar_historico_desfazer_widget(widget)
         # Reutiliza assinatura já salva para o mesmo nome de funcionário
         if not str(cabecalho.get(CHAVE_JSON_ASSINATURA_ARQUIVO) or "").strip():
             path_ass = resolver_assinatura(str(cabecalho.get("nome_funcionario") or ""), None)
@@ -1409,6 +1456,7 @@ class AplicacaoRdo(
             return
         apertar_margens_internas_tabview(self._tabview)
         aba = self._tabview.get()
+        self._atualizar_visibilidade_coluna_calendario(aba)
         if not aba or aba == self._ultima_aba_salva:
             return
         salvar_aba_ativa(aba)

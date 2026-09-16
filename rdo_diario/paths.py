@@ -94,39 +94,42 @@ def _migrar_imagens_assets_para_template() -> None:
 
 def garantir_pastas_executavel() -> None:
     """
-    No .exe onefile, copia template/dados/saida do bundle para a pasta do executável
+    No .exe onefile, copia template do bundle para a pasta do executável
     (gravável). Só cria o que ainda não existir ao lado do .exe.
-    Em qualquer modo, garante ``template/assinaturas`` e ``template/logos``.
+    Em qualquer modo, garante pastas de dados/saída e ``template/assinaturas|logos``.
     """
     (RAIZ_PROJETO / "template").mkdir(parents=True, exist_ok=True)
     (RAIZ_PROJETO / "template" / "assinaturas").mkdir(parents=True, exist_ok=True)
     (RAIZ_PROJETO / "template" / "logos").mkdir(parents=True, exist_ok=True)
+    (RAIZ_PROJETO / "dados_rdo").mkdir(parents=True, exist_ok=True)
+    (RAIZ_PROJETO / "saida_relatorios").mkdir(parents=True, exist_ok=True)
 
     if getattr(sys, "frozen", False):
         bundle = _pasta_bundle_pyinstaller()
         if bundle is not None:
             raiz_bundle = Path(bundle)
-            for nome in ("template", "dados_rdo", "saida_relatorios"):
+            # dados_rdo / saida não vêm no bundle (privacidade/tamanho).
+            # template vem completo (config_usuario, assinaturas e logos de modelo).
+            for nome in ("template",):
                 origem = raiz_bundle / nome
                 if not origem.is_dir():
                     continue
                 destino = RAIZ_PROJETO / nome
                 if not destino.exists():
                     shutil.copytree(origem, destino)
-                    continue
-                if nome != "template":
-                    destino.mkdir(parents=True, exist_ok=True)
-                    continue
-                if (destino / "RDO.xlsx").is_file():
-                    continue
-                for ficheiro in origem.rglob("*"):
-                    if not ficheiro.is_file():
-                        continue
-                    relativo = ficheiro.relative_to(origem)
-                    alvo = destino / relativo
-                    if not alvo.is_file():
-                        alvo.parent.mkdir(parents=True, exist_ok=True)
-                        shutil.copy2(ficheiro, alvo)
+                else:
+                    # Preenche só o que falta — não sobrescreve alterações do utilizador.
+                    for ficheiro in origem.rglob("*"):
+                        if not ficheiro.is_file():
+                            continue
+                        relativo = ficheiro.relative_to(origem)
+                        alvo = destino / relativo
+                        if not alvo.is_file():
+                            alvo.parent.mkdir(parents=True, exist_ok=True)
+                            try:
+                                shutil.copy2(ficheiro, alvo)
+                            except OSError:
+                                pass
             (RAIZ_PROJETO / "template" / "assinaturas").mkdir(parents=True, exist_ok=True)
             (RAIZ_PROJETO / "template" / "logos").mkdir(parents=True, exist_ok=True)
 
