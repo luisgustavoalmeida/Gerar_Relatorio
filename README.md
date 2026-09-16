@@ -68,6 +68,12 @@ Na aba *Cabeçalhos*, abaixo dos 13 campos de texto:
 
 *Aba **Relatórios de trabalho** — registo diário, horários de ponto, calendário com código de cores e métricas (dia, mês e projeto).*
 
+![Aba Assistente IA — tema claro](Imagens%20Interface/Relat%C3%B3rios_assistente_IA_tema_claro.png)
+
+![Aba Assistente IA — tema escuro](Imagens%20Interface/Relat%C3%B3rios_assistente_IA_tema_escuro.png)
+
+*Aba **Assistente IA** — rascunho do dia, reescrita com Gemini e texto editável antes de aplicar no relatório (calendário e métricas partilhados; temas claro e escuro).*
+
 #### Cores do calendário
 
 | Cor | Significado |
