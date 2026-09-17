@@ -111,7 +111,7 @@
         "O calendário lateral é o mesmo da aba Relatórios de trabalho — a data seleccionada aplica-se às duas abas.",
         "Toda a configuração (chaves, modelo, prompts, histórico e contexto) fica em IA → Configurações Gemini...",
         "Botão Reescrever com Gemini: envia o prompt editável seleccionado, o contexto de cabeçalho marcado, o histórico filtrado e o rascunho do dia.",
-        "O texto enviado à API é só o prompt que você edita nas configurações (sem envelope fixo do sistema), mais o contexto operacional do dia.",
+        "O texto enviado à API é o prompt seleccionado em IA → Configurações Gemini..., mais o contexto do dia. O de fábrica (embutido no .exe) está em template/prompt_ia_padrao.txt; as edições ficam em template/config_usuario.json.",
         "Dias de histórico: 0 usa só o rascunho actual; só entram dias anteriores com registro_servico preenchido.",
         "Ignorar histórico com menos de N caracteres: descarta dias curtos demais (0 = não filtrar).",
         "Remover 1.º ou último parágrafo do histórico: útil quando os registros antigos têm aberturas ou fechos repetitivos.",

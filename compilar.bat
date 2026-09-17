@@ -143,7 +143,7 @@ echo    template\  (config, RDO/FT, assinaturas e logos de modelo)
 echo    dados_rdo\  saida_relatorios\
 echo.
 echo 🔑 Chaves Gemini: ficam em template\.env (embutido no .exe; criado ao lado do .exe).
-echo    O utilizador pode trocar depois config_usuario.json, assinaturas, logos e o .env.
+echo    O prompt de fábrica da IA (template\prompt_ia_padrao.txt) fica embutido no .exe.
 echo.
 echo ⚠️  Distribua o .exe; mantenha as pastas geradas na mesma pasta do executavel.
 echo.

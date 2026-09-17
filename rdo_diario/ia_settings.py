@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import sys
 import threading
 import time
 from copy import deepcopy
@@ -71,7 +72,10 @@ ENV_GOOGLE_API_KEY = "GOOGLE_API_KEY"
 _SEPARADOR_CHAVES = "|"
 _COOLDOWN_PADRAO_SEGUNDOS = 60.0
 
-_PROMPT_PADRAO = (
+_ARQUIVO_PROMPT_IA_PADRAO = "prompt_ia_padrao.txt"
+
+# Texto antigo de fábrica (migra automaticamente para o prompt actual).
+_PROMPT_PADRAO_LEGADO = (
     "Aja como engenheiro responsável pela redação do relatório diário de atividades. "
     "Reescreva o rascunho em português do Brasil, com texto claro, rico em informação e "
     "apresentável para cliente/fiscalização. Use linguagem técnica profissional, objetiva "
@@ -81,12 +85,56 @@ _PROMPT_PADRAO = (
     "Retorne apenas o texto final, sem título, sem markdown e sem comentários extras."
 )
 
+_PROMPT_PADRAO = (
+    "Você é um assistente de redação técnica para relatórios diários de trabalho.\n"
+    "Sua tarefa é reescrever o rascunho, atuando como um Engenheiro Eletricista Sênior, "
+    "especialista em automação industrial, sistemas elétricos.\n\n"
+    "Transforme minhas anotações diárias, mesmo que curtas, informais ou desorganizadas, "
+    "em um relatório técnico profissional, organizado, coerente, e tecnicamente detalhado.\n\n"
+    "Regras obrigatórias:\n"
+    "- Melhore a redação utilizando terminologia técnica adequada.\n"
+    "- Preserve nomes de pessoas, equipamentos, sistemas, softwares, siglas, tags e "
+    "identificações técnicas.\n"
+    "- Utilize corretamente a gramática, ortografia e concordância do português brasileiro.\n"
+    "- Escreva em linguagem impessoal e predominantemente na terceira pessoa.\n"
+    "- Quando houver participação de outra pessoa, preserve essa informação.\n\n"
+    "Estrutura obrigatória:\n"
+    "1. Primeiro parágrafo: resumo breve e objetivo das principais atividades realizadas "
+    "no dia, sem citar nomes ou datas, com no máximo 300 caracteres.\n"
+    "2. Após uma linha em branco, descreva as atividades em tópicos, com marcador \"-\", "
+    "sem linhas em branco entre os tópicos e sem utilizar subtítulos internos.\n"
+    "3. Após uma linha em branco, apresente uma conclusão curta sobre as atividades "
+    "realizadas e eventuais pendências.\n\n"
+    "Formatação:\n"
+    "- Manter linguagem de relatório de engenharia, adequada para relatório diário de obra.\n"
+    "- Entregar somente o relatório final, sem explicar as alterações realizadas."
+)
+
+
+def _texto_prompt_padrao() -> str:
+    """Lê o prompt de fábrica em template/ (repo, pasta do .exe ou bundle)."""
+    candidatos: list[Path] = [
+        RAIZ_PROJETO / "template" / _ARQUIVO_PROMPT_IA_PADRAO,
+    ]
+    meipass = getattr(sys, "_MEIPASS", None)
+    if meipass:
+        candidatos.append(Path(meipass) / "template" / _ARQUIVO_PROMPT_IA_PADRAO)
+    for caminho in candidatos:
+        try:
+            if caminho.is_file():
+                texto = caminho.read_text(encoding="utf-8").strip()
+                if texto:
+                    return texto
+        except OSError:
+            continue
+    return _PROMPT_PADRAO.strip()
+
 
 def _prompt_padrao() -> dict[str, str]:
     return {
         "id": uuid4().hex,
         "nome": "Reescrita técnica padrão",
-        "texto": _PROMPT_PADRAO,
+        "texto": _texto_prompt_padrao(),
     }
 
 
@@ -101,7 +149,7 @@ _CONFIG_PADRAO: dict[str, Any] = {
     "remover_ultimo_paragrafo": False,
     "campos_contexto_cabecalho": list(CAMPOS_CONTEXTO_CABECALHO_PADRAO),
     "prompt_selecionado_id": "",
-    "prompts": [_prompt_padrao()],
+    "prompts": [],
 }
 
 _rr_lock = threading.Lock()
@@ -110,7 +158,9 @@ _cooldown_por_chave: dict[str, float] = {}
 
 
 def _copiar_config_padrao() -> dict[str, Any]:
-    return deepcopy(_CONFIG_PADRAO)
+    base = deepcopy(_CONFIG_PADRAO)
+    base["prompts"] = [_prompt_padrao()]
+    return base
 
 
 def _extrair_chaves_de_texto(texto: str) -> list[str]:
@@ -279,6 +329,8 @@ def rotulo_campo_contexto_cabecalho(campo: str) -> str:
 
 def _prompts_normalizados(valor: Any) -> list[dict[str, str]]:
     prompts: list[dict[str, str]] = []
+    padrao_actual = _texto_prompt_padrao()
+    legado = _PROMPT_PADRAO_LEGADO.strip()
     if isinstance(valor, list):
         for item in valor:
             if not isinstance(item, dict):
@@ -286,6 +338,8 @@ def _prompts_normalizados(valor: Any) -> list[dict[str, str]]:
             texto = str(item.get("texto") or "").strip()
             if not texto:
                 continue
+            if texto == legado:
+                texto = padrao_actual
             nome = str(item.get("nome") or "Prompt sem nome").strip() or "Prompt sem nome"
             prompts.append(
                 {

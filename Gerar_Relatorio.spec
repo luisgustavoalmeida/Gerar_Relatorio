@@ -57,7 +57,9 @@ def _datas_template_para_exe() -> list[tuple[str, str]]:
     for caminho in pasta.rglob("*"):
         if not caminho.is_file():
             continue
-        # Mantém .gitkeep só para pastas vazias; imagens reais também entram como modelo.
+        # Preferências locais não entram no .exe; o prompt de fábrica é prompt_ia_padrao.txt.
+        if caminho.name.lower() == "config_usuario.json":
+            continue
         relativo = caminho.relative_to(ROOT)
         saida.append((str(relativo), str(relativo.parent).replace("\\", "/")))
     return saida

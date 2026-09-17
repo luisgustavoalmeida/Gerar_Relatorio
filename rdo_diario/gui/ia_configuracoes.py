@@ -90,8 +90,9 @@ class DialogoConfiguracoesIa(ctk.CTkToplevel):
         ctk.CTkLabel(
             self,
             text=(
-                "As chaves Gemini ficam em template/.env. Os prompts, o modelo e o comportamento "
-                "de histórico ficam em template/config_usuario.json. Nada disso entra no Git."
+                "As chaves Gemini ficam em template/.env. Os prompts editados, o modelo e o "
+                "histórico ficam em template/config_usuario.json. O prompt de fábrica (usado "
+                "na primeira execução e no .exe) está em template/prompt_ia_padrao.txt."
             ),
             font=FONT_DICA_ABA,
             text_color=COR_TEXTO_SECUNDARIO,

@@ -109,7 +109,8 @@ def garantir_pastas_executavel() -> None:
         if bundle is not None:
             raiz_bundle = Path(bundle)
             # dados_rdo / saida não vêm no bundle (privacidade/tamanho).
-            # template vem completo (config_usuario, assinaturas e logos de modelo).
+            # template vem completo (prompt de fábrica, assinaturas e logos de modelo).
+            # config_usuario.json é local e não é embutido.
             for nome in ("template",):
                 origem = raiz_bundle / nome
                 if not origem.is_dir():

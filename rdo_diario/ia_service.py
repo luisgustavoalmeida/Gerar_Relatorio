@@ -318,9 +318,9 @@ def _montar_prompt_reescrita(
     )
 
 
-_MARCA_PROMPT_SISTEMA_OBSOLETO = (
-    "Você é um assistente de redação técnica para relatórios diários de trabalho."
-)
+# Envelope fixo antigo (pré-1.0.7): bloco de sistema + «Orientações adicionais do engenheiro:».
+# Não usar a primeira frase isolada — o prompt de fábrica actual começa com o mesmo texto.
+_MARCA_PROMPT_SISTEMA_OBSOLETO = "Orientações adicionais do engenheiro:"
 
 
 def prompt_enviado_e_obsoleto(texto: str) -> bool:
