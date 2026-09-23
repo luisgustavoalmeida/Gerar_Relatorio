@@ -41,7 +41,7 @@ Aplicação desktop para registo de atividades diárias em projetos de engenhari
 - **Aba memorizada:** a última aba seleccionada (*Cabeçalhos*, *Relatórios de trabalho* ou *Assistente IA*) é restaurada ao reabrir a aplicação
 - **Campos de texto adaptáveis:** *Registro de serviço* cresce com a janela; *extra-escopo* e *ociosidade* expandem ao receber foco e recolhem ao sair
 - **Desfazer/refazer:** `Ctrl+Z` e `Ctrl+Y` (ou `Ctrl+Shift+Z`) nos campos de texto e entradas
-- **Assistente IA com Gemini:** rascunho por dia, reescrita com prompt 100% editável, rodízio persistente de chaves, histórico filtrável, contexto de cabeçalho seleccionável e diálogo *Ver conversa com a API*
+- **Assistente IA com Gemini:** rascunho por dia, reescrita com prompt 100% editável, rodízio persistente de chaves, histórico filtrável, contexto de cabeçalho seleccionável, **ficheiros de contexto por projeto** (Files API) e diálogo *Ver conversa com a API*
 - **Painel de métricas rolável:** dia, mês e projeto cabem em ecrãs mais baixos (altura mínima 1075×700; abertura padrão 1075×900)
 - **Auto-save:** gravação automática cerca de **1,2 s** após parar de digitar
 - **Validação em tempo real:** formatação de horários (`0830` → `08:30`) e indicação visual de dias incompletos ou inválidos
@@ -142,8 +142,9 @@ O menu *Horas → Copiar relatório detalhado do mês (métricas)* copia o resum
 - **Histórico:** últimos N dias com `registro_servico` preenchido; filtro por mínimo de caracteres; opções para remover 1.º ou último parágrafo
 - **Contexto do cabeçalho:** escolha quais campos do cabeçalho do projeto entram no prompt (padrão: só *Natureza do serviço*)
 - **Chaves:** lista com Adicionar/Remover; botão **Criar chave no Google AI Studio** abre [a página oficial de chaves](https://aistudio.google.com/api-keys); gravadas em `template/.env` como `GEMINI_API_KEYS` (uma chave por linha); conta fixa ou **rodízio** (índice persistido entre sessões); em 429/cota a chave entra em cooldown e tenta a seguinte. Passo a passo em [Chaves Gemini (`.env`)](#chaves-gemini-env).
-- **Anexos de contexto:** em *IA → Configurações Gemini...* pode adicionar vários ficheiros (PDF, imagem, texto, áudio, vídeo suportados pela API; máx. 10/projeto) ligados ao **projeto aberto**; checkbox global e por ficheiro; estado por chave (*pronto* / *precisa enviar* / *válido até…*); botões **Verificar na API**, **Limpar expirados** e **Abrir pasta**; envio pela [Files API](https://ai.google.dev/gemini-api/docs/files) (~48 h) com reenvio automático no rodízio; cópias em `dados_rdo/anexos_ia/`; aviso de privacidade na UI
+- **Anexos de contexto:** em *IA → Configurações Gemini...* pode adicionar vários ficheiros (PDF, imagem, texto, áudio, vídeo suportados pela API; máx. 10/projeto) ligados ao **projeto aberto**; checkbox global e por ficheiro; estado por chave (*pronto* / *precisa enviar* / *válido até…*); botões **Verificar na API**, **Limpar expirados** e **Abrir pasta**; envio pela [Files API](https://ai.google.dev/gemini-api/docs/files) (~48 h) com reenvio automático no rodízio; cópias em `dados_rdo/anexos_ia/`. Detalhes em [Anexos de contexto (Files API)](#anexos-de-contexto-files-api).
 - **Modelo:** lista preenchida pela API (*Atualizar lista* / *Testar modelo*)
+- **Prompt de fábrica:** `template/prompt_ia_padrao.txt` (inclui instruções para usar anexos como referência técnica); edições do utilizador ficam em `config_usuario.json`
 - **Ver conversa:** *IA → Ver conversa com a API...* mostra o prompt completo e a resposta da última reescrita do dia seleccionado
 - **Internet:** necessária apenas no momento da reescrita; o rascunho continua a gravar offline
 
@@ -276,7 +277,7 @@ O script irá:
 2. **Modelo reutilizável:** *Arquivo → Salvar modelo de cabeçalho* / *Carregar modelo de cabeçalho* (`template/modelo_cabecalho.json` + imagens em `template/assinaturas/` e `template/logos/`)
 3. **Registo diário:** selecione a data, descreva atividades, registe ponto e deslocamento
 4. **Extra-escopo e ociosidade:** campos dedicados com tempo consumido
-5. **Assistente IA (opcional):** aba *Assistente IA* → rascunho → *Reescrever com Gemini* → *Usar este texto* no campo desejado
+5. **Assistente IA (opcional):** *IA → Configurações Gemini...* (chaves e, se quiser, ficheiros de contexto do projeto) → aba *Assistente IA* → rascunho → *Reescrever com Gemini* → *Usar este texto* no campo desejado
 6. **Exportação:** *Arquivo → Gerar Excel — mês em edição* ou *Gerar Excel — todos os meses*
 
 ### Atalhos e dicas
@@ -287,7 +288,7 @@ O script irá:
 - **Contagem no mês** («No mês: X de Y»): posição cronológica do dia entre os dias com qualquer conteúdo no mês (alinhada a `numero` e `folha` no JSON e no Excel); as cores do calendário usam só registro de serviço e validação de ponto
 - **Ortografia:** clique com o botão direito em palavras sublinhadas para correções (também no Assistente IA)
 - **Dicionário:** *Revisão → Dicionário pessoal*
-- **IA:** *IA → Configurações Gemini...* (chaves, rodízio, modelo, histórico, contexto de cabeçalho e prompts); *IA → Ver conversa com a API...* para inspeccionar o último pedido
+- **IA:** *IA → Configurações Gemini...* (chaves, rodízio, modelo, histórico, **ficheiros de contexto do projeto**, cabeçalho e prompts); *IA → Ver conversa com a API...* para inspeccionar o último pedido
 - **Projetos:** troque no combobox superior; use *Arquivar* / *Desarquivar* para projectos concluídos; *Editar chave* se contratante ou natureza mudarem
 - **Ajuda integrada:** *Ajuda → Manual* e *Ajuda → Sobre* (conteúdo editável em `template/manual.json` e `template/sobre.json`, sem recompilar)
 
@@ -301,7 +302,7 @@ O script irá:
 | Novo projeto | Cria um novo projecto (novo ficheiro em `dados_rdo/`) |
 | Editar chave do projeto (contratante + natureza) | Altera a chave e renomeia o JSON; actualiza cabeçalho fixo |
 | Limpar informações do dia em edição | Apaga o registo do dia seleccionado |
-| Excluir projeto | Remove o JSON do projeto e a pasta de relatórios Excel associada |
+| Excluir projeto | Remove o JSON, os anexos de contexto da IA e a pasta de relatórios Excel associada |
 | Arquivar projeto | Move o JSON para `dados_rdo/rdo_arquivados/` (fora da lista vigente) |
 | Desarquivar projeto | Restaura um JSON de `rdo_arquivados/` para `dados_rdo/` |
 | Gerar Excel — mês em edição (RDO/FT) | Exporta RDO e FT do mês da data seleccionada no calendário |
@@ -332,7 +333,7 @@ O script irá:
 | Item | Função |
 |------|--------|
 | Ver conversa com a API... | Mostra o prompt completo e a resposta da última reescrita do dia seleccionado |
-| Configurações Gemini... | Chaves (lista), rodízio/conta fixa, modelo, histórico, filtro por caracteres, campos de cabeçalho no contexto e prompts globais |
+| Configurações Gemini... | Chaves (lista + link Google AI Studio), rodízio/conta fixa, modelo, histórico, **ficheiros de contexto do projeto aberto**, campos de cabeçalho e prompts globais |
 
 ### Exibir
 
@@ -374,6 +375,7 @@ Gerar_Relatorio/
 │   ├── storage.py                   # Leitura/gravação atómica por projeto
 │   ├── ia_settings.py               # Preferências IA, .env e rodízio de chaves
 │   ├── ia_service.py                # Chamadas Gemini (google-genai) e montagem do prompt
+│   ├── ia_anexos.py                 # Ficheiros de contexto (Files API) por projeto
 │   ├── assinaturas.py               # Imagens de assinatura (template/assinaturas/)
 │   ├── logos.py                     # Logos da empresa (template/logos/)
 │   ├── modelo_cabecalho.py          # Salvar/carregar modelo com imagens
@@ -490,6 +492,26 @@ AIza...chave2
 - O `compilar.bat` embute `template/.env` no `.exe` junto com o resto da pasta `template/`
 - Sem `.env` / sem chaves, o resto da aplicação funciona; só a reescrita Gemini fica indisponível
 
+### Anexos de contexto (Files API)
+
+Os ficheiros de contexto **não** são globais: ficam ligados ao **projeto aberto** no combobox (metadados em `ia_contexto_arquivos` no JSON; cópias em `dados_rdo/anexos_ia/<projeto>/`).
+
+1. Abra o projeto desejado.
+2. *IA → Configurações Gemini...* → secção **Contexto do projeto (ficheiros)**.
+3. **Adicionar…** (PDF, imagem, texto, áudio ou vídeo suportados pela API; máx. 10 por projeto).
+4. Marque **Usar ficheiros como contexto na reescrita** (e o checkbox de cada ficheiro).
+5. **Salvar** / fechar e use *Reescrever com Gemini*.
+
+Comportamento:
+
+- A API **não** guarda conversa entre pedidos; em cada reescrita a app envia de novo o prompt (e referencia os ficheiros).
+- Upload via [Files API](https://ai.google.dev/gemini-api/docs/files) (~48 h por chave Google). O estado na UI mostra se já está *pronto* nessa chave ou se *precisa enviar*.
+- Com **rodízio**, se a chave seguinte ainda não tiver o URI, o app faz upload automaticamente antes de gerar.
+- Botões **Verificar na API**, **Limpar expirados** e **Abrir pasta** ajudam a auditar e limpar metadados.
+- O prompt de fábrica (`template/prompt_ia_padrao.txt`) já orienta o modelo a usar anexos só para terminologia/precisão, sem inventar factos fora do rascunho e dos anexos. Pode editar o prompt em *Configurações Gemini…*.
+
+Ao **excluir** o projeto, a pasta de anexos correspondente é removida. Ao **renomear** a chave do projeto, a pasta e os caminhos são migrados.
+
 ### Tema e aparência da interface
 
 - Menu *Exibir → Alternar tema claro/escuro* (preferência em `template/config_usuario.json`, chave `tema_aparencia`)
@@ -565,6 +587,21 @@ Versão do formato: **1** (`schema.VERSAO_ARQUIVO`). Um ficheiro por projeto em 
       }
     }
   },
+  "ia_contexto_arquivos": {
+    "usar": true,
+    "itens": [
+      {
+        "id": "abc123",
+        "nome_original": "memorial.pdf",
+        "caminho": "dados_rdo/anexos_ia/Empresa_XYZ_-_Obras_Civis/abc123_memorial.pdf",
+        "mime": "application/pdf",
+        "sha256": "...",
+        "tamanho": 123456,
+        "activo": true,
+        "uploads": {}
+      }
+    ]
+  },
   "meta": {
     "ultima_edicao_iso": "2026-01-15T18:30:00"
   }
@@ -583,9 +620,11 @@ A gravação usa ficheiro temporário (`.json.tmp`) e substituição atómica, r
 ### Assistente IA e API Gemini
 
 - Preferências em `template/config_usuario.json` → `assistente_ia`; chaves só em `template/.env`
+- Anexos por projeto: `ia_contexto_arquivos` no JSON + `rdo_diario/ia_anexos.py` (Files API)
 - Montagem do prompt e chamadas em `rdo_diario/ia_service.py`; rodízio e `.env` em `rdo_diario/ia_settings.py`
 - Em erro 429/cota, a chave actual entra em cooldown e a aplicação tenta a seguinte automaticamente
 - *IA → Ver conversa com a API...* mostra o último pedido/resposta do dia (útil para afinar o prompt)
+- O histórico de dias anteriores é **local** (reenviado no prompt); a API não mantém conversa entre pedidos
 
 ## Compilação para executável (.exe)
 
@@ -655,6 +694,12 @@ pip install -r requirements.txt --force-reinstall
 - Em cota esgotada (429), adicione outra chave ou aguarde o cooldown; o rodízio tenta a próxima automaticamente
 - Use *IA → Ver conversa com a API...* para ver o erro devolvido pela API
 
+**Anexos de contexto não entram na reescrita:**
+- Confirme o projeto correcto no combobox e o checkbox **Usar ficheiros como contexto na reescrita**
+- Veja o estado do ficheiro (*pronto* / *precisa enviar*); use **Verificar na API** ou aguarde a próxima reescrita (upload automático)
+- Confirme que o ficheiro ainda existe em `dados_rdo/anexos_ia/` (**Abrir pasta**)
+- PDF até ~50 MB; outros tipos conforme a API; máx. 10 ficheiros por projeto
+
 **Exportação FT falha:**
 - Confirme que `template/FT.xlsx` existe junto ao `.exe` (ou no repositório em desenvolvimento)
 
@@ -669,7 +714,7 @@ python main.py > debug.log 2>&1
 Para recomeçar do zero:
 
 1. Feche a aplicação
-2. Apague os JSON de projeto em `dados_rdo/` e, se quiser, em `dados_rdo/rdo_arquivados/` (opcional: `template/config_usuario.json` para repor preferências)
+2. Apague os JSON de projeto em `dados_rdo/`, a pasta `dados_rdo/anexos_ia/` se quiser, e, se necessário, `dados_rdo/rdo_arquivados/` (opcional: `template/config_usuario.json` para repor preferências)
 3. Reinicie a aplicação
 
 ## Contribuição

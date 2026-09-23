@@ -9,8 +9,8 @@
         "Na primeira execução, se não existir nenhum projeto, a aplicação mostra uma mensagem orientando a criar um em Arquivo → Novo projeto (contratante + natureza do serviço).",
         "Configure os dados fixos na aba Cabeçalhos.",
         "Na aba Relatórios de trabalho, selecione a data no calendário e preencha o registro do dia.",
-        "Na aba Assistente IA, escreva um rascunho livre do dia e peça uma reescrita com Gemini (configure as chaves em IA → Configurações Gemini...; ficheiro template/.env com GEMINI_API_KEYS).",
-        "As pastas template/ (incluindo .env, assinaturas/ e logos/), dados_rdo/ e saida_relatorios/ são criadas automaticamente ao lado do .exe na primeira execução (modo compilado). As chaves Gemini ficam em template/.env (embutido no .exe se existir na compilação)."
+        "Na aba Assistente IA, escreva um rascunho livre do dia e peça uma reescrita com Gemini (chaves e ficheiros de contexto em IA → Configurações Gemini...; chaves em template/.env).",
+        "As pastas template/ (incluindo .env, assinaturas/ e logos/), dados_rdo/ (com anexos_ia/ se usar ficheiros na IA) e saida_relatorios/ são criadas automaticamente ao lado do .exe na primeira execução (modo compilado)."
       ]
     },
     {
@@ -45,7 +45,7 @@
         "Arquivo → Editar chave do projeto (contratante + natureza): altera a chave do projeto aberto; renomeia o JSON, actualiza cabecalho_fixo.contratante e cabecalho_fixo.natureza_servico e refresca o combobox. Impede chaves duplicadas.",
         "Arquivo → Arquivar projeto: move o JSON seleccionado para dados_rdo/rdo_arquivados/; deixa de aparecer no combobox (projectos vigentes). Os relatórios Excel em saida_relatorios/ mantêm-se.",
         "Arquivo → Desarquivar projeto: restaura um JSON de rdo_arquivados/ para dados_rdo/, volta à lista vigente e abre o projeto restaurado.",
-        "Arquivo → Excluir projeto: remove permanentemente o JSON, todos os registos diários e a pasta de relatórios Excel do projeto em saida_relatorios/ (com confirmação; irreversível). Se existir outro projeto vigente, ele é aberto em seguida.",
+        "Arquivo → Excluir projeto: remove permanentemente o JSON, os anexos de contexto da IA (dados_rdo/anexos_ia/), todos os registos diários e a pasta de relatórios Excel do projeto em saida_relatorios/ (com confirmação; irreversível). Se existir outro projeto vigente, ele é aberto em seguida.",
         "Troque de projeto no combobox superior; o dia em edição é salvo antes da troca.",
         "O último projeto aberto é memorizado em template/config_usuario.json (migração automática desde dados_rdo/config_usuario.json em actualizações antigas)."
       ]
@@ -109,16 +109,16 @@
       "lista": [
         "Escreva o rascunho livre do dia na aba Assistente IA; o texto fica salvo no JSON do projeto mesmo sem internet.",
         "O calendário lateral é o mesmo da aba Relatórios de trabalho — a data seleccionada aplica-se às duas abas.",
-        "Toda a configuração (chaves, modelo, prompts, histórico e contexto) fica em IA → Configurações Gemini...",
-        "Botão Reescrever com Gemini: envia o prompt editável seleccionado, o contexto de cabeçalho marcado, o histórico filtrado e o rascunho do dia.",
-        "O texto enviado à API é o prompt seleccionado em IA → Configurações Gemini..., mais o contexto do dia. O de fábrica (embutido no .exe) está em template/prompt_ia_padrao.txt; as edições ficam em template/config_usuario.json.",
-        "Dias de histórico: 0 usa só o rascunho actual; só entram dias anteriores com registro_servico preenchido.",
+        "Toda a configuração (chaves, modelo, prompts, histórico, cabeçalho e ficheiros de contexto) fica em IA → Configurações Gemini...",
+        "Botão Reescrever com Gemini: envia o prompt editável seleccionado, o contexto de cabeçalho marcado, o histórico filtrado, o rascunho do dia e, se activos, os ficheiros de contexto do projeto.",
+        "O texto enviado à API é o prompt seleccionado em IA → Configurações Gemini..., mais o contexto do dia. O de fábrica (embutido no .exe) está em template/prompt_ia_padrao.txt (já inclui regras para usar anexos); as edições ficam em template/config_usuario.json.",
+        "Dias de histórico: 0 usa só o rascunho actual; só entram dias anteriores com registro_servico preenchido. Este histórico é local — a API não guarda conversa entre pedidos; a app reenvia o texto em cada reescrita.",
         "Ignorar histórico com menos de N caracteres: descarta dias curtos demais (0 = não filtrar).",
         "Remover 1.º ou último parágrafo do histórico: útil quando os registros antigos têm aberturas ou fechos repetitivos.",
         "Contexto do cabeçalho: marque quais campos do cabeçalho do projeto entram no prompt (padrão: só Natureza do serviço).",
         "Texto reescrito: continua editável; Use este texto para aplicar em Registro serviço, extra-escopo ou ociosidade.",
-        "Chaves Gemini: lista com Adicionar/Remover; gravadas em .env (GEMINI_API_KEYS, uma chave por linha). Conta fixa ou Rodízio a cada reescrita (o índice do rodízio persiste ao fechar o app). O passo a passo para criar a chave está na secção 7.2.",
-        "Contexto do projeto (ficheiros): em IA → Configurações Gemini..., adicione PDF, imagens, texto, áudio ou vídeo suportados pela API (máx. 10 por projeto). Os ficheiros ficam ligados ao projeto aberto; marque «Usar ficheiros como contexto na reescrita». O estado mostra se já foram enviados a cada chave (válido ~48 h). Botões Verificar na API, Limpar expirados e Abrir pasta. Na reescrita, o app envia automaticamente o que faltar no rodízio. Aviso de privacidade: o conteúdo vai para a API Google.",
+        "Chaves Gemini: lista com Adicionar/Remover; botão Criar chave no Google AI Studio. Gravadas em .env (GEMINI_API_KEYS). Conta fixa ou Rodízio a cada reescrita. Passo a passo na secção 7.2.",
+        "Ficheiros de contexto do projeto: secção Contexto do projeto (ficheiros). Passo a passo na secção 7.3.",
         "Em erro 429/cota, a chave entra em cooldown temporário e a aplicação tenta a próxima automaticamente.",
         "IA → Ver conversa com a API...: mostra o prompt completo enviado e a resposta da última reescrita do dia seleccionado.",
         "Ortografia (LanguageTool) também nos campos de rascunho, texto reescrito e no editor de prompts das configurações.",
@@ -142,6 +142,23 @@
         "Na secção Chaves Gemini, cole a chave no campo «Nova chave» e clique em Adicionar.",
         "No fim da janela, clique em Guardar. A chave fica em template/.env e não entra no Git.",
         "Opcional, para evitar pausas: repita os passos com outra conta Google. Depois, em Execução, escolha «Rodízio a cada reescrita». Se uma conta atingir o limite (erro 429), a aplicação pausa essa chave e tenta a seguinte."
+      ]
+    },
+    {
+      "titulo": "7.3. Ficheiros de contexto do projeto (PDF e outros)",
+      "paragrafos": [
+        "Os ficheiros ficam ligados a este projeto. Trocar de projeto no combobox muda o conjunto de anexos. Cópias locais em dados_rdo/anexos_ia/.",
+        "A API gratuita usa a Files API (~48 h por chave). A aplicação mostra o estado (pronto / precisa enviar / válido até…) e reenvia automaticamente no rodízio se a chave ainda não tiver o ficheiro.",
+        "O prompt de fábrica já pede para usar os anexos só como referência técnica (terminologia e precisão), sem inventar factos fora do rascunho e dos anexos. Pode reforçar essas regras em IA → Configurações Gemini... → Prompts."
+      ],
+      "passos": [
+        "Abra o projeto correcto no combobox superior.",
+        "Abra IA → Configurações Gemini... e vá à secção Contexto do projeto (ficheiros).",
+        "Clique em Adicionar… e escolha PDF, imagem, texto, áudio ou vídeo suportados pela API (máximo 10 por projeto).",
+        "Marque «Usar ficheiros como contexto na reescrita» e o checkbox de cada ficheiro que quiser activo.",
+        "Opcional: Verificar na API, Limpar expirados ou Abrir pasta.",
+        "Clique em Guardar (ou confirme que as alterações já foram gravadas) e use Reescrever com Gemini na aba Assistente IA.",
+        "Confirme no estado da lista se o ficheiro ficou «pronto» nas chaves; se ainda não foi enviado, a próxima reescrita faz o upload."
       ]
     },
     {
@@ -201,7 +218,7 @@
       "titulo": "12.1. Menu IA",
       "lista": [
         "Ver conversa com a API...: abre a última troca (prompt completo e resposta) do dia seleccionado no calendário.",
-        "Configurações Gemini...: botão para criar a chave no Google AI Studio, lista de chaves, rodízio, modelo, histórico, ficheiros de contexto do projeto aberto, campos de cabeçalho no contexto e prompts globais. O passo a passo das chaves está na secção 7.2."
+        "Configurações Gemini...: criar chave no Google AI Studio, lista de chaves, rodízio, modelo, histórico, ficheiros de contexto do projeto (secção 7.3), campos de cabeçalho no contexto e prompts globais. Chaves: secção 7.2."
       ]
     },
     {

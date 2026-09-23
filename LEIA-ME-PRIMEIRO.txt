@@ -3,7 +3,7 @@
 ╚════════════════════════════════════════════════════════════════╝
 
 📌 SCRIPTS PRINCIPAIS:
-   ✓ compilar.bat              → Compila com .venv local (RECOMENDADO)
+   ✓ compilar.bat              → Compila com .venv local + pacote Release
    ✓ instalar_simples.bat      → Instala deps e executa a app
    ✓ executar.bat              → Executa a app (requer .venv)
    ✓ Gerar_Relatorio.spec      → Spec PyInstaller (onefile)
@@ -26,10 +26,14 @@
     Duplo-clique em:
     └─ compilar.bat
 
-3️⃣  RESULTADO:
+3️⃣  RESULTADO (pasta dist\):
 
-    Executável gerado em:
-    └─ dist\Gerar_Relatorio.exe
+    └─ Gerar_Relatorio.exe
+    └─ Gerar_Relatorio_<versão>.zip      ← anexar na GitHub Release
+    └─ Gerar_Relatorio_<versão>.sha256.txt
+    └─ RELEASE_v<versão>.md              ← notas + checklist
+
+    A versão vem de template\sobre.json
 
 ──────────────────────────────────────────────────────────────────
 
@@ -38,7 +42,7 @@
 (pasta do executável)
 ├── 🎯 Gerar_Relatorio.exe      ← EXECUTE ESTE ARQUIVO
 ├── 📂 template/                 ← Modelos Excel e configs
-├── 📂 dados_rdo/                ← JSON por cliente
+├── 📂 dados_rdo/                ← JSON por cliente (+ anexos_ia/)
 └── 📂 saida_relatorios/         ← Relatórios gerados
 
 Na primeira execução, as pastas acima são criadas automaticamente
@@ -63,6 +67,7 @@ Consulte README.md (secção «Compilação para executável»).
    ✓ Modo onefile (um único .exe)
    ✓ Python 3.12+ para compilar; o .exe não precisa de Python
    ✓ Pastas template, dados_rdo e saida_relatorios junto do .exe
+   ✓ Zip versionado pronto para a GitHub Release
    ✓ Pronto para distribuição em outros computadores
 
 ╚════════════════════════════════════════════════════════════════╝
