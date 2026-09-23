@@ -179,7 +179,22 @@ class MixinAssistenteIa:
             rotulo.configure(text=texto, text_color=cor)
 
     def _abrir_configuracoes_ia(self) -> None:
-        DialogoConfiguracoesIa(self, ao_salvar=self._apos_salvar_configuracoes_ia)
+        DialogoConfiguracoesIa(
+            self,
+            ao_salvar=self._apos_salvar_configuracoes_ia,
+            documento=getattr(self, "_documento_atual", None),
+            ao_persistir_documento=self._persistir_documento_anexos_ia,
+        )
+
+    def _persistir_documento_anexos_ia(self) -> None:
+        """Grava o JSON do projeto após alterações aos anexos de contexto da IA."""
+        if not getattr(self, "_documento_atual", None) or not getattr(self, "_caminho_arquivo_atual", None):
+            return
+        try:
+            if hasattr(self, "_salvar_documento_agora"):
+                self._salvar_documento_agora()
+        except (OSError, TypeError, ValueError, AttributeError):
+            pass
 
     def _apos_salvar_configuracoes_ia(self) -> None:
         self._definir_status_ia("Configurações Gemini atualizadas.", tipo="sucesso")
@@ -378,6 +393,9 @@ class MixinAssistenteIa:
         self._botao_ia_reescrever.configure(state="disabled", text="Reescrevendo...")
         self._definir_status_ia("Enviando rascunho e histórico local ao Gemini...", tipo="neutro")
 
+        def ao_estado_ui(msg: str) -> None:
+            self.after(0, lambda m=msg: self._definir_status_ia(m, tipo="neutro"))
+
         def trabalhador() -> None:
             try:
                 resultado = reescrever_rascunho_diario(
@@ -385,12 +403,25 @@ class MixinAssistenteIa:
                     data_referencia,
                     rascunho,
                     config=config,
+                    ao_estado=ao_estado_ui,
                 )
                 self.after(0, lambda res=resultado: self._finalizar_reescrita_ia(res, None))
             except (ErroAssistenteIa, OSError, RuntimeError, ValueError, TypeError) as exc:
-                self.after(0, lambda err=exc: self._finalizar_reescrita_ia(None, err))
+                self.after(
+                    0,
+                    lambda err=exc, doc=documento: self._finalizar_reescrita_ia(
+                        {"ia_contexto_arquivos": doc.get("ia_contexto_arquivos")},
+                        err,
+                    ),
+                )
             except Exception as exc:  # noqa: BLE001 — erros da SDK Gemini / rede
-                self.after(0, lambda err=exc: self._finalizar_reescrita_ia(None, err))
+                self.after(
+                    0,
+                    lambda err=exc, doc=documento: self._finalizar_reescrita_ia(
+                        {"ia_contexto_arquivos": doc.get("ia_contexto_arquivos")},
+                        err,
+                    ),
+                )
 
         threading.Thread(target=trabalhador, daemon=True).start()
 
@@ -400,6 +431,14 @@ class MixinAssistenteIa:
                 return
         except tk.TclError:
             return
+        # Sempre sincroniza uploads de anexos (mesmo em falha a meio do rodízio).
+        if resultado and self._documento_atual is not None:
+            bloco_anexos = resultado.get("ia_contexto_arquivos")
+            if isinstance(bloco_anexos, dict):
+                self._documento_atual["ia_contexto_arquivos"] = bloco_anexos
+                with suppress(OSError, TypeError, ValueError, AttributeError):
+                    if hasattr(self, "_salvar_documento_agora"):
+                        self._salvar_documento_agora()
         self._ia_requisicao_em_andamento = False
         try:
             self._botao_ia_reescrever.configure(state="normal", text="Reescrever com Gemini")
@@ -416,7 +455,7 @@ class MixinAssistenteIa:
             caixa("Assistente IA", str(erro), parent=self)
             return
 
-        if not resultado:
+        if not resultado or "texto_reescrito" not in resultado:
             self._definir_status_ia("Falha inesperada ao reescrever o texto.", tipo="aviso")
             return
         self._ia_online = True
@@ -431,8 +470,12 @@ class MixinAssistenteIa:
             self._ia_ultimo_historico_usado = int(resultado.get("historico_usado") or 0)
         except (TypeError, ValueError):
             self._ia_ultimo_historico_usado = 0
+        anexos_nomes = resultado.get("anexos_enviados") or []
+        extra = ""
+        if isinstance(anexos_nomes, list) and anexos_nomes:
+            extra = f" · {len(anexos_nomes)} anexo(s)"
         self._definir_status_ia(
-            f"Texto reescrito com sucesso usando {self._ia_ultimo_uso_chave or 'uma chave Gemini'}.",
+            f"Texto reescrito com sucesso usando {self._ia_ultimo_uso_chave or 'uma chave Gemini'}{extra}.",
             tipo="sucesso",
         )
         self._agendar_verificacao_ortografia(self._widget_ia_saida)

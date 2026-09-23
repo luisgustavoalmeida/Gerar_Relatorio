@@ -4,15 +4,20 @@ setlocal enabledelayedexpansion
 cd /d "%~dp0"
 
 REM ============================================================================
-REM Script para compilar a aplicação em executável .EXE usando PyInstaller
+REM Compila o .exe (PyInstaller) e gera os artefactos da GitHub Release:
+REM   dist\Gerar_Relatorio.exe
+REM   dist\Gerar_Relatorio_<versão>.zip          (anexo da Release — só o .exe)
+REM   dist\Gerar_Relatorio_<versão>.sha256.txt
+REM   dist\RELEASE_v<versão>.md                 (rascunho de notas + checklist)
+REM A versão é lida de template\sobre.json
 REM ============================================================================
 
-title Compilador RDO - PyInstaller
+title Compilador RDO - PyInstaller + Release
 set "PY=%~dp0.venv\Scripts\python.exe"
 
 echo.
 echo ===============================================================
-echo   Gerar Relatório - Compilador para .EXE
+echo   Gerar Relatório - Compilador .EXE + pacote Release
 echo ===============================================================
 echo.
 
@@ -130,22 +135,52 @@ if errorlevel 1 (
     exit /b 1
 )
 
+if not exist "dist\Gerar_Relatorio.exe" (
+    echo ❌ ERRO: dist\Gerar_Relatorio.exe nao foi gerado.
+    pause
+    exit /b 1
+)
+
 echo.
 echo ===============================================================
-echo ✓ COMPILAÇÃO CONCLUÍDA COM SUCESSO!
+echo ⏳ Preparando artefactos da GitHub Release...
 echo ===============================================================
 echo.
-echo 📁 Executavel (onefile):
-echo    dist\Gerar_Relatorio.exe
+
+"%PY%" build_resources\preparar_release.py
+if errorlevel 1 (
+    echo.
+    echo ❌ ERRO: Compilacao OK, mas falhou a geracao do pacote Release.
+    echo    Verifique template\sobre.json ^(aplicacao.versao^) e dist\Gerar_Relatorio.exe
+    pause
+    exit /b 1
+)
+
+REM Lê a versão do sobre.json para mensagens finais
+for /f "usebackq delims=" %%V in (`"%PY%" -c "import json; print(json.load(open(r'template/sobre.json', encoding='utf-8'))['aplicacao']['versao'])"`) do set "VERSAO=%%V"
+if not defined VERSAO set "VERSAO=?"
+
 echo.
-echo 📋 Na primeira execucao, ao lado do .exe sao criadas:
-echo    template\  (config, RDO/FT, assinaturas e logos de modelo)
-echo    dados_rdo\  saida_relatorios\
+echo ===============================================================
+echo ✓ COMPILAÇÃO E PACOTE RELEASE CONCLUÍDOS
+echo ===============================================================
 echo.
-echo 🔑 Chaves Gemini: ficam em template\.env (embutido no .exe; criado ao lado do .exe).
-echo    O prompt de fábrica da IA (template\prompt_ia_padrao.txt) fica embutido no .exe.
+echo 📁 Artefactos em dist\:
+echo    Gerar_Relatorio.exe
+echo    Gerar_Relatorio_%VERSAO%.zip          ^<-- anexar na GitHub Release
+echo    Gerar_Relatorio_%VERSAO%.sha256.txt   ^(hashes opcionais^)
+echo    RELEASE_v%VERSAO%.md                 ^(notas + checklist^)
 echo.
-echo ⚠️  Distribua o .exe; mantenha as pastas geradas na mesma pasta do executavel.
+echo 🏷️  Tag sugerida: v%VERSAO%
+echo 📎 Anexe apenas o ZIP na Release ^(Latest^).
+echo 📝 Abra dist\RELEASE_v%VERSAO%.md para copiar as notas e o checklist.
+echo.
+echo 📋 Na primeira execucao do .exe, ao lado do executavel sao criadas:
+echo    template\  dados_rdo\  saida_relatorios\
+echo.
+echo 🔑 Chaves Gemini: ficam em template\.env ^(embutido no .exe se existir na compilacao^).
+echo.
+echo ⚠️  Nao faca commit de dist\ ^(esta no .gitignore^).
+echo    Download publico: https://github.com/luisgustavoalmeida/Gerar_Relatorio/releases/latest
 echo.
 pause
-

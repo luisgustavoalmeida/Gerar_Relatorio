@@ -117,11 +117,31 @@
         "Remover 1.º ou último parágrafo do histórico: útil quando os registros antigos têm aberturas ou fechos repetitivos.",
         "Contexto do cabeçalho: marque quais campos do cabeçalho do projeto entram no prompt (padrão: só Natureza do serviço).",
         "Texto reescrito: continua editável; Use este texto para aplicar em Registro serviço, extra-escopo ou ociosidade.",
-        "Chaves Gemini: lista com Adicionar/Remover; gravadas em .env (GEMINI_API_KEYS, uma chave por linha). Conta fixa ou Rodízio a cada reescrita (o índice do rodízio persiste ao fechar o app).",
+        "Chaves Gemini: lista com Adicionar/Remover; gravadas em .env (GEMINI_API_KEYS, uma chave por linha). Conta fixa ou Rodízio a cada reescrita (o índice do rodízio persiste ao fechar o app). O passo a passo para criar a chave está na secção 7.2.",
+        "Contexto do projeto (ficheiros): em IA → Configurações Gemini..., adicione PDF, imagens, texto, áudio ou vídeo suportados pela API (máx. 10 por projeto). Os ficheiros ficam ligados ao projeto aberto; marque «Usar ficheiros como contexto na reescrita». O estado mostra se já foram enviados a cada chave (válido ~48 h). Botões Verificar na API, Limpar expirados e Abrir pasta. Na reescrita, o app envia automaticamente o que faltar no rodízio. Aviso de privacidade: o conteúdo vai para a API Google.",
         "Em erro 429/cota, a chave entra em cooldown temporário e a aplicação tenta a próxima automaticamente.",
         "IA → Ver conversa com a API...: mostra o prompt completo enviado e a resposta da última reescrita do dia seleccionado.",
         "Ortografia (LanguageTool) também nos campos de rascunho, texto reescrito e no editor de prompts das configurações.",
         "Desfazer/refazer: Ctrl+Z e Ctrl+Y (ou Ctrl+Shift+Z) nos campos de texto e entradas."
+      ]
+    },
+    {
+      "titulo": "7.2. Criar e cadastrar a chave da API Gemini",
+      "paragrafos": [
+        "Sem chave, o resto da aplicação funciona normalmente. Só a reescrita do Assistente IA fica indisponível. A chave é criada no site do Google, com a sua conta Google. O uso inicial é gratuito e cada conta tem um limite diário.",
+        "Há dois caminhos para a mesma página. No manual, clique no link azul. Na aplicação, abra IA → Configurações Gemini... e clique no botão «Criar chave no Google AI Studio».",
+        "Página oficial para criar a chave: [Google AI Studio — chaves de API](https://aistudio.google.com/api-keys)."
+      ],
+      "passos": [
+        "Clique no link acima. O browser abre a página de chaves do Google AI Studio. Inicie sessão com a conta Google que vai usar.",
+        "Se for a primeira vez, aceite os termos de utilização da API Gemini.",
+        "Clique em «Create API key» (Criar chave de API).",
+        "Escolha um projeto novo — o site pode criar um automaticamente — ou um projeto Google Cloud que já exista. Não é preciso configurar pagamento para começar no plano gratuito.",
+        "Copie a chave gerada. Ela começa por AIza. Trate-a como uma senha: não a partilhe nem a envie por e-mail.",
+        "Volte à aplicação e abra IA → Configurações Gemini....",
+        "Na secção Chaves Gemini, cole a chave no campo «Nova chave» e clique em Adicionar.",
+        "No fim da janela, clique em Guardar. A chave fica em template/.env e não entra no Git.",
+        "Opcional, para evitar pausas: repita os passos com outra conta Google. Depois, em Execução, escolha «Rodízio a cada reescrita». Se uma conta atingir o limite (erro 429), a aplicação pausa essa chave e tenta a seguinte."
       ]
     },
     {
@@ -181,7 +201,7 @@
       "titulo": "12.1. Menu IA",
       "lista": [
         "Ver conversa com a API...: abre a última troca (prompt completo e resposta) do dia seleccionado no calendário.",
-        "Configurações Gemini...: chaves, rodízio, modelo, histórico, filtro por caracteres, campos de cabeçalho no contexto e prompts globais."
+        "Configurações Gemini...: botão para criar a chave no Google AI Studio, lista de chaves, rodízio, modelo, histórico, ficheiros de contexto do projeto aberto, campos de cabeçalho no contexto e prompts globais. O passo a passo das chaves está na secção 7.2."
       ]
     },
     {
@@ -202,7 +222,7 @@
     {
       "titulo": "14. Pastas principais",
       "lista": [
-        "dados_rdo/ — um JSON por projeto vigente; subpasta rdo_arquivados/ para projectos arquivados.",
+        "dados_rdo/ — um JSON por projeto vigente; subpasta rdo_arquivados/ para projectos arquivados; subpasta anexos_ia/ com ficheiros de contexto da IA por projeto.",
         "template/ — modelos Excel (RDO.xlsx, FT.xlsx), mapa_celulas_excel.json, modelo_cabecalho.json, .env (chaves Gemini), assinaturas/, logos/, config_regras_horas.json, config_usuario.json (inclui assistente_ia), manual.json, sobre.json, tema_aplicacao.json e _dicionario_ortografia.json.",
         "saida_relatorios/ — relatórios Excel gerados (criada automaticamente)."
       ]

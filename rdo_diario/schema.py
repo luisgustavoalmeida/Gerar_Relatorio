@@ -43,6 +43,9 @@ CHAVE_JSON_ASSINATURA_ARQUIVO: str = "assinatura_arquivo"
 # Path relativo à raiz (ex.: template/logos/Megawatt_Sistemas.png)
 CHAVE_JSON_LOGO_ARQUIVO: str = "logo_arquivo"
 
+# Anexos de contexto do Assistente IA (PDF/imagem/áudio/… por projeto)
+CHAVE_JSON_IA_CONTEXTO_ARQUIVOS: str = "ia_contexto_arquivos"
+
 # --- Campos de texto livre por dia ---
 CAMPOS_JSON_TEXTO_DIA: tuple[str, ...] = (
     "registro_servico",
@@ -537,6 +540,10 @@ def criar_estrutura_documento_vazio(contratante: str, natureza_servico: str) -> 
             CHAVE_JSON_LOGO_ARQUIVO: "",
         },
         "registros_diarios": {},
+        CHAVE_JSON_IA_CONTEXTO_ARQUIVOS: {
+            "usar": False,
+            "itens": [],
+        },
         "meta": {
             "ultima_edicao_iso": "",
             CHAVE_JSON_INCLUIR_DESLOCAMENTO_FT: False,

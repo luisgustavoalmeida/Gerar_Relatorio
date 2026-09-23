@@ -8,14 +8,22 @@ import time
 from datetime import date
 from typing import Any
 
+from rdo_diario.ia_anexos import (
+    ErroAnexoIa,
+    anexos_activos_para_envio,
+    garantir_uploads_anexos_para_chave,
+    montar_conteudos_com_anexos,
+)
 from rdo_diario.ia_settings import (
     MODELOS_GEMINI_SUGERIDOS,
+    MODO_ROTACAO_FIXO,
     carregar_config_ia,
     listar_chaves_gemini,
     marcar_cooldown_chave_gemini,
     mascarar_chave,
     obter_ordem_chaves_para_interacao,
     obter_prompt_selecionado,
+    promover_chave_ativa_gemini,
     rotulo_campo_contexto_cabecalho,
 )
 
@@ -315,6 +323,13 @@ def _montar_prompt_reescrita(
         f"{texto_historico}\n\n"
         "Rascunho do dia:\n"
         f"{rascunho.strip()}\n"
+        + (
+            "\nAnexos de contexto do projeto: foram fornecidos ficheiros multimédia "
+            "(PDF, imagens ou outros). Use-os apenas como referência técnica; "
+            "não invente factos que não estejam no rascunho nem nos anexos.\n"
+            if anexos_activos_para_envio(documento)
+            else ""
+        )
     )
 
 
@@ -386,6 +401,7 @@ def reescrever_rascunho_diario(
     rascunho: str,
     *,
     config: dict[str, Any] | None = None,
+    ao_estado: Any | None = None,
 ) -> dict[str, Any]:
     texto_rascunho = str(rascunho or "").strip()
     if not texto_rascunho:
@@ -411,23 +427,53 @@ def reescrever_rascunho_diario(
         minimo_caracteres=int(cfg.get("minimo_caracteres_historico") or 0),
     )
     prompt = _montar_prompt_reescrita(documento, data_referencia, texto_rascunho, cfg, historico)
+    anexos_locais = anexos_activos_para_envio(documento)
 
     erros: list[str] = []
     ordem_chaves = obter_ordem_chaves_para_interacao(cfg)
     if not ordem_chaves:
         raise ErroAssistenteIa("Nenhuma chave Gemini válida foi encontrada.")
 
-    for _indice, chave in ordem_chaves:
+    def _avisar(msg: str) -> None:
+        if callable(ao_estado):
+            try:
+                ao_estado(msg)
+            except Exception:
+                pass
+
+    modo_fixo = str(cfg.get("modo_rotacao") or MODO_ROTACAO_FIXO) == MODO_ROTACAO_FIXO
+    try:
+        indice_activa_cfg = int(cfg.get("indice_chave_ativa") or 0) % len(chaves)
+    except (TypeError, ValueError):
+        indice_activa_cfg = 0
+
+    for indice_chave, chave in ordem_chaves:
         try:
             cliente = _cliente_gemini(chave)
+            conteudos: Any = prompt
+            anexos_remotos: list[dict[str, str]] = []
+            if anexos_locais:
+                _avisar("A preparar anexos de contexto na API Gemini…")
+                anexos_remotos = garantir_uploads_anexos_para_chave(
+                    documento,
+                    chave,
+                    cliente=cliente,
+                    ao_estado=_avisar,
+                )
+                conteudos = montar_conteudos_com_anexos(prompt, anexos_remotos)
+            _avisar("A pedir a reescrita ao Gemini…")
             resposta = cliente.models.generate_content(
                 model=modelo,
-                contents=prompt,
+                contents=conteudos,
             )
             texto = _texto_sem_blocos_markdown(_extrair_texto_resposta(resposta))
             if not texto:
                 erros.append(f"{mascarar_chave(chave)}: resposta vazia")
                 continue
+            # Conta fixa: se a chave que funcionou não é a configurada, promove-a
+            # para o próximo pedido começar nela (sem falhar de novo na anterior).
+            if modo_fixo and indice_chave != indice_activa_cfg:
+                promover_chave_ativa_gemini(indice_chave)
             prompt_selecionado = obter_prompt_selecionado(cfg)
             return {
                 "texto_reescrito": texto,
@@ -438,7 +484,12 @@ def reescrever_rascunho_diario(
                 "prompt_nome": prompt_selecionado["nome"],
                 "prompt_enviado": prompt,
                 "chave_mascarada": mascarar_chave(chave),
+                "anexos_enviados": [a.get("nome") for a in anexos_remotos],
+                "ia_contexto_arquivos": documento.get("ia_contexto_arquivos"),
             }
+        except ErroAnexoIa as exc:
+            erros.append(f"{mascarar_chave(chave)}: {exc}")
+            continue
         except ErroAssistenteIa:
             raise
         except Exception as exc:

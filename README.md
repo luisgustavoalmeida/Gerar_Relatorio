@@ -141,7 +141,8 @@ O menu *Horas → Copiar relatório detalhado do mês (métricas)* copia o resum
 - **Prompt 100% editável:** o texto enviado à API é o prompt global seleccionado em *IA → Configurações Gemini...*, mais o contexto operacional do dia (sem envelope fixo do sistema)
 - **Histórico:** últimos N dias com `registro_servico` preenchido; filtro por mínimo de caracteres; opções para remover 1.º ou último parágrafo
 - **Contexto do cabeçalho:** escolha quais campos do cabeçalho do projeto entram no prompt (padrão: só *Natureza do serviço*)
-- **Chaves:** lista com Adicionar/Remover; gravadas em `template/.env` como `GEMINI_API_KEYS` (uma chave por linha); conta fixa ou **rodízio** (índice persistido entre sessões); em 429/cota a chave entra em cooldown e tenta a seguinte
+- **Chaves:** lista com Adicionar/Remover; botão **Criar chave no Google AI Studio** abre [a página oficial de chaves](https://aistudio.google.com/api-keys); gravadas em `template/.env` como `GEMINI_API_KEYS` (uma chave por linha); conta fixa ou **rodízio** (índice persistido entre sessões); em 429/cota a chave entra em cooldown e tenta a seguinte. Passo a passo em [Chaves Gemini (`.env`)](#chaves-gemini-env).
+- **Anexos de contexto:** em *IA → Configurações Gemini...* pode adicionar vários ficheiros (PDF, imagem, texto, áudio, vídeo suportados pela API; máx. 10/projeto) ligados ao **projeto aberto**; checkbox global e por ficheiro; estado por chave (*pronto* / *precisa enviar* / *válido até…*); botões **Verificar na API**, **Limpar expirados** e **Abrir pasta**; envio pela [Files API](https://ai.google.dev/gemini-api/docs/files) (~48 h) com reenvio automático no rodízio; cópias em `dados_rdo/anexos_ia/`; aviso de privacidade na UI
 - **Modelo:** lista preenchida pela API (*Atualizar lista* / *Testar modelo*)
 - **Ver conversa:** *IA → Ver conversa com a API...* mostra o prompt completo e a resposta da última reescrita do dia seleccionado
 - **Internet:** necessária apenas no momento da reescrita; o rascunho continua a gravar offline
@@ -362,8 +363,9 @@ Gerar_Relatorio/
 ├── compilar.bat                     # Build onefile com .venv local
 ├── reinstalar_pyinstaller.bat       # Reinstala PyInstaller no .venv
 │
-├── build_resources/                 # Ícone multi-tamanho para o .exe
+├── build_resources/                 # Ícone e pacote da GitHub Release
 │   ├── preparar_icone.py
+│   ├── preparar_release.py          # Zip versionado, SHA-256 e RELEASE_v*.md
 │   └── icone_exe.ico
 │
 ├── rdo_diario/                      # Pacote principal
@@ -397,6 +399,8 @@ Gerar_Relatorio/
 │       └── icone_janela.py          # Ícone da janela e barra de tarefas
 │
 ├── dados_rdo/                       # Um JSON por projeto vigente
+│   ├── anexos_ia/                   # Ficheiros de contexto da IA (por projeto)
+│   └── rdo_arquivados/              # Projectos arquivados
 │   ├── rdo_arquivados/              # Projetos arquivados (fora do combobox)
 │   └── [Contratante_-_Natureza].json
 │
@@ -461,6 +465,18 @@ Na primeira leitura após actualização, o ficheiro é importado automaticament
 ### Chaves Gemini (`.env`)
 
 As chaves **não** ficam em `config_usuario.json`. Ficam sempre em **`template/.env`** (variável **`GEMINI_API_KEYS`**, **uma chave por linha**), tanto em desenvolvimento como no `.exe`.
+
+Para criar uma chave e cadastrá-la na aplicação:
+
+1. Abra [Google AI Studio — chaves de API](https://aistudio.google.com/api-keys) e inicie sessão com a conta Google. Na aplicação, o mesmo endereço abre pelo botão **Criar chave no Google AI Studio**, em *IA → Configurações Gemini...*.
+2. Se for a primeira vez, aceite os termos da API Gemini.
+3. Clique em **Create API key** (Criar chave de API).
+4. Escolha um projeto novo (o site pode criar um automaticamente) ou um projeto Google Cloud já existente. Não é preciso configurar pagamento para começar no plano gratuito.
+5. Copie a chave (começa por `AIza`). Trate-a como uma senha.
+6. Na aplicação, abra *IA → Configurações Gemini...*, cole a chave no campo **Nova chave** e clique em **Adicionar**.
+7. Clique em **Guardar**. O ficheiro `template/.env` é atualizado sozinho.
+
+Com mais de uma conta, repita os passos e, em **Execução**, escolha **Rodízio a cada reescrita**. Se uma conta atingir o limite (erro 429), a aplicação pausa essa chave e tenta a seguinte. O passo a passo também está no manual da aplicação: *Ajuda → Manual*, secção **7.2**.
 
 ```env
 GEMINI_API_KEYS="
@@ -581,26 +597,29 @@ A aplicação pode ser empacotada com **PyInstaller** (modo **onefile**, sem con
 compilar.bat
 ```
 
-O script cria o `.venv` (se necessário), instala dependências de `requirements.txt` (inclui PyInstaller, Pillow e `google-genai`), gera o ícone em `build_resources/` e compila com `Gerar_Relatorio.spec`.
+O script cria o `.venv` (se necessário), instala dependências de `requirements.txt` (inclui PyInstaller, Pillow e `google-genai`), gera o ícone em `build_resources/`, compila com `Gerar_Relatorio.spec` e, no fim, corre `build_resources/preparar_release.py` para montar o pacote da GitHub Release. A versão do zip e das notas vem de `template/sobre.json` (`aplicacao.versao`).
 
 ### Resultado
 
 ```
 dist/
-├── Gerar_Relatorio.exe
-└── Gerar_Relatorio_<versão>.zip   # pacote para a GitHub Release (só o .exe dentro)
+├── Gerar_Relatorio.exe                      # teste local
+├── Gerar_Relatorio_<versão>.zip             # anexo da GitHub Release (só o .exe)
+├── Gerar_Relatorio_<versão>.sha256.txt      # hashes SHA-256 (opcional anexar)
+└── RELEASE_v<versão>.md                     # rascunho de notas + checklist (não anexar)
 ```
 
 Na **primeira execução**, ao lado do `.exe` são criadas automaticamente as pastas `template/` (modelos Excel, ajuda, `config_usuario.json` de modelo, `.env` com chaves se embutido na compilação, `assinaturas/` e `logos/`), `dados_rdo/` e `saida_relatorios/` (copiadas do bundle interno). Mantenha estas pastas na mesma pasta do executável.
 
 ### Publicar uma versão (GitHub Release)
 
-Não faça commit de `dist/` no Git. Para disponibilizar o executável a outras pessoas:
+Não faça commit de `dist/` no Git. Após `compilar.bat`:
 
-1. Faça push do código da versão para `main`.
-2. Em GitHub → **Releases** → **Create a new release** (ou edite a release existente).
-3. Use a tag `vX.Y.Z` (ex.: `v1.0.7`), anexe apenas `dist/Gerar_Relatorio_*.zip` e publique como **Latest release**.
-4. O download fica em: https://github.com/luisgustavoalmeida/Gerar_Relatorio/releases/latest
+1. Confirme a versão e as notas em `template/sobre.json` (e o rascunho em `dist/RELEASE_vX.Y.Z.md`).
+2. Faça push do código da versão para `main`.
+3. Em GitHub → **Releases** → **Create a new release** (ou edite a release existente).
+4. Use a tag `vX.Y.Z` (ex.: `v1.0.7`), cole as notas do ficheiro `RELEASE_v…md`, anexe **apenas** `dist/Gerar_Relatorio_*.zip` (opcional: o `.sha256.txt`) e publique como **Latest release**.
+5. O download fica em: https://github.com/luisgustavoalmeida/Gerar_Relatorio/releases/latest
 
 ## Solução de problemas
 
@@ -630,6 +649,7 @@ pip install -r requirements.txt --force-reinstall
 - O serviço LanguageTool pode estar temporariamente indisponível
 
 **Assistente IA / Gemini não responde:**
+- Crie a chave em [Google AI Studio — chaves de API](https://aistudio.google.com/api-keys) e cadastre-a em *IA → Configurações Gemini...* (botão **Criar chave no Google AI Studio**, campo **Nova chave**, **Adicionar**, **Guardar**). O passo a passo está em [Chaves Gemini (`.env`)](#chaves-gemini-env)
 - Confirme que existe `template/.env` (ao lado do `.exe` ou no projecto) com `GEMINI_API_KEYS`
 - Teste o modelo em *IA → Configurações Gemini... → Testar modelo*
 - Em cota esgotada (429), adicione outra chave ou aguarde o cooldown; o rodízio tenta a próxima automaticamente

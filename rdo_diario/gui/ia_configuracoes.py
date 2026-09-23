@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import threading
+import webbrowser
 from copy import deepcopy
-from tkinter import messagebox
+from pathlib import Path
+from tkinter import filedialog, messagebox
 from uuid import uuid4
 
 import customtkinter as ctk
@@ -16,11 +18,14 @@ from rdo_diario.gui.desfazer_refazer import (
     reiniciar_historico_desfazer_widget,
 )
 from rdo_diario.gui.tema import (
+    COR_AVISO,
     COR_ERRO,
     COR_FUNDO_SECUNDARIO,
     COR_PRIMARIA,
     COR_PRIMARIA_HOVER,
+    COR_SUCESSO,
     COR_TEXTO_SECUNDARIO,
+    FONT_AUXILIAR,
     FONT_DICA_ABA,
     FONT_GRUPO,
     FONT_INTERFACE,
@@ -28,6 +33,22 @@ from rdo_diario.gui.tema import (
     opcoes_campo_entrada_ctk,
     opcoes_combo_ctk,
     resolver_cor,
+)
+from rdo_diario.ia_anexos import (
+    MAX_ANEXOS_POR_PROJETO,
+    ErroAnexoIa,
+    adicionar_anexo_ao_projeto,
+    definir_anexo_activo,
+    definir_usar_anexos,
+    extensoes_suportadas_para_dialogo,
+    limpar_uploads_expirados,
+    listar_itens_anexos,
+    obter_bloco_anexos,
+    pasta_anexos_do_projeto,
+    remover_anexo_do_projeto,
+    resumo_estado_anexo,
+    sanear_anexos_documento,
+    verificar_anexos_na_api,
 )
 from rdo_diario.ia_service import listar_modelos_gemini, testar_modelo_gemini
 from rdo_diario.ia_settings import (
@@ -45,6 +66,8 @@ from rdo_diario.ia_settings import (
     salvar_config_ia,
 )
 
+URL_CRIAR_CHAVE_GEMINI = "https://aistudio.google.com/api-keys"
+
 
 class DialogoConfiguracoesIa(ctk.CTkToplevel):
     """Configura chaves, rotação, modelo, histórico e prompts."""
@@ -54,14 +77,23 @@ class DialogoConfiguracoesIa(ctk.CTkToplevel):
         "Rodízio a cada reescrita": MODO_ROTACAO_RODIZIO,
     }
 
-    def __init__(self, master, *, ao_salvar=None) -> None:
+    def __init__(
+        self,
+        master,
+        *,
+        ao_salvar=None,
+        documento=None,
+        ao_persistir_documento=None,
+    ) -> None:
         super().__init__(master)
         self.title("Configurações Gemini")
-        self.geometry("840x780")
-        self.minsize(720, 660)
+        self.geometry("840x860")
+        self.minsize(720, 700)
         self.transient(master)
         self.grab_set()
         self._ao_salvar_callback = ao_salvar
+        self._documento = documento if isinstance(documento, dict) else None
+        self._ao_persistir_documento = ao_persistir_documento
         self._config = carregar_config_ia()
         self._prompts = deepcopy(self._config.get("prompts") or [])
         self._prompt_atual_id = str(obter_prompt_selecionado(self._config).get("id") or "")
@@ -80,6 +112,9 @@ class DialogoConfiguracoesIa(ctk.CTkToplevel):
             self.focus_force()
         except Exception:
             pass
+
+    def _abrir_pagina_criar_chave(self) -> None:
+        webbrowser.open(URL_CRIAR_CHAVE_GEMINI)
 
     def _montar(self) -> None:
         ctk.CTkLabel(
@@ -103,7 +138,7 @@ class DialogoConfiguracoesIa(ctk.CTkToplevel):
         corpo = ctk.CTkScrollableFrame(self, fg_color="transparent")
         corpo.pack(fill="both", expand=True, padx=16, pady=8)
         corpo.grid_columnconfigure(0, weight=1)
-        corpo.grid_rowconfigure(3, weight=1)
+        corpo.grid_rowconfigure(4, weight=1)
 
         secao_chaves = ctk.CTkFrame(corpo)
         secao_chaves.grid(row=0, column=0, sticky="ew", pady=(0, 10))
@@ -115,8 +150,9 @@ class DialogoConfiguracoesIa(ctk.CTkToplevel):
             secao_chaves,
             text=(
                 "Cadastre as chaves da API Google AI (Gemini). Com mais de uma chave, escolha "
-                "«Rodízio a cada reescrita» em Execução. Se uma conta atingir limite (429/cota), "
-                "o app pausa essa chave por um tempo e tenta a próxima."
+                "«Rodízio a cada reescrita» ou «Conta fixa» em Execução. Se uma conta atingir "
+                "limite (429/cota) ou falhar, o app pausa essa chave, tenta a próxima e, em "
+                "conta fixa, passa a usá-la como principal nos pedidos seguintes."
             ),
             font=FONT_DICA_ABA,
             text_color=COR_TEXTO_SECUNDARIO,
@@ -125,6 +161,31 @@ class DialogoConfiguracoesIa(ctk.CTkToplevel):
             anchor="w",
         )
         self.lbl_dica_chaves.grid(row=1, column=0, sticky="ew", padx=12, pady=(0, 8))
+        linha_criar_chave = ctk.CTkFrame(secao_chaves, fg_color="transparent")
+        linha_criar_chave.grid(row=2, column=0, sticky="ew", padx=12, pady=(0, 8))
+        linha_criar_chave.grid_columnconfigure(1, weight=1)
+        ctk.CTkLabel(
+            linha_criar_chave,
+            text="Ainda não tem chave?",
+            font=FONT_INTERFACE,
+        ).grid(row=0, column=0, sticky="w")
+        ctk.CTkButton(
+            linha_criar_chave,
+            text="Criar chave no Google AI Studio",
+            fg_color=COR_PRIMARIA,
+            hover_color=COR_PRIMARIA_HOVER,
+            command=self._abrir_pagina_criar_chave,
+        ).grid(row=0, column=1, sticky="w", padx=(10, 0))
+        self.lbl_criar_chave_dica = ctk.CTkLabel(
+            linha_criar_chave,
+            text="O botão abre o site oficial. Copie a chave, cole no campo Nova chave e clique em Adicionar.",
+            font=FONT_DICA_ABA,
+            text_color=COR_TEXTO_SECUNDARIO,
+            justify="left",
+            anchor="w",
+            wraplength=700,
+        )
+        self.lbl_criar_chave_dica.grid(row=1, column=0, columnspan=2, sticky="ew", pady=(6, 0))
         self._secao_chaves = secao_chaves
         self._wrap_dica_chaves: int | None = None
         secao_chaves.bind("<Configure>", self._ajustar_wraplength_dica_chaves, add="+")
@@ -133,7 +194,7 @@ class DialogoConfiguracoesIa(ctk.CTkToplevel):
             fg_color=resolver_cor(COR_FUNDO_SECUNDARIO),
             corner_radius=8,
         )
-        moldura_lista.grid(row=2, column=0, sticky="ew", padx=12, pady=(0, 8))
+        moldura_lista.grid(row=3, column=0, sticky="ew", padx=12, pady=(0, 8))
         moldura_lista.grid_columnconfigure(0, weight=1)
         ctk.CTkLabel(
             moldura_lista,
@@ -149,7 +210,7 @@ class DialogoConfiguracoesIa(ctk.CTkToplevel):
         self._scroll_chaves.grid_columnconfigure(0, weight=1)
 
         linha_nova_chave = ctk.CTkFrame(secao_chaves, fg_color="transparent")
-        linha_nova_chave.grid(row=3, column=0, sticky="ew", padx=12, pady=(0, 8))
+        linha_nova_chave.grid(row=4, column=0, sticky="ew", padx=12, pady=(0, 8))
         linha_nova_chave.grid_columnconfigure(1, weight=1)
         ctk.CTkLabel(linha_nova_chave, text="Nova chave:", font=FONT_INTERFACE).grid(
             row=0, column=0, sticky="w", padx=(0, 8)
@@ -172,7 +233,7 @@ class DialogoConfiguracoesIa(ctk.CTkToplevel):
         ).grid(row=0, column=2, sticky="e")
 
         acoes_chaves = ctk.CTkFrame(secao_chaves, fg_color="transparent")
-        acoes_chaves.grid(row=4, column=0, sticky="ew", padx=12, pady=(0, 10))
+        acoes_chaves.grid(row=5, column=0, sticky="ew", padx=12, pady=(0, 10))
         acoes_chaves.grid_columnconfigure(1, weight=1)
         ctk.CTkButton(
             acoes_chaves,
@@ -194,7 +255,7 @@ class DialogoConfiguracoesIa(ctk.CTkToplevel):
             text_color=COR_TEXTO_SECUNDARIO,
             justify="left",
         )
-        self.lbl_resumo_chaves.grid(row=5, column=0, sticky="w", padx=12, pady=(0, 4))
+        self.lbl_resumo_chaves.grid(row=6, column=0, sticky="w", padx=12, pady=(0, 4))
         self._definir_chaves_cadastradas(listar_chaves_gemini(), atualizar_ui=True)
 
         secao_execucao = ctk.CTkFrame(corpo)
@@ -311,8 +372,10 @@ class DialogoConfiguracoesIa(ctk.CTkToplevel):
             text_color=COR_TEXTO_SECUNDARIO,
         ).pack(side="left")
 
+        self._montar_secao_anexos(corpo, linha=2)
+
         secao_contexto = ctk.CTkFrame(corpo)
-        secao_contexto.grid(row=2, column=0, sticky="ew", pady=(0, 10))
+        secao_contexto.grid(row=3, column=0, sticky="ew", pady=(0, 10))
         secao_contexto.grid_columnconfigure(0, weight=1)
         ctk.CTkLabel(secao_contexto, text="Contexto do cabeçalho no prompt", font=FONT_GRUPO).grid(
             row=0, column=0, sticky="w", padx=12, pady=(10, 4)
@@ -369,7 +432,7 @@ class DialogoConfiguracoesIa(ctk.CTkToplevel):
             self._checks_contexto_cabecalho[campo] = check
 
         secao_prompts = ctk.CTkFrame(corpo)
-        secao_prompts.grid(row=3, column=0, sticky="nsew", pady=(0, 10))
+        secao_prompts.grid(row=4, column=0, sticky="nsew", pady=(0, 10))
         secao_prompts.grid_columnconfigure(0, weight=1)
         secao_prompts.grid_rowconfigure(3, weight=1)
         ctk.CTkLabel(secao_prompts, text="Prompts do engenheiro", font=FONT_GRUPO).grid(
@@ -443,6 +506,362 @@ class DialogoConfiguracoesIa(ctk.CTkToplevel):
         self._atualizar_combo_chave_ativa()
         self._carregar_prompt_no_editor(self._prompt_atual_id)
 
+    def _montar_secao_anexos(self, corpo: ctk.CTkScrollableFrame, *, linha: int) -> None:
+        secao = ctk.CTkFrame(corpo)
+        secao.grid(row=linha, column=0, sticky="ew", pady=(0, 10))
+        secao.grid_columnconfigure(0, weight=1)
+        ctk.CTkLabel(secao, text="Contexto do projeto (ficheiros)", font=FONT_GRUPO).grid(
+            row=0, column=0, sticky="w", padx=12, pady=(10, 4)
+        )
+        if self._documento is None:
+            ctk.CTkLabel(
+                secao,
+                text=(
+                    "Abra um projeto no combobox superior para adicionar ficheiros de contexto "
+                    "(PDF, imagens, texto, áudio ou vídeo suportados pela API)."
+                ),
+                font=FONT_DICA_ABA,
+                text_color=COR_TEXTO_SECUNDARIO,
+                wraplength=760,
+                justify="left",
+                anchor="w",
+            ).grid(row=1, column=0, sticky="ew", padx=12, pady=(0, 12))
+            return
+
+        sanear_anexos_documento(self._documento)
+        ctk.CTkLabel(
+            secao,
+            text="Os ficheiros ficam ligados a este projeto.",
+            font=FONT_DICA_ABA,
+            text_color=COR_TEXTO_SECUNDARIO,
+            wraplength=760,
+            justify="left",
+            anchor="w",
+        ).grid(row=1, column=0, sticky="ew", padx=12, pady=(0, 8))
+
+        bloco = obter_bloco_anexos(self._documento)
+        self.chk_usar_anexos = ctk.CTkCheckBox(
+            secao,
+            text="Usar ficheiros como contexto na reescrita",
+            font=FONT_INTERFACE,
+            command=self._ao_alternar_usar_anexos,
+        )
+        self.chk_usar_anexos.grid(row=2, column=0, sticky="w", padx=12, pady=(0, 8))
+        if bool(bloco.get("usar")):
+            self.chk_usar_anexos.select()
+
+        moldura = ctk.CTkFrame(secao, fg_color=resolver_cor(COR_FUNDO_SECUNDARIO), corner_radius=8)
+        moldura.grid(row=3, column=0, sticky="ew", padx=12, pady=(0, 8))
+        moldura.grid_columnconfigure(0, weight=1)
+        ctk.CTkLabel(
+            moldura,
+            text=f"Ficheiros do projeto (máx. {MAX_ANEXOS_POR_PROJETO})",
+            font=FONT_INTERFACE,
+        ).grid(row=0, column=0, sticky="w", padx=12, pady=(10, 4))
+        self._scroll_anexos = ctk.CTkScrollableFrame(moldura, height=200, fg_color="transparent")
+        self._scroll_anexos.grid(row=1, column=0, sticky="ew", padx=8, pady=(0, 10))
+        self._scroll_anexos.grid_columnconfigure(0, weight=1)
+
+        acoes = ctk.CTkFrame(secao, fg_color="transparent")
+        acoes.grid(row=4, column=0, sticky="ew", padx=12, pady=(0, 4))
+        ctk.CTkButton(
+            acoes,
+            text="Adicionar…",
+            width=110,
+            fg_color=COR_PRIMARIA,
+            hover_color=COR_PRIMARIA_HOVER,
+            command=self._adicionar_anexo_ui,
+        ).pack(side="left")
+        ctk.CTkButton(
+            acoes,
+            text="Verificar na API",
+            width=130,
+            command=self._verificar_anexos_api_ui,
+        ).pack(side="left", padx=(8, 0))
+        ctk.CTkButton(
+            acoes,
+            text="Limpar expirados",
+            width=130,
+            command=self._limpar_uploads_expirados_ui,
+        ).pack(side="left", padx=(8, 0))
+        ctk.CTkButton(
+            acoes,
+            text="Abrir pasta",
+            width=110,
+            command=self._abrir_pasta_anexos_ui,
+        ).pack(side="left", padx=(8, 0))
+
+        self.lbl_resumo_anexos = ctk.CTkLabel(
+            secao,
+            text="",
+            font=FONT_DICA_ABA,
+            text_color=COR_TEXTO_SECUNDARIO,
+            justify="left",
+            anchor="w",
+            wraplength=760,
+        )
+        self.lbl_resumo_anexos.grid(row=5, column=0, sticky="ew", padx=12, pady=(4, 10))
+        self._reconstruir_lista_anexos()
+
+    def _persistir_documento_anexos(self) -> None:
+        if callable(self._ao_persistir_documento):
+            try:
+                self._ao_persistir_documento()
+            except Exception:
+                pass
+
+    def _cor_nivel_anexo(self, nivel: str):
+        if nivel == "ok":
+            return COR_SUCESSO
+        if nivel == "erro":
+            return COR_ERRO
+        if nivel == "aviso":
+            return COR_AVISO
+        return COR_TEXTO_SECUNDARIO
+
+    def _ao_alternar_usar_anexos(self) -> None:
+        if self._documento is None:
+            return
+        definir_usar_anexos(self._documento, bool(self.chk_usar_anexos.get() == 1))
+        self._persistir_documento_anexos()
+        self._atualizar_resumo_anexos()
+
+    def _reconstruir_lista_anexos(self) -> None:
+        if not hasattr(self, "_scroll_anexos"):
+            return
+        for widget in self._scroll_anexos.winfo_children():
+            widget.destroy()
+        if self._documento is None:
+            return
+        chaves = listar_chaves_gemini()
+        itens = listar_itens_anexos(self._documento)
+        if not itens:
+            ctk.CTkLabel(
+                self._scroll_anexos,
+                text="Nenhum ficheiro ainda. Clique em «Adicionar…».",
+                font=FONT_DICA_ABA,
+                text_color=COR_TEXTO_SECUNDARIO,
+                justify="left",
+                anchor="w",
+                wraplength=700,
+            ).grid(row=0, column=0, sticky="ew", pady=4)
+            self._atualizar_resumo_anexos()
+            return
+        for indice, item in enumerate(itens):
+            estado = resumo_estado_anexo(item, chaves)
+            bloco = ctk.CTkFrame(self._scroll_anexos, fg_color="transparent")
+            bloco.grid(row=indice, column=0, sticky="ew", pady=4)
+            bloco.grid_columnconfigure(1, weight=1)
+            item_id = str(item.get("id") or "")
+            activo = item.get("activo") is not False
+            check = ctk.CTkCheckBox(bloco, text="", width=28)
+            check.configure(
+                command=lambda iid=item_id, chk=check: self._ao_alternar_anexo_activo(iid, chk)
+            )
+            if activo:
+                check.select()
+            check.grid(row=0, column=0, rowspan=2, sticky="nw", pady=2)
+            try:
+                tamanho_mb = int(item.get("tamanho") or 0) / (1024 * 1024)
+            except (TypeError, ValueError):
+                tamanho_mb = 0.0
+            mime = str(item.get("mime") or "")
+            ctk.CTkLabel(
+                bloco,
+                text=f"{estado['titulo']}  ·  {mime}  ·  {tamanho_mb:.1f} MB",
+                font=FONT_DICA_ABA,
+                text_color=self._cor_nivel_anexo(str(estado.get("nivel") or "neutro")),
+                anchor="w",
+                justify="left",
+                wraplength=520,
+            ).grid(row=0, column=1, sticky="ew", padx=(6, 8))
+            ctk.CTkLabel(
+                bloco,
+                text=str(estado.get("detalhe") or ""),
+                font=FONT_AUXILIAR,
+                text_color=COR_TEXTO_SECUNDARIO,
+                anchor="w",
+                justify="left",
+                wraplength=520,
+            ).grid(row=1, column=1, sticky="ew", padx=(6, 8))
+            ctk.CTkButton(
+                bloco,
+                text="Remover",
+                width=90,
+                command=lambda iid=item_id: self._remover_anexo_ui(iid),
+            ).grid(row=0, column=2, rowspan=2, sticky="e")
+        self._atualizar_resumo_anexos()
+
+    def _atualizar_resumo_anexos(self) -> None:
+        if not hasattr(self, "lbl_resumo_anexos") or self._documento is None:
+            return
+        itens = listar_itens_anexos(self._documento)
+        activos = [i for i in itens if i.get("activo") is not False]
+        usar = bool(obter_bloco_anexos(self._documento).get("usar"))
+        chaves = listar_chaves_gemini()
+        prontos = 0
+        for item in activos:
+            est = resumo_estado_anexo(item, chaves)
+            if int(est.get("validas") or 0) > 0 and int(est.get("validas") or 0) == int(
+                est.get("total_chaves") or 0
+            ):
+                prontos += 1
+        if not itens:
+            texto = "Sem ficheiros neste projeto."
+        elif not usar:
+            texto = f"{len(itens)} ficheiro(s) guardado(s) — uso na reescrita desligado."
+        else:
+            texto = (
+                f"{len(activos)} de {len(itens)} activo(s) na reescrita · "
+                f"{prontos} pronto(s) em todas as chaves · "
+                f"{len(chaves)} chave(s) cadastrada(s)."
+            )
+        self.lbl_resumo_anexos.configure(text=texto)
+
+    def _ao_alternar_anexo_activo(self, item_id: str, check: ctk.CTkCheckBox) -> None:
+        if self._documento is None:
+            return
+        definir_anexo_activo(self._documento, item_id, bool(check.get() == 1))
+        self._persistir_documento_anexos()
+        self._atualizar_resumo_anexos()
+
+    def _adicionar_anexo_ui(self) -> None:
+        if self._documento is None:
+            messagebox.showwarning(
+                "Anexos",
+                "Abra um projeto antes de adicionar ficheiros de contexto.",
+                parent=self,
+            )
+            return
+        caminhos = filedialog.askopenfilenames(
+            parent=self,
+            title="Selecionar ficheiros de contexto (API Gemini)",
+            filetypes=extensoes_suportadas_para_dialogo(),
+        )
+        if not caminhos:
+            return
+        erros: list[str] = []
+        adicionados = 0
+        for caminho in caminhos:
+            try:
+                adicionar_anexo_ao_projeto(self._documento, Path(caminho))
+                adicionados += 1
+            except ErroAnexoIa as exc:
+                erros.append(str(exc))
+            except OSError as exc:
+                erros.append(str(exc))
+        if adicionados:
+            if bool(obter_bloco_anexos(self._documento).get("usar")):
+                self.chk_usar_anexos.select()
+            self._persistir_documento_anexos()
+            self._reconstruir_lista_anexos()
+        if erros:
+            messagebox.showwarning(
+                "Anexos",
+                ("Alguns ficheiros não foram adicionados:\n\n" if adicionados else "")
+                + "\n".join(erros[:5]),
+                parent=self,
+            )
+
+    def _remover_anexo_ui(self, item_id: str) -> None:
+        if self._documento is None:
+            return
+        if not messagebox.askyesno(
+            "Remover ficheiro",
+            "Remover este ficheiro do projeto?\n\n"
+            "A cópia local será apagada. Se possível, o app também tenta remover "
+            "o upload na API (senão expira sozinho em ~48 h).",
+            parent=self,
+        ):
+            return
+        remover_anexo_do_projeto(
+            self._documento,
+            item_id,
+            chaves_api=listar_chaves_gemini(),
+        )
+        self._persistir_documento_anexos()
+        if not listar_itens_anexos(self._documento):
+            self.chk_usar_anexos.deselect()
+        self._reconstruir_lista_anexos()
+
+    def _limpar_uploads_expirados_ui(self) -> None:
+        if self._documento is None:
+            return
+        n = limpar_uploads_expirados(self._documento)
+        self._persistir_documento_anexos()
+        self._reconstruir_lista_anexos()
+        messagebox.showinfo(
+            "Anexos",
+            f"Limpeza concluída. Metadados removidos: {n}.\n"
+            "Na próxima reescrita, os ficheiros activos serão reenviados se necessário.",
+            parent=self,
+        )
+
+    def _abrir_pasta_anexos_ui(self) -> None:
+        if self._documento is None:
+            return
+        pasta = pasta_anexos_do_projeto(self._documento)
+        try:
+            import os
+
+            os.startfile(str(pasta))  # type: ignore[attr-defined]
+        except OSError as exc:
+            messagebox.showerror("Anexos", str(exc), parent=self)
+
+    def _verificar_anexos_api_ui(self) -> None:
+        if self._documento is None:
+            return
+        chaves = listar_chaves_gemini()
+        if not chaves:
+            messagebox.showwarning(
+                "Anexos",
+                "Cadastre pelo menos uma chave Gemini para verificar na API.",
+                parent=self,
+            )
+            return
+        if not listar_itens_anexos(self._documento):
+            messagebox.showinfo("Anexos", "Não há ficheiros para verificar.", parent=self)
+            return
+
+        self.lbl_resumo_anexos.configure(text="A verificar anexos na API Gemini…")
+
+        def trabalhador() -> None:
+            try:
+                resultado = verificar_anexos_na_api(
+                    self._documento,
+                    chaves,
+                    ao_estado=lambda m: self.after(
+                        0, lambda msg=m: self.lbl_resumo_anexos.configure(text=msg)
+                    ),
+                )
+            except Exception as exc:  # noqa: BLE001
+                self.after(
+                    0,
+                    lambda e=exc: messagebox.showerror("Anexos", str(e), parent=self),
+                )
+                self.after(0, self._reconstruir_lista_anexos)
+                return
+
+            def concluir() -> None:
+                self._persistir_documento_anexos()
+                self._reconstruir_lista_anexos()
+                extra = ""
+                erros = resultado.get("erros") or []
+                if erros:
+                    extra = "\n\nAvisos:\n" + "\n".join(str(x) for x in erros[:3])
+                messagebox.showinfo(
+                    "Anexos",
+                    f"Verificação concluída.\n"
+                    f"URIs válidos: {resultado.get('ok', 0)}\n"
+                    f"Inválidos/limpos: {resultado.get('invalidos', 0)}"
+                    f"{extra}",
+                    parent=self,
+                )
+
+            self.after(0, concluir)
+
+        threading.Thread(target=trabalhador, daemon=True).start()
+
     def _ajustar_wraplength_dica_chaves(self, event) -> None:
         # Bind no frame pai (não no label): alterar wraplength no próprio label
         # dispara <Configure> de novo e causava RecursionError.
@@ -453,6 +872,7 @@ class DialogoConfiguracoesIa(ctk.CTkToplevel):
             return
         self._wrap_dica_chaves = wrap
         self.lbl_dica_chaves.configure(wraplength=wrap)
+        self.lbl_criar_chave_dica.configure(wraplength=wrap)
 
     def _definir_checks_contexto_cabecalho(self, marcado: bool) -> None:
         for check in self._checks_contexto_cabecalho.values():
@@ -500,7 +920,11 @@ class DialogoConfiguracoesIa(ctk.CTkToplevel):
         if not self._chaves_cadastradas:
             ctk.CTkLabel(
                 self._scroll_chaves,
-                text="Nenhuma chave ainda. Cole uma nova chave acima ou importe do arquivo local.",
+                text=(
+                    "Nenhuma chave ainda. Use «Criar chave no Google AI Studio» (acima), "
+                    "cole a chave no campo Nova chave e clique em Adicionar. "
+                    "Também pode importar do arquivo local."
+                ),
                 font=FONT_DICA_ABA,
                 text_color=COR_TEXTO_SECUNDARIO,
                 justify="left",

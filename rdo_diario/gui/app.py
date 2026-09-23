@@ -926,8 +926,8 @@ class AplicacaoRdo(
         if not messagebox.askyesno(
             "Excluir projeto",
             f"Excluir permanentemente o projeto:\n\n{rotulo}\n\n"
-            "Serão removidos o ficheiro JSON com todos os registos diários "
-            "e os relatórios Excel gerados (RDO/FT).\n\n"
+            "Serão removidos o ficheiro JSON com todos os registos diários, "
+            "os anexos de contexto da IA e os relatórios Excel gerados (RDO/FT).\n\n"
             "Esta ação não pode ser desfeita.",
             parent=self,
             icon="warning",

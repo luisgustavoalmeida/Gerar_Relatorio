@@ -530,6 +530,35 @@ def _persistir_indice_rodizio_proximo(indice: int) -> None:
     gravar_config_usuario(dados)
 
 
+def _persistir_indice_chave_ativa(indice: int) -> None:
+    """Grava a conta fixa activa para o próximo pedido começar nela."""
+    indice_norm = max(0, int(indice))
+    dados = ler_config_usuario()
+    bloco = dados.get(CHAVE_CONFIG_IA) if isinstance(dados, dict) else {}
+    if not isinstance(bloco, dict):
+        bloco = {}
+    try:
+        actual = int(bloco.get("indice_chave_ativa") or 0)
+    except (TypeError, ValueError):
+        actual = -1
+    if actual == indice_norm:
+        return
+    bloco = _normalizar_config(bloco)
+    bloco["indice_chave_ativa"] = indice_norm
+    dados[CHAVE_CONFIG_IA] = bloco
+    gravar_config_usuario(dados)
+
+
+def promover_chave_ativa_gemini(indice: int) -> None:
+    """Em modo conta fixa, promove a chave que funcionou a principal persistida."""
+    chaves = listar_chaves_gemini()
+    if not chaves:
+        return
+    total = len(chaves)
+    indice_norm = max(0, int(indice)) % total
+    _persistir_indice_chave_ativa(indice_norm)
+
+
 def _indice_rodizio_persistido() -> int:
     cfg = carregar_config_ia()
     try:

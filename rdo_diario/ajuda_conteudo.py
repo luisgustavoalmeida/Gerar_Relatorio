@@ -5,11 +5,18 @@ Carrega e formata os ficheiros JSON de ajuda (manual e sobre) para exibição na
 from __future__ import annotations
 
 import json
+import re
 import webbrowser
 from pathlib import Path
 from typing import Any
 
 import tkinter as tk
+
+# [rótulo](https://...) ou URL solta. A pontuação final fica fora do endereço.
+_RE_LINK_MANUAL = re.compile(
+    r"\[([^\]\n]+)\]\((https?://[^)\s]+)\)|(https?://[^\s<>\"']+)"
+)
+_PONTUACAO_FINAL_URL = ".,;:!?"
 
 
 def carregar_documento_ajuda(caminho: Path) -> dict[str, Any]:
@@ -21,11 +28,55 @@ def carregar_documento_ajuda(caminho: Path) -> dict[str, Any]:
     return doc
 
 
-def _inserir_linha(widget: tk.Text, texto: str, tag: str | None = None) -> None:
-    if tag:
-        widget.insert(tk.END, texto + "\n", tag)
+def _mapa_urls_ajuda(widget: tk.Text) -> dict[str, str]:
+    mapa = getattr(widget, "_mapa_urls_ajuda", None)
+    if not isinstance(mapa, dict):
+        mapa = {}
+        widget._mapa_urls_ajuda = mapa  # type: ignore[attr-defined]
+    return mapa
+
+
+def _inserir(widget: tk.Text, texto: str, *tags: str) -> None:
+    if not texto:
+        return
+    if tags:
+        widget.insert(tk.END, texto, tags)
     else:
-        widget.insert(tk.END, texto + "\n")
+        widget.insert(tk.END, texto)
+
+
+def _inserir_link(widget: tk.Text, rotulo: str, url: str, *tags: str) -> None:
+    mapa = _mapa_urls_ajuda(widget)
+    tag_dest = f"url_dest_{len(mapa)}"
+    mapa[tag_dest] = url.strip()
+    _inserir(widget, rotulo, "url", tag_dest, *tags)
+
+
+def _inserir_texto_com_links(widget: tk.Text, texto: str, *tags: str) -> None:
+    """Insere texto e torna clicáveis links [rótulo](url) e endereços http(s)."""
+    pos = 0
+    for encontrado in _RE_LINK_MANUAL.finditer(texto):
+        if encontrado.start() > pos:
+            _inserir(widget, texto[pos : encontrado.start()], *tags)
+        rotulo_md, url_md, url_solta = encontrado.group(1), encontrado.group(2), encontrado.group(3)
+        if rotulo_md is not None and url_md is not None:
+            _inserir_link(widget, rotulo_md, url_md, *tags)
+        else:
+            bruto = url_solta or ""
+            fim = len(bruto)
+            while fim > 0 and bruto[fim - 1] in _PONTUACAO_FINAL_URL:
+                fim -= 1
+            if fim > 0:
+                _inserir_link(widget, bruto[:fim], bruto[:fim], *tags)
+                _inserir(widget, bruto[fim:], *tags)
+        pos = encontrado.end()
+    _inserir(widget, texto[pos:], *tags)
+
+
+def _inserir_linha(widget: tk.Text, texto: str, tag: str | None = None) -> None:
+    tags = (tag,) if tag else ()
+    _inserir_texto_com_links(widget, texto, *tags)
+    widget.insert(tk.END, "\n")
 
 
 def preencher_widget_manual(widget: tk.Text, doc: dict[str, Any]) -> None:
@@ -46,7 +97,17 @@ def preencher_widget_manual(widget: tk.Text, doc: dict[str, Any]) -> None:
                 _inserir_linha(widget, str(paragrafo).strip())
         for item in secao.get("lista") or []:
             if str(item).strip():
-                widget.insert(tk.END, "  • " + str(item).strip() + "\n", "lista")
+                widget.insert(tk.END, "  • ", "lista")
+                _inserir_texto_com_links(widget, str(item).strip(), "lista")
+                widget.insert(tk.END, "\n")
+        passos = secao.get("passos") or []
+        if isinstance(passos, list):
+            for indice, item in enumerate(passos, start=1):
+                if not str(item).strip():
+                    continue
+                widget.insert(tk.END, f"  {indice}. ", "lista")
+                _inserir_texto_com_links(widget, str(item).strip(), "lista")
+                widget.insert(tk.END, "\n")
         tabela = secao.get("tabela")
         if isinstance(tabela, list) and tabela:
             widget.insert(tk.END, "\n")
@@ -271,18 +332,26 @@ def configurar_links_clicaveis(widget: tk.Text) -> None:
             if estava_desativado:
                 texto.configure(state=tk.DISABLED)
             return "break"
-        if "url" not in texto.tag_names(indice):
+        nomes = texto.tag_names(indice)
+        if "url" not in nomes:
             if estava_desativado:
                 texto.configure(state=tk.DISABLED)
             return "break"
         url = ""
-        ranges = texto.tag_ranges("url")
-        for i in range(0, len(ranges), 2):
-            inicio = ranges[i]
-            fim = ranges[i + 1]
-            if texto.compare(inicio, "<=", indice) and texto.compare(indice, "<", fim):
-                url = texto.get(inicio, fim).strip()
-                break
+        mapa = getattr(texto, "_mapa_urls_ajuda", {})
+        if isinstance(mapa, dict):
+            for nome in nomes:
+                if str(nome).startswith("url_dest_"):
+                    url = str(mapa.get(nome) or "").strip()
+                    break
+        if not url:
+            ranges = texto.tag_ranges("url")
+            for i in range(0, len(ranges), 2):
+                inicio = ranges[i]
+                fim = ranges[i + 1]
+                if texto.compare(inicio, "<=", indice) and texto.compare(indice, "<", fim):
+                    url = texto.get(inicio, fim).strip()
+                    break
         if estava_desativado:
             texto.configure(state=tk.DISABLED)
         if url:

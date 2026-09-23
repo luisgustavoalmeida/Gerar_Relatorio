@@ -102,6 +102,7 @@ def garantir_pastas_executavel() -> None:
     (RAIZ_PROJETO / "template" / "assinaturas").mkdir(parents=True, exist_ok=True)
     (RAIZ_PROJETO / "template" / "logos").mkdir(parents=True, exist_ok=True)
     (RAIZ_PROJETO / "dados_rdo").mkdir(parents=True, exist_ok=True)
+    (RAIZ_PROJETO / "dados_rdo" / "anexos_ia").mkdir(parents=True, exist_ok=True)
     (RAIZ_PROJETO / "saida_relatorios").mkdir(parents=True, exist_ok=True)
 
     if getattr(sys, "frozen", False):
@@ -174,6 +175,9 @@ ARQUIVO_TEMA_APLICACAO_JSON: Path = PASTA_TEMPLATE / "tema_aplicacao.json"
 
 # Relatórios Excel gerados (RDO e FT por mês)
 PASTA_SAIDA_RELATORIOS_EXCEL: Path = RAIZ_PROJETO / "saida_relatorios"
+
+# Anexos de contexto do Assistente IA (por projeto, sob dados_rdo/)
+PASTA_ANEXOS_IA: Path = PASTA_DADOS_RDO / "anexos_ia"
 
 # Imagens do utilizador dentro de template/ (ao lado do .exe / raiz do repo)
 PASTA_ASSINATURAS: Path = RAIZ_PROJETO / "template" / "assinaturas"

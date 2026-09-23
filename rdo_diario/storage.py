@@ -17,6 +17,7 @@ from rdo_diario.schema import (
     CAMPOS_JSON_CABECALHO,
     CHAVE_JSON_ASSINATURA_ARQUIVO,
     CHAVE_JSON_CONTRATANTE,
+    CHAVE_JSON_IA_CONTEXTO_ARQUIVOS,
     CHAVE_JSON_LOGO_ARQUIVO,
     CHAVE_JSON_NATUREZA_SERVICO,
     criar_estrutura_documento_vazio,
@@ -195,11 +196,14 @@ def atualizar_chave_cliente(
     """
     Atualiza ``chave`` e os campos homónimos em ``cabecalho_fixo``; renomeia o JSON se necessário.
     """
+    from rdo_diario.ia_anexos import migrar_anexos_ao_renomear_projeto, slug_projeto_do_documento
+
     c = novo_contratante.strip()
     n = nova_natureza.strip()
     if not c or not n:
         raise ValueError("Contratante e natureza do serviço são obrigatórios.")
 
+    slug_antigo = slug_projeto_do_documento(documento)
     novo_caminho = caminho_arquivo_por_cliente(c, n)
     documento["chave"] = {
         CHAVE_JSON_CONTRATANTE: c,
@@ -208,6 +212,9 @@ def atualizar_chave_cliente(
     cabecalho = documento.setdefault("cabecalho_fixo", {})
     cabecalho["contratante"] = c
     cabecalho["natureza_servico"] = n
+
+    slug_novo = slug_projeto_do_documento(documento)
+    migrar_anexos_ao_renomear_projeto(documento, slug_antigo=slug_antigo, slug_novo=slug_novo)
 
     salvar_documento_json(novo_caminho, documento)
 
@@ -230,6 +237,13 @@ def _garantir_estrutura_cabecalho(documento: dict[str, Any]) -> None:
         cabecalho.setdefault(campo, "")
     cabecalho.setdefault(CHAVE_JSON_ASSINATURA_ARQUIVO, "")
     cabecalho.setdefault(CHAVE_JSON_LOGO_ARQUIVO, "")
+    anexos = documento.setdefault(CHAVE_JSON_IA_CONTEXTO_ARQUIVOS, {"usar": False, "itens": []})
+    if not isinstance(anexos, dict):
+        documento[CHAVE_JSON_IA_CONTEXTO_ARQUIVOS] = {"usar": False, "itens": []}
+    else:
+        anexos.setdefault("usar", False)
+        if not isinstance(anexos.get("itens"), list):
+            anexos["itens"] = []
     if not str(cabecalho.get("natureza_servico", "")).strip():
         chave = documento.get("chave") or {}
         natureza = str(chave.get(CHAVE_JSON_NATUREZA_SERVICO, "")).strip()
@@ -400,8 +414,22 @@ def excluir_cliente_do_disco(
     """
     Remove o JSON do cliente e limpa a memória do último cliente se for o mesmo par chave.
     """
+    from rdo_diario.ia_anexos import remover_pasta_anexos_projeto
+
+    documento_tmp: dict[str, Any] | None = None
     if caminho.is_file():
+        try:
+            documento_tmp = carregar_documento_json(caminho)
+        except (OSError, ValueError, TypeError, json.JSONDecodeError):
+            documento_tmp = None
         caminho.unlink()
+    if documento_tmp is not None:
+        remover_pasta_anexos_projeto(documento_tmp)
+    else:
+        remover_pasta_anexos_projeto(
+            None,
+            slug=_gerar_nome_arquivo_cliente(contratante, natureza_servico),
+        )
     ultimo = ler_memoria_ultimo_cliente()
     if ultimo and ultimo[0] == contratante.strip() and ultimo[1] == natureza_servico.strip():
         _limpar_memoria_ultimo_cliente()
